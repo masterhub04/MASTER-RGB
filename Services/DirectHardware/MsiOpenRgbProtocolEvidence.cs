@@ -1,3 +1,5 @@
+using MasterRgb.Services;
+
 namespace MasterRgb.Services.DirectHardware;
 
 /// <summary>
