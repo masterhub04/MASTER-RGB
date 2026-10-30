@@ -862,6 +862,41 @@ public partial class MainWindow : Window
 
     private static string GetZoneKey(DeviceRow device, ZoneRow zone) => $"{device.Name}|{zone.Name}|{zone.Index}";
 
+    private void BlueTheme_Click(object sender, RoutedEventArgs e) => ApplyTheme("Blue");
+    private void LightTheme_Click(object sender, RoutedEventArgs e) => ApplyTheme("Light");
+    private void DarkTheme_Click(object sender, RoutedEventArgs e) => ApplyTheme("Dark");
+
+    private void ApplyTheme(string theme, bool save = true)
+    {
+        _currentTheme = theme is "Light" or "Dark" ? theme : "Blue";
+
+        (string background, string panel, string card, string text, string muted, string accent) = _currentTheme switch
+        {
+            "Light" => ("#F2F5F9", "#FFFFFF", "#E7EDF4", "#172334", "#607286", "#087EBD"),
+            "Dark" => ("#080B10", "#11161F", "#1A222E", "#F1F5F9", "#9AA8B8", "#35C8FF"),
+            _ => ("#0A101A", "#111D2B", "#142334", "#EAF6FF", "#8FA9BD", "#35C8FF")
+        };
+
+        Application.Current.Resources["BgBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(background));
+        Application.Current.Resources["PanelBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(panel));
+        Application.Current.Resources["CardBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(card));
+        Application.Current.Resources["TextBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(text));
+        Application.Current.Resources["MutedBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(muted));
+        Application.Current.Resources["AccentBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(accent));
+
+        Background = (Brush)Application.Current.Resources["BgBrush"];
+        Foreground = (Brush)Application.Current.Resources["TextBrush"];
+
+        if (BlueThemeButton is not null)
+        {
+            BlueThemeButton.Content = (_currentTheme == "Blue" ? "●" : "○") + "   Azul elétrico";
+            LightThemeButton.Content = (_currentTheme == "Light" ? "●" : "○") + "   Claro";
+            DarkThemeButton.Content = (_currentTheme == "Dark" ? "●" : "○") + "   Escuro";
+        }
+
+        if (save) SaveUserSettings();
+    }
+
     private void LoadUserSettings()
     {
         try
