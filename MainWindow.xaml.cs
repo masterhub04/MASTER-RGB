@@ -151,7 +151,7 @@ public partial class MainWindow : Window
                 Report = new
                 {
                     Application = "MASTER RGB",
-                    ApplicationVersion = "0.7.6",
+                    ApplicationVersion = "0.7.7",
                     GeneratedAtLocal = DateTimeOffset.Now,
                     DiagnosticMode = "Read-only; no lighting mode or LED color commands are sent",
                     Computer = Environment.MachineName,
