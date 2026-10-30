@@ -877,7 +877,8 @@ public partial class MainWindow : Window
             }
             foreach (var pair in settings.ZoneLedOverrides ?? new Dictionary<string, int>())
                 if (pair.Value > 0 && pair.Value <= ushort.MaxValue) _zoneLedOverrides[pair.Key] = pair.Value;
-            BrightnessSlider.Value = Math.Clamp(settings.Brightness, 0, 100);\n            _currentTheme = settings.Theme ?? "Blue";
+            BrightnessSlider.Value = Math.Clamp(settings.Brightness, 0, 100);
+            _currentTheme = settings.Theme ?? "Blue";
         }
         catch (Exception ex)
         {
