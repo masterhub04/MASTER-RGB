@@ -7,7 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>MASTER RGB</AssemblyName>
     <RootNamespace>MasterRgb</RootNamespace>
-    <Version>0.7.6</Version>
+    <Version>0.7.7</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\master-rgb.ico</ApplicationIcon>
   </PropertyGroup>
