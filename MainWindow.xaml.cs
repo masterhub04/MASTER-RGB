@@ -151,7 +151,7 @@ public partial class MainWindow : Window
                 Report = new
                 {
                     Application = "MASTER RGB",
-                    ApplicationVersion = "0.7.4",
+                    ApplicationVersion = "0.7.5",
                     GeneratedAtLocal = DateTimeOffset.Now,
                     DiagnosticMode = "Read-only; no lighting mode or LED color commands are sent",
                     Computer = Environment.MachineName,
@@ -178,6 +178,7 @@ public partial class MainWindow : Window
                     DirectControlStatus = "Logitech G203 appears in the Lighting Studio device selector and receives static colors through the validated native HID Output Report driver. Detection itself remains read-only. OpenRGB SDK color control remains unchanged."
                 },
                 MotherboardAnalysis = BuildMotherboardAnalysis(pnpDevices, devices),
+                GpuAnalysis = BuildGpuAnalysis(pnpDevices, devices),
                 WindowsPnPInventory = new
                 {
                     ReadOnly = true,
@@ -312,6 +313,91 @@ public partial class MainWindow : Window
             Safety = "No direct USB/HID/PCI/SMBus/I2C commands were sent. No RGB modes or colors were changed.",
             NextStep = "Use the exact motherboard model, PnP candidates, SMBus controller IDs and OpenRGB controller metadata to study the matching open-source driver before implementing any direct write operation."
         };
+    }
+
+
+    private static object BuildGpuAnalysis(
+        IReadOnlyList<PnpDeviceRecord> pnpDevices,
+        IReadOnlyList<OpenRgbDevice> openRgbDevices)
+    {
+        // Identificação por Windows PnP; nenhum NVAPI/HID/PCI write é executado.
+        var nvidiaAdapters = pnpDevices
+            .Where(d => d.Source == "PCI" &&
+                (d.HardwareIds.Contains("VEN_10DE", StringComparison.OrdinalIgnoreCase) ||
+                 d.CompatibleIds.Contains("VEN_10DE", StringComparison.OrdinalIgnoreCase)))
+            .Select(d => new
+            {
+                d.FriendlyName,
+                d.Manufacturer,
+                d.Service,
+                d.HardwareIds,
+                d.CompatibleIds,
+                d.RedactedInstanceId,
+                d.DeviceFamily,
+                d.RgbRelevance,
+                d.RecommendedNextStep
+            }).ToArray();
+
+        var lightingControllers = openRgbDevices
+            .Where(d => ContainsGpuMarker(d.Name) || ContainsGpuMarker(d.Vendor) ||
+                        ContainsGpuMarker(d.Description))
+            .Select(d => new
+            {
+                d.Index,
+                d.Name,
+                d.Vendor,
+                d.Description,
+                d.Version,
+                d.DeviceType,
+                d.ProtocolVersion,
+                d.ZoneCount,
+                d.LedCount,
+                Zones = d.Zones.Select((z, index) => new { Index = index, z.Name, z.LedCount }).ToArray(),
+                RawControllerPacketHex = d.RawDataHex
+            }).ToArray();
+
+        bool hasGainwardPnp = nvidiaAdapters.Any(d =>
+            (d.Manufacturer + " " + d.FriendlyName).Contains("Gainward", StringComparison.OrdinalIgnoreCase));
+        bool hasPalitController = lightingControllers.Any(d =>
+            (d.Name + " " + d.Vendor + " " + d.Description).Contains("Palit", StringComparison.OrdinalIgnoreCase));
+        bool hasGainwardController = lightingControllers.Any(d =>
+            (d.Name + " " + d.Vendor + " " + d.Description).Contains("Gainward", StringComparison.OrdinalIgnoreCase));
+
+        return new
+        {
+            ReadOnly = true,
+            Method = "Windows PCI Plug and Play inventory + OpenRGB SDK controller metadata",
+            ExpectedUserHardware = new
+            {
+                Manufacturer = "Gainward",
+                Model = "GeForce RTX 3060 Ghost 12GB",
+                KnownPciId = "PCI\\VEN_10DE&DEV_2504&SUBSYS_250410DE",
+                Note = "Expected identifier supplied for correlation; the live PnP values below are authoritative."
+            },
+            NvidiaPnpAdapterCount = nvidiaAdapters.Length,
+            NvidiaPnpAdapters = nvidiaAdapters,
+            OpenRgbLightingControllerCount = lightingControllers.Length,
+            OpenRgbLightingControllers = lightingControllers,
+            ManufacturerCorrelation = new
+            {
+                GainwardFoundInPnp = hasGainwardPnp,
+                GainwardFoundInOpenRgb = hasGainwardController,
+                PalitFoundInOpenRgb = hasPalitController,
+                PossibleNameMismatch = hasGainwardPnp && hasPalitController && !hasGainwardController,
+                Warning = hasGainwardPnp && hasPalitController && !hasGainwardController
+                    ? "O Windows identifica uma placa Gainward, mas o OpenRGB apresenta um controlador com nome Palit. Não associar nem enviar comandos NVAPI até confirmar o subsistema e a correspondência do controlador."
+                    : "Compare fabricante, Hardware IDs, subsistema PCI e controlador OpenRGB antes de qualquer operação de escrita."
+            },
+            Safety = "Somente leitura. Nenhum comando NVAPI, PCI, HID, I2C ou SMBus foi enviado; nenhum efeito ou cor foi alterado.",
+            NextStep = "Confirmar a identidade exata do controlador RGB e o mapeamento das zonas antes de implementar controle nativo."
+        };
+
+        static bool ContainsGpuMarker(string value) =>
+            value.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase) ||
+            value.Contains("GeForce", StringComparison.OrdinalIgnoreCase) ||
+            value.Contains("RTX 3060", StringComparison.OrdinalIgnoreCase) ||
+            value.Contains("Gainward", StringComparison.OrdinalIgnoreCase) ||
+            value.Contains("Palit", StringComparison.OrdinalIgnoreCase);
     }
 
     private void MultiDeviceCheckChanged(object sender, RoutedEventArgs e)
