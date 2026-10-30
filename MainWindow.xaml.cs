@@ -41,6 +41,12 @@ public partial class MainWindow : Window
         LoadUserSettings();
         ApplyTheme(_currentTheme, false);
         RefreshDirectHardwareDisplay();
+        Loaded += MainWindow_Loaded;
+    }
+
+    private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
+    {
+        await CheckForUpdatesAsync();
     }
 
     private void RefreshDirectHardwareDisplay()
@@ -966,11 +972,70 @@ public partial class MainWindow : Window
         ConnectOpenRgbButton.Content = busy ? "Lendo dispositivos..." : "Conectar ao OpenRGB";
     }
 
+    private bool _checkingUpdates;
+    private bool _updatesAvailable;
+    private string? _releaseUrl;
+
     private async void CheckUpdates_Click(object sender, RoutedEventArgs e)
     {
-        UpdateText.Text = "Consultando o GitHub...";
-        var result = await _updates.CheckLatestAsync();
-        UpdateText.Text = result;
+        if (_checkingUpdates) return;
+        if (_updatesAvailable && !string.IsNullOrWhiteSpace(_releaseUrl))
+        {
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = _releaseUrl,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                UpdateText.Text = "Não foi possível abrir a página da atualização: " + ex.Message;
+            }
+            return;
+        }
+        await CheckForUpdatesAsync();
+    }
+
+    private async Task CheckForUpdatesAsync()
+    {
+        if (_checkingUpdates) return;
+        _checkingUpdates = true;
+        UpdatesButton.IsEnabled = false;
+        UpdatesButton.Content = "↻   Verificando...";
+        UpdateText.Text = "Consultando a versão mais recente no GitHub...";
+        try
+        {
+            var result = await _updates.CheckLatestAsync();
+            _updatesAvailable = result.UpdateAvailable;
+            _releaseUrl = result.ReleaseUrl;
+            if (result.Success && result.UpdateAvailable)
+            {
+                UpdatesButton.Content = "⬇   Atualizar";
+                UpdateText.Text = $"Nova versão disponível: {result.LatestVersion}. Versão instalada: {result.CurrentVersion}. Clique em Atualizar para abrir a página da versão.";
+            }
+            else if (result.Success)
+            {
+                UpdatesButton.Content = "↻   Verificar atualização";
+                UpdateText.Text = $"MASTER RGB atualizado. Versão instalada: {result.CurrentVersion}. Última versão: {result.LatestVersion}.";
+            }
+            else
+            {
+                UpdatesButton.Content = "↻   Verificar atualização";
+                UpdateText.Text = result.Message;
+            }
+        }
+        catch (Exception ex)
+        {
+            UpdatesButton.Content = "↻   Verificar atualização";
+            UpdateText.Text = "Falha ao consultar atualizações: " + ex.Message;
+        }
+        finally
+        {
+            UpdatesButton.IsEnabled = true;
+            _checkingUpdates = false;
+        }
     }
 
     private sealed record DeviceDisplayRow(string Name, string Details, string ZonesText, string Status);
