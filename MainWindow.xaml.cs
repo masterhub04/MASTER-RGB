@@ -152,7 +152,7 @@ public partial class MainWindow : Window
                 Report = new
                 {
                     Application = "MASTER RGB",
-                    ApplicationVersion = "0.7.8",
+                    ApplicationVersion = "0.7.9",
                     GeneratedAtLocal = DateTimeOffset.Now,
                     DiagnosticMode = "Read-only; no lighting mode or LED color commands are sent",
                     Computer = Environment.MachineName,
@@ -175,11 +175,12 @@ public partial class MainWindow : Window
                         new { Id = 1051, Name = "UpdateZoneLEDs", Note = "Known from the normal color-control path; not sent by this diagnostic" }
                     },
                     ImportantLimit = "The SDK exposes controller metadata and logical zones. It does not necessarily reveal the USB/HID/SMBus transactions or internal driver implementation performed inside OpenRGB.",
-                    DirectDiscovery = "Read-only Windows Plug and Play inventory plus HidSharp HID descriptor enumeration for Logitech G203 and MSI vendor devices. No device handles are opened and no USB/HID/SMBus commands are sent.",
+                    DirectDiscovery = "Read-only Windows Plug and Play inventory plus HID descriptor enumeration and source-backed MSI Mystic Light protocol correlation. No device handles are opened and no USB/HID/SMBus commands are sent.",
                     DirectControlStatus = "Logitech G203 uses its validated native HID Output Report driver. MSI probe is descriptor-only; no MSI report is sent and OpenRGB remains the control path for motherboard/GPU."
                 },
                 MotherboardAnalysis = BuildMotherboardAnalysis(pnpDevices, devices),
                 MsiHidReadOnlyProbe = msiHidProbe,
+                MsiProtocolResearch = new MsiOpenRgbProtocolEvidence().Build(pnpDevices, devices),
                 GpuAnalysis = BuildGpuAnalysis(pnpDevices, devices),
                 WindowsPnPInventory = new
                 {
