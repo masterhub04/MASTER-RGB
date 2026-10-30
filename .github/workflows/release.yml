@@ -36,6 +36,28 @@ jobs:
       - name: Publish Windows x64
         run: dotnet publish MASTER_RGB.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:Version=${{ env.VERSION }} -p:DebugType=None -p:DebugSymbols=false -o publish/app
 
+      - name: Bundle OpenRGB 1.1 portable engine
+        shell: pwsh
+        run: |
+          $archive = "OpenRGB_1.1_Windows_64_8e16de2.zip"
+          $url = "https://github.com/CalcProgrammer1/OpenRGB/releases/download/release_1.1/$archive"
+          Invoke-WebRequest -Uri $url -OutFile $archive
+          $hash = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($hash -ne "63291726c6fc84eb479ef2ee752e97e1187f6ce9c49fd27eee40ded588a8172a") { throw "OpenRGB archive SHA256 mismatch: $hash" }
+          Expand-Archive -Path $archive -DestinationPath openrgb-extracted -Force
+          $exe = Get-ChildItem openrgb-extracted -Filter OpenRGB.exe -Recurse | Select-Object -First 1
+          if (-not $exe) { throw "OpenRGB.exe not found in official portable archive" }
+          New-Item -ItemType Directory -Force -Path publish/app/OpenRGB | Out-Null
+          Copy-Item -Path (Join-Path $exe.Directory.FullName "*") -Destination publish/app/OpenRGB -Recurse -Force
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/CalcProgrammer1/OpenRGB/release_1.1/LICENSE" -OutFile publish/app/OpenRGB/COPYING.txt
+          @(
+            "OpenRGB 1.1 is bundled as a separate executable and launched in background by MASTER RGB.",
+            "Project: https://gitlab.com/CalcProgrammer1/OpenRGB",
+            "Source code (release_1.1): https://github.com/CalcProgrammer1/OpenRGB/tree/release_1.1",
+            "License: GNU General Public License version 2 or (at your option) any later version.",
+            "The complete license text is in OpenRGB/COPYING.txt. OpenRGB is a separate program; MASTER RGB communicates with it through its documented SDK protocol."
+          ) | Set-Content publish/app/THIRD-PARTY-NOTICES.txt -Encoding utf8
+
       - name: Install Velopack CLI
         run: dotnet tool install -g vpk --version 1.2.161
 
