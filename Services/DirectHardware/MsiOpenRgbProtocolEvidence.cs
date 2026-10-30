@@ -49,6 +49,21 @@ public sealed class MsiOpenRgbProtocolEvidence
             OpenRgbControllerDescription = boardController?.Description ?? string.Empty,
             OpenRgbZones = boardController?.Zones.Select((z, i) => new { Index = i, z.Name, z.LedCount }).ToArray()
                 ?? Array.Empty<object>(),
+            NativeControlReadiness = new
+            {
+                BoardSpecificWriteValidationComplete = false,
+                NativeMsiWriteDriverEnabled = false,
+                PerLedDirectModeAllowed = false,
+                ZoneFeatureReportWriteAllowed = false,
+                RequiredBeforeWrite = new[]
+                {
+                    "Revisar o fluxo completo de SetupModes/SetMode/UpdateLEDs do controlador 185-byte.",
+                    "Confirmar a configuração exata do PID 0x7C56 e se DIRECT_MODE_PER_LED está habilitado.",
+                    "Validar efeitos e flags por zona para JRGB1, JRAINBOW1, JRAINBOW2 e ONBOARD.",
+                    "Definir recuperação segura e teste reversível antes de qualquer escrita."
+                },
+                Reason = "A família 185-byte não garante que todos os modos funcionem em todos os modelos. Uma regressão recente do OpenRGB documenta uma placa que fica sem iluminação quando Direct por LED é selecionado."
+            },
             ProtocolEvidence = new
             {
                 ControllerFamily = "MSI Mystic Light 185-byte",
@@ -69,8 +84,8 @@ public sealed class MsiOpenRgbProtocolEvidence
                 SmbusOrI2cTransactionsSent = false,
                 RgbStateChanged = false
             },
-            RiskNotice = "O código-fonte do OpenRGB contém aviso histórico de risco de brick em controladores Mystic Light não testados. A correspondência do detector identifica a família/protocolo, mas não autoriza implementar escrita sem validação adicional.",
-            Conclusion = "Correspondência exata VID/PID e registro do detector OpenRGB confirmam que o HID MSI observado pertence ao caminho de detecção Mystic Light 185-byte usado para MS-7C56. A próxima etapa é revisar o código do controlador e as condições de segurança; ainda não implementar escrita."
+            RiskNotice = "O código-fonte do OpenRGB contém aviso histórico de risco em controladores Mystic Light não testados. Além disso, uma correção recente desabilitou Direct por LED em uma placa 185-byte que não o suportava. Por isso, este build mantém todas as escritas MSI bloqueadas.",
+            Conclusion = "A identificação da MS-7C56 e da família 185-byte está confirmada. O protocolo e as zonas estão documentados, mas a configuração de modos por placa ainda precisa ser auditada. O MASTER RGB não envia relatórios MSI nem altera o caminho atual do OpenRGB."
         };
     }
 }
