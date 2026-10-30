@@ -9,6 +9,7 @@ using System.IO;
 using System.Text.Json;
 using Microsoft.Win32;
 using MasterRgb.Services;
+using MasterRgb.Controls;
 using MasterRgb.Services.DirectHardware;
 using MasterRgb.Services.DirectHardware.Drivers;
 using Velopack;
@@ -28,6 +29,8 @@ namespace MasterRgb;
 
 public partial class MainWindow : Window
 {
+    private FrameworkElement? _previousPage;
+    private FrameworkElement? _currentPage;
     private readonly OpenRgbSdkClient _openRgb = new();
     private readonly OpenRgbEngineHost _openRgbEngine = new();
     private UpdateManager? _updateManager;
@@ -53,6 +56,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        _currentPage = DashboardPage;
         DeviceList.ItemsSource = _displayDevices;
         DeviceSelector.ItemsSource = _selectableDevices;
         MultiDeviceList.ItemsSource = _devices;
@@ -68,7 +72,7 @@ public partial class MainWindow : Window
         RefreshDirectHardwareDisplay();
         Loaded += MainWindow_Loaded;
         Closing += MainWindow_Closing;
-        Closed += (_, _) => { _trayIcon?.Dispose(); _openRgbEngine.Dispose(); };
+        Closed += (_, _) => { MasterMicView.Shutdown(); _trayIcon?.Dispose(); _openRgbEngine.Dispose(); };
     }
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -95,6 +99,22 @@ public partial class MainWindow : Window
         ShowPage(DashboardPage, DashboardNavButton);
     }
 
+    private void EnterMasterMic_Click(object sender, RoutedEventArgs e)
+    {
+        ShowPage(MasterMicPage, DashboardNavButton);
+    }
+
+    private void Back_Click(object sender, RoutedEventArgs e)
+    {
+        FrameworkElement target = _previousPage ?? DashboardPage;
+        Button active = target == LightingPage ? LightingNavButton
+            : target == DevicesPage ? DevicesNavButton
+            : target == ProfilesPage ? ProfilesNavButton
+            : target == SettingsPage ? SettingsNavButton
+            : DashboardNavButton;
+        ShowPage(target, active);
+    }
+
     private void EnterMasterRgb_Click(object sender, RoutedEventArgs e)
     {
         ShowPage(LightingPage, LightingNavButton);
@@ -106,6 +126,10 @@ public partial class MainWindow : Window
 
     private void ShowPage(FrameworkElement page, Button activeButton)
     {
+        if (_currentPage is not null && !ReferenceEquals(_currentPage, page))
+            _previousPage = _currentPage;
+        _currentPage = page;
+
         bool showRgbSidebar = page == LightingPage || page == DevicesPage || page == ProfilesPage;
         AppSidebar.Visibility = showRgbSidebar ? Visibility.Visible : Visibility.Collapsed;
         Grid.SetColumn(MainContentHost, showRgbSidebar ? 1 : 0);
@@ -117,11 +141,13 @@ public partial class MainWindow : Window
         DevicesPage.Visibility = Visibility.Collapsed;
         ProfilesPage.Visibility = Visibility.Collapsed;
         SettingsPage.Visibility = Visibility.Collapsed;
+        MasterMicPage.Visibility = Visibility.Collapsed;
         DashboardPage.Visibility = ReferenceEquals(page, DashboardPage) ? Visibility.Visible : Visibility.Collapsed;
         LightingPage.Visibility = ReferenceEquals(page, LightingPage) ? Visibility.Visible : Visibility.Collapsed;
         DevicesPage.Visibility = ReferenceEquals(page, DevicesPage) ? Visibility.Visible : Visibility.Collapsed;
         ProfilesPage.Visibility = ReferenceEquals(page, ProfilesPage) ? Visibility.Visible : Visibility.Collapsed;
         SettingsPage.Visibility = ReferenceEquals(page, SettingsPage) ? Visibility.Visible : Visibility.Collapsed;
+        MasterMicPage.Visibility = ReferenceEquals(page, MasterMicPage) ? Visibility.Visible : Visibility.Collapsed;
         foreach (var button in new[] { DashboardNavButton, LightingNavButton, DevicesNavButton, ProfilesNavButton, SettingsNavButton })
         {
             button.Background = ReferenceEquals(button, activeButton) ? new SolidColorBrush(Color.FromRgb(23, 54, 77)) : Brushes.Transparent;
