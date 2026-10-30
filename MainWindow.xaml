@@ -54,8 +54,7 @@
         </Border>
 
         <!-- Main content -->
-        <ScrollViewer x:Name="MainContentScroll" Grid.Column="1" VerticalScrollBarVisibility="Auto">
-            <Grid Grid.Column="1">
+        <Grid Grid.Column="1">
             <Grid x:Name="DashboardPage" Visibility="Visible">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="30,25,30,30">
@@ -389,7 +388,6 @@
                     </StackPanel>
                 </Border>
 
-                    </StackPanel>
                 </ScrollViewer>
             </Grid>
         </Grid>
