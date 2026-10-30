@@ -388,6 +388,7 @@
                     </StackPanel>
                 </Border>
 
+                    </StackPanel>
                 </ScrollViewer>
             </Grid>
         </Grid>
