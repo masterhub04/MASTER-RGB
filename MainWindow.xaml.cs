@@ -82,7 +82,7 @@ public partial class MainWindow : Window
 
     private static void ConfigureWindowsStartup(bool enabled, bool minimized)
     {
-        const string runKeyPath = @"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+        const string runKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
         const string appValueName = "MASTER RGB";
         using var runKey = Registry.CurrentUser.OpenSubKey(runKeyPath, writable: true)
             ?? Registry.CurrentUser.CreateSubKey(runKeyPath, writable: true);
@@ -94,7 +94,7 @@ public partial class MainWindow : Window
         string? executable = Environment.ProcessPath;
         if (string.IsNullOrWhiteSpace(executable))
             throw new InvalidOperationException("Não foi possível localizar o executável do MASTER RGB.");
-        runKey.SetValue(appValueName, $"\\\"{executable}\\\"{(minimized ? " --minimized" : string.Empty)}");
+        runKey.SetValue(appValueName, $"\"{executable}\"{(minimized ? " --minimized" : string.Empty)}");
     }
 
     private void RefreshDirectHardwareDisplay()
