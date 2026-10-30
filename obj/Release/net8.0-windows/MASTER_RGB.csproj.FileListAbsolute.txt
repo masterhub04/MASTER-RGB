@@ -1,0 +1,24 @@
+E:\MASTER_RGB\MASTER-RGB\bin\Release\net8.0-windows\MASTER RGB.exe
+E:\MASTER_RGB\MASTER-RGB\bin\Release\net8.0-windows\MASTER RGB.deps.json
+E:\MASTER_RGB\MASTER-RGB\bin\Release\net8.0-windows\MASTER RGB.runtimeconfig.json
+E:\MASTER_RGB\MASTER-RGB\bin\Release\net8.0-windows\MASTER RGB.dll
+E:\MASTER_RGB\MASTER-RGB\bin\Release\net8.0-windows\MASTER RGB.pdb
+E:\MASTER_RGB\MASTER-RGB\bin\Release\net8.0-windows\HidSharp.dll
+E:\MASTER_RGB\MASTER-RGB\obj\Release\net8.0-windows\MASTER_RGB.csproj.AssemblyReference.cache
+E:\MASTER_RGB\MASTER-RGB\obj\Release\net8.0-windows\MainWindow.baml
+E:\MASTER_RGB\MASTER-RGB\obj\Release\net8.0-windows\App.baml
+E:\MASTER_RGB\MASTER-RGB\obj\Release\net8.0-windows\MainWindow.g.cs
+E:\MASTER_RGB\MASTER-RGB\obj\Release\net8.0-windows\App.g.cs
+E:\MASTER_RGB\MASTER-RGB\obj\Release\net8.0-windows\MASTER RGB_MarkupCompile.cache
+E:\MASTER_RGB\MASTER-RGB\obj\Release\net8.0-windows\MASTER RGB.g.resources
+E:\MASTER_RGB\MASTER-RGB\obj\Release\net8.0-windows\MASTER_RGB.GeneratedMSBuildEditorConfig.editorconfig
+E:\MASTER_RGB\MASTER-RGB\obj\Release\net8.0-windows\MASTER_RGB.AssemblyInfoInputs.cache
+E:\MASTER_RGB\MASTER-RGB\obj\Release\net8.0-windows\MASTER_RGB.AssemblyInfo.cs
+E:\MASTER_RGB\MASTER-RGB\obj\Release\net8.0-windows\MASTER_RGB.csproj.CoreCompileInputs.cache
+E:\MASTER_RGB\MASTER-RGB\obj\Release\net8.0-windows\MASTER_RGB.sourcelink.json
+E:\MASTER_RGB\MASTER-RGB\obj\Release\net8.0-windows\MASTER_RGB.csproj.Up2Date
+E:\MASTER_RGB\MASTER-RGB\obj\Release\net8.0-windows\MASTER RGB.dll
+E:\MASTER_RGB\MASTER-RGB\obj\Release\net8.0-windows\refint\MASTER RGB.dll
+E:\MASTER_RGB\MASTER-RGB\obj\Release\net8.0-windows\MASTER RGB.pdb
+E:\MASTER_RGB\MASTER-RGB\obj\Release\net8.0-windows\MASTER_RGB.genruntimeconfig.cache
+E:\MASTER_RGB\MASTER-RGB\obj\Release\net8.0-windows\ref\MASTER RGB.dll
