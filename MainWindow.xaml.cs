@@ -602,17 +602,18 @@ public partial class MainWindow : Window
     private void DrawHueArc()
     {
         HueArcCanvas.Children.Clear();
-        const double cx = 180, cy = 166, radius = 140, thickness = 27;
-        // Draw a smooth, 180-degree spectrum from red through the full hue wheel back to red.
-        for (int i = 0; i < 180; i++)
+        const double cx = 130, cy = 130, radius = 105, thickness = 25;
+
+        // Roda completa de 360 graus, com transição contínua entre as tonalidades.
+        for (int i = 0; i < 360; i++)
         {
-            double a1 = Math.PI - (i * Math.PI / 180.0);
-            double a2 = Math.PI - ((i + 1.15) * Math.PI / 180.0);
-            var p1 = new Point(cx + radius * Math.Cos(a1), cy - radius * Math.Sin(a1));
-            var p2 = new Point(cx + radius * Math.Cos(a2), cy - radius * Math.Sin(a2));
+            double a1 = i * Math.PI / 180.0;
+            double a2 = (i + 1.2) * Math.PI / 180.0;
+            var p1 = new Point(cx + radius * Math.Cos(a1), cy + radius * Math.Sin(a1));
+            var p2 = new Point(cx + radius * Math.Cos(a2), cy + radius * Math.Sin(a2));
             var path = new System.Windows.Shapes.Path
             {
-                Stroke = new SolidColorBrush(HsvColor(i * 2.0, 1, 1)),
+                Stroke = new SolidColorBrush(HsvColor(i, 1, 1)),
                 StrokeThickness = thickness,
                 StrokeStartLineCap = PenLineCap.Round,
                 StrokeEndLineCap = PenLineCap.Round,
@@ -621,6 +622,7 @@ public partial class MainWindow : Window
             };
             HueArcCanvas.Children.Add(path);
         }
+
         _hueMarker = new Ellipse { Width = 19, Height = 19, Fill = Brushes.White, Stroke = new SolidColorBrush(Color.FromRgb(20, 35, 48)), StrokeThickness = 4, IsHitTestVisible = false };
         HueArcCanvas.Children.Add(_hueMarker);
         _hueArcDrawn = true;
@@ -630,14 +632,15 @@ public partial class MainWindow : Window
     private void HueArcCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         Point point = e.GetPosition(HueArcCanvas);
-        const double cx = 180, cy = 166;
+        const double cx = 130, cy = 130;
         double dx = point.X - cx;
-        double dy = cy - point.Y;
-        if (dy < -8) return;
-        double angle = Math.Atan2(dy, dx);
-        if (angle < 0 || angle > Math.PI) return;
-        double hue = (1.0 - angle / Math.PI) * 360.0;
-        if (hue >= 360) hue = 0;
+        double dy = point.Y - cy;
+        double distance = Math.Sqrt(dx * dx + dy * dy);
+
+        // Aceita cliques próximos ao anel colorido, sem exigir precisão milimétrica.
+        if (distance < 65 || distance > 145) return;
+
+        double hue = (Math.Atan2(dy, dx) * 180.0 / Math.PI + 360.0) % 360.0;
         Color color = HsvColor(hue, 1, 1);
         HexColorBox.Text = $"#{color.R:X2}{color.G:X2}{color.B:X2}";
         UpdateHueMarker(hue);
@@ -647,10 +650,10 @@ public partial class MainWindow : Window
     private void UpdateHueMarker(double hue)
     {
         if (_hueMarker is null) return;
-        const double cx = 180, cy = 166, radius = 140;
-        double angle = (1.0 - (hue % 360.0) / 360.0) * Math.PI;
+        const double cx = 130, cy = 130, radius = 105;
+        double angle = (hue % 360.0) * Math.PI / 180.0;
         Canvas.SetLeft(_hueMarker, cx + radius * Math.Cos(angle) - _hueMarker.Width / 2);
-        Canvas.SetTop(_hueMarker, cy - radius * Math.Sin(angle) - _hueMarker.Height / 2);
+        Canvas.SetTop(_hueMarker, cy + radius * Math.Sin(angle) - _hueMarker.Height / 2);
     }
 
     private static Color HsvColor(double hue, double saturation, double value)
