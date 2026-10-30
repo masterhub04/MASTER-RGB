@@ -62,9 +62,8 @@ public partial class MainWindow : Window
             {
                 _displayDevices.Add(new DeviceDisplayRow(
                     "MSI MPG B550 Gaming Plus (MS-7C56)",
-                    "MSI • Windows PnP • VID_1462 / PID_7C56 • Detecção independente",
-                    "Interface USB/HID enumerada pelo Windows. Protocolo Mystic Light 185-byte associado ao modelo; nenhuma comunicação RGB foi realizada.",
-                    "Zonas de referência: JRGB1 • JRAINBOW1 • JRAINBOW2 • ONBOARD (não verificadas por leitura direta)",
+                    "MSI • Windows PnP • VID_1462 / PID_7C56 • Detecção independente. Interface USB/HID enumerada; nenhuma comunicação RGB foi realizada.",
+                    "Zonas de referência: JRGB1 • JRAINBOW1 • JRAINBOW2 • ONBOARD (ainda não verificadas por leitura direta)",
                     "IDENTIFICADO"));
             }
 
