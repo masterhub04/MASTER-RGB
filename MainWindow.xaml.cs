@@ -13,6 +13,7 @@ using MasterRgb.Services.DirectHardware;
 using MasterRgb.Services.DirectHardware.Drivers;
 using Velopack;
 using Velopack.Sources;
+using Forms = System.Windows.Forms;
 
 namespace MasterRgb;
 
@@ -32,6 +33,10 @@ public partial class MainWindow : Window
     private string _uiAccentColor = "#0000FF";
     private bool _startWithWindows;
     private bool _startMinimized;
+    private bool _minimizeToTray;
+    private bool _allowExit;
+    private Forms.NotifyIcon? _trayIcon;
+    private readonly List<string> _notifications = new();
     private readonly ObservableCollection<FavoriteColorRow> _favoriteColors = new();
     private readonly Dictionary<string, int> _zoneLedOverrides = new(StringComparer.OrdinalIgnoreCase);
     private readonly string _userSettingsPath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MASTER RGB", "user-settings.json");
@@ -48,10 +53,12 @@ public partial class MainWindow : Window
         LoadUserSettings();
         StartWithWindowsCheckBox.IsChecked = _startWithWindows;
         StartMinimizedCheckBox.IsChecked = _startMinimized;
+        MinimizeToTrayCheckBox.IsChecked = _minimizeToTray;
         ApplyTheme(_currentTheme, false);
         RefreshDirectHardwareDisplay();
         Loaded += MainWindow_Loaded;
-        Closed += (_, _) => _openRgbEngine.Dispose();
+        Closing += MainWindow_Closing;
+        Closed += (_, _) => { _trayIcon?.Dispose(); _openRgbEngine.Dispose(); };
     }
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -76,12 +83,10 @@ public partial class MainWindow : Window
     private void NavigateDashboard_Click(object sender, RoutedEventArgs e)
     {
         ShowPage(DashboardPage, DashboardNavButton);
-        AppSidebar.Visibility = Visibility.Collapsed;
     }
 
     private void EnterMasterRgb_Click(object sender, RoutedEventArgs e)
     {
-        AppSidebar.Visibility = Visibility.Visible;
         ShowPage(LightingPage, LightingNavButton);
     }
     private void NavigateLighting_Click(object sender, RoutedEventArgs e) => ShowPage(LightingPage, LightingNavButton);
@@ -91,7 +96,12 @@ public partial class MainWindow : Window
 
     private void ShowPage(FrameworkElement page, Button activeButton)
     {
-        if (!ReferenceEquals(page, DashboardPage)) AppSidebar.Visibility = Visibility.Visible;
+        bool showRgbSidebar = page == LightingPage || page == DevicesPage || page == ProfilesPage;
+        AppSidebar.Visibility = showRgbSidebar ? Visibility.Visible : Visibility.Collapsed;
+        Grid.SetColumn(MainContentHost, showRgbSidebar ? 1 : 0);
+        Grid.SetColumnSpan(MainContentHost, showRgbSidebar ? 1 : 2);
+        if (AppSidebar.Parent is Grid root)
+            root.ColumnDefinitions[0].Width = showRgbSidebar ? new GridLength(245) : new GridLength(0);
         DashboardPage.Visibility = Visibility.Collapsed;
         LightingPage.Visibility = Visibility.Collapsed;
         DevicesPage.Visibility = Visibility.Collapsed;
@@ -107,6 +117,74 @@ public partial class MainWindow : Window
             button.Background = ReferenceEquals(button, activeButton) ? new SolidColorBrush(Color.FromRgb(23, 54, 77)) : Brushes.Transparent;
             button.BorderBrush = ReferenceEquals(button, activeButton) ? new SolidColorBrush(Color.FromRgb(35, 74, 104)) : Brushes.Transparent;
         }
+    }
+
+    private void MinimizeWindow_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+
+    private void CloseWindow_Click(object sender, RoutedEventArgs e) => Close();
+
+    private void TrayOption_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded || MinimizeToTrayCheckBox is null) return;
+        _minimizeToTray = MinimizeToTrayCheckBox.IsChecked == true;
+        ConfigureTrayIcon();
+        SaveUserSettings();
+    }
+
+    private void ConfigureTrayIcon()
+    {
+        if (!_minimizeToTray)
+        {
+            if (_trayIcon is not null) _trayIcon.Visible = false;
+            return;
+        }
+
+        _trayIcon ??= new Forms.NotifyIcon
+        {
+            Icon = System.Drawing.SystemIcons.Application,
+            Text = "MASTER HUB",
+            Visible = true
+        };
+        _trayIcon.Visible = true;
+        _trayIcon.DoubleClick -= TrayIcon_DoubleClick;
+        _trayIcon.DoubleClick += TrayIcon_DoubleClick;
+        var menu = new Forms.ContextMenuStrip();
+        menu.Items.Add("Abrir MASTER HUB", null, (_, _) => RestoreFromTray());
+        menu.Items.Add(new Forms.ToolStripSeparator());
+        menu.Items.Add("Encerrar", null, (_, _) => { _allowExit = true; _trayIcon!.Visible = false; Close(); });
+        _trayIcon.ContextMenuStrip?.Dispose();
+        _trayIcon.ContextMenuStrip = menu;
+    }
+
+    private void TrayIcon_DoubleClick(object? sender, EventArgs e) => RestoreFromTray();
+
+    private void RestoreFromTray()
+    {
+        Show();
+        WindowState = WindowState.Normal;
+        Activate();
+    }
+
+    private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        if (_allowExit || !_minimizeToTray) return;
+        e.Cancel = true;
+        Hide();
+        ConfigureTrayIcon();
+        _trayIcon?.ShowBalloonTip(1800, "MASTER HUB", "O aplicativo continua em execução na bandeja.", Forms.ToolTipIcon.Info);
+    }
+
+    private void Notifications_Click(object sender, RoutedEventArgs e)
+    {
+        var menu = new Forms.ContextMenuStrip();
+        if (_notifications.Count == 0)
+            menu.Items.Add("Nenhuma notificação no momento");
+        else
+            foreach (string message in _notifications.TakeLast(8).Reverse())
+                menu.Items.Add(message);
+        menu.Items.Add(new Forms.ToolStripSeparator());
+        menu.Items.Add("Verificar atualizações", null, async (_, _) => await CheckForUpdatesAsync());
+        menu.Show(Cursor.Position.X, Cursor.Position.Y);
     }
 
     private void StartupOption_Changed(object sender, RoutedEventArgs e)
@@ -1055,6 +1133,7 @@ public partial class MainWindow : Window
             _uiAccentColor = NormalizeHexColor(settings.UiAccentColor) ?? "#0000FF";
             _startWithWindows = settings.StartWithWindows;
             _startMinimized = settings.StartMinimized;
+            _minimizeToTray = settings.MinimizeToTray;
         }
         catch (Exception ex)
         {
@@ -1068,7 +1147,7 @@ public partial class MainWindow : Window
         {
             string? directory = System.IO.Path.GetDirectoryName(_userSettingsPath);
             if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
-            var settings = new UserSettings(_favoriteColors.Select(c => c.Hex).ToList(), _zoneLedOverrides, BrightnessSlider.Value, _currentTheme, _startWithWindows, _startMinimized, _uiAccentColor);
+            var settings = new UserSettings(_favoriteColors.Select(c => c.Hex).ToList(), _zoneLedOverrides, BrightnessSlider.Value, _currentTheme, _startWithWindows, _startMinimized, _uiAccentColor, _minimizeToTray);
             File.WriteAllText(_userSettingsPath, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
         }
         catch (Exception ex)
@@ -1149,6 +1228,8 @@ public partial class MainWindow : Window
             {
                 UpdatesButton.Content = "⬇   Atualizar";
                 UpdateText.Text = $"Nova versão {update.TargetFullRelease.Version} disponível. Clique em Atualizar para baixar e instalar.";
+                string notification = $"Nova atualização disponível: versão {update.TargetFullRelease.Version}.";
+                if (!_notifications.Contains(notification)) _notifications.Add(notification);
             }
             else
             {
@@ -1236,5 +1317,5 @@ public partial class MainWindow : Window
         if (save) SaveUserSettings();
     }
 
-    private sealed record UserSettings(List<string>? FavoriteColors, Dictionary<string, int>? ZoneLedOverrides, double Brightness = 100, string? Theme = "Blue", bool StartWithWindows = false, bool StartMinimized = false, string? UiAccentColor = "#0000FF");
+    private sealed record UserSettings(List<string>? FavoriteColors, Dictionary<string, int>? ZoneLedOverrides, double Brightness = 100, string? Theme = "Blue", bool StartWithWindows = false, bool StartMinimized = false, string? UiAccentColor = "#0000FF", bool MinimizeToTray = false);
 }
