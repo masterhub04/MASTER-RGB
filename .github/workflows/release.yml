@@ -1,0 +1,55 @@
+name: Build and publish MASTER RGB
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Get release version
+        shell: pwsh
+        run: |
+          if ("${{ github.ref_type }}" -eq "tag") {
+            $version = "${{ github.ref_name }}".TrimStart("v")
+          } else {
+            [xml]$project = Get-Content MASTER_RGB.csproj
+            $version = $project.Project.PropertyGroup.Version
+          }
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Invalid release version: $version" }
+          "VERSION=$version" >> $env:GITHUB_ENV
+
+      - name: Restore
+        run: dotnet restore MASTER_RGB.csproj
+
+      - name: Publish Windows x64
+        run: dotnet publish MASTER_RGB.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:Version=${{ env.VERSION }} -p:DebugType=None -p:DebugSymbols=false -o publish/app
+
+      - name: Install Velopack CLI
+        run: dotnet tool install -g vpk --version 1.2.161
+
+      - name: Download previous release feed
+        run: vpk download github --repoUrl https://github.com/${{ github.repository }} --outputDir publish/releases
+        continue-on-error: true
+
+      - name: Pack installer and update packages
+        run: vpk pack --packId masterhub04.master-rgb --packVersion ${{ env.VERSION }} --packDir publish/app --mainExe "MASTER RGB.exe" --packTitle "MASTER RGB" --outputDir publish/releases
+
+      - name: Publish GitHub Release
+        run: vpk upload github --repoUrl https://github.com/${{ github.repository }} --outputDir publish/releases --publish --releaseName "MASTER RGB ${{ env.VERSION }}" --tag v${{ env.VERSION }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
