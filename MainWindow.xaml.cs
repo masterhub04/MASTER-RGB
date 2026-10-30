@@ -55,6 +55,7 @@ public partial class MainWindow : Window
         StartMinimizedCheckBox.IsChecked = _startMinimized;
         MinimizeToTrayCheckBox.IsChecked = _minimizeToTray;
         ApplyTheme(_currentTheme, false);
+        ConfigureTrayIcon();
         RefreshDirectHardwareDisplay();
         Loaded += MainWindow_Loaded;
         Closing += MainWindow_Closing;
