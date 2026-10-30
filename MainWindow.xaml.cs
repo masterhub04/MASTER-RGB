@@ -151,7 +151,7 @@ public partial class MainWindow : Window
                 Report = new
                 {
                     Application = "MASTER RGB",
-                    ApplicationVersion = "0.7.5",
+                    ApplicationVersion = "0.7.6",
                     GeneratedAtLocal = DateTimeOffset.Now,
                     DiagnosticMode = "Read-only; no lighting mode or LED color commands are sent",
                     Computer = Environment.MachineName,
@@ -308,6 +308,20 @@ public partial class MainWindow : Window
             Motherboard = board,
             PnpCandidateCount = candidates.Length,
             PnpCandidates = candidates,
+            AmdSmbusControllers = pnpDevices
+                .Where(d => d.Source == "PCI" &&
+                    d.HardwareIds.Contains("VEN_1022", StringComparison.OrdinalIgnoreCase) &&
+                    (d.HardwareIds.Contains("CC_0C05", StringComparison.OrdinalIgnoreCase) ||
+                     d.FriendlyName.Contains("SMBus", StringComparison.OrdinalIgnoreCase) ||
+                     d.Service.Contains("SMBus", StringComparison.OrdinalIgnoreCase)))
+                .Select(d => new
+                {
+                    d.FriendlyName, d.Manufacturer, d.Service,
+                    d.HardwareIds, d.CompatibleIds, d.RedactedInstanceId,
+                    Classification = d.HardwareIds.Contains("CC_0C05", StringComparison.OrdinalIgnoreCase)
+                        ? "Controlador SMBus confirmado pela classe PCI 0C05"
+                        : "Dispositivo AMD relacionado; classe SMBus não confirmada"
+                }).ToArray(),
             OpenRgbMysticLightControllerCount = controllers.Length,
             OpenRgbMysticLightControllers = controllers,
             Safety = "No direct USB/HID/PCI/SMBus/I2C commands were sent. No RGB modes or colors were changed.",
@@ -320,77 +334,114 @@ public partial class MainWindow : Window
         IReadOnlyList<PnpDeviceRecord> pnpDevices,
         IReadOnlyList<OpenRgbDevice> openRgbDevices)
     {
-        // Identificação por Windows PnP; nenhum NVAPI/HID/PCI write é executado.
-        var nvidiaAdapters = pnpDevices
+        // Separa o adaptador gráfico NVIDIA do dispositivo de áudio HDMI da mesma GPU.
+        // A identificação permanece somente leitura.
+        var nvidiaPnp = pnpDevices
             .Where(d => d.Source == "PCI" &&
                 (d.HardwareIds.Contains("VEN_10DE", StringComparison.OrdinalIgnoreCase) ||
                  d.CompatibleIds.Contains("VEN_10DE", StringComparison.OrdinalIgnoreCase)))
-            .Select(d => new
-            {
-                d.FriendlyName,
-                d.Manufacturer,
-                d.Service,
-                d.HardwareIds,
-                d.CompatibleIds,
-                d.RedactedInstanceId,
-                d.DeviceFamily,
-                d.RgbRelevance,
-                d.RecommendedNextStep
-            }).ToArray();
+            .ToArray();
+
+        var graphicsAdapters = nvidiaPnp
+            .Where(d => ContainsId(d.HardwareIds + " " + d.CompatibleIds, "CC_0300") ||
+                        ContainsId(d.HardwareIds + " " + d.CompatibleIds, "CC_0302"))
+            .ToArray();
+
+        var audioFunctions = nvidiaPnp
+            .Where(d => ContainsId(d.HardwareIds + " " + d.CompatibleIds, "CC_0403"))
+            .ToArray();
 
         var lightingControllers = openRgbDevices
             .Where(d => ContainsGpuMarker(d.Name) || ContainsGpuMarker(d.Vendor) ||
                         ContainsGpuMarker(d.Description))
             .Select(d => new
             {
-                d.Index,
-                d.Name,
-                d.Vendor,
-                d.Description,
-                d.Version,
-                d.DeviceType,
-                d.ProtocolVersion,
-                d.ZoneCount,
-                d.LedCount,
+                d.Index, d.Name, d.Vendor, d.Description, d.Version,
+                d.DeviceType, d.ProtocolVersion, d.ZoneCount, d.LedCount,
                 Zones = d.Zones.Select((z, index) => new { Index = index, z.Name, z.LedCount }).ToArray(),
                 RawControllerPacketHex = d.RawDataHex
             }).ToArray();
 
-        bool hasGainwardPnp = nvidiaAdapters.Any(d =>
-            (d.Manufacturer + " " + d.FriendlyName).Contains("Gainward", StringComparison.OrdinalIgnoreCase));
+        static string ExtractIdValue(string ids, string marker)
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(
+                ids, marker + @"([0-9A-F]{4})", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            return match.Success ? match.Groups[1].Value.ToUpperInvariant() : string.Empty;
+        }
+
+        var pnpIdentity = graphicsAdapters.Select(d =>
+        {
+            var ids = d.HardwareIds + " " + d.CompatibleIds;
+            return new
+            {
+                d.FriendlyName,
+                d.Manufacturer,
+                HardwareIds = d.HardwareIds,
+                d.RedactedInstanceId,
+                VendorId = ExtractIdValue(ids, @"VEN_"),
+                DeviceId = ExtractIdValue(ids, @"DEV_"),
+                SubsystemDeviceId = ExtractIdValue(ids, @"SUBSYS_"),
+                SubsystemVendorId = ExtractIdValue(
+                    System.Text.RegularExpressions.Regex.Match(ids, @"SUBSYS_([0-9A-F]{8})",
+                        System.Text.RegularExpressions.RegexOptions.IgnoreCase).Groups[1].Value,
+                    @"(?<=^)(?:.{4})")
+            };
+        }).ToArray();
+
         bool hasPalitController = lightingControllers.Any(d =>
             (d.Name + " " + d.Vendor + " " + d.Description).Contains("Palit", StringComparison.OrdinalIgnoreCase));
         bool hasGainwardController = lightingControllers.Any(d =>
             (d.Name + " " + d.Vendor + " " + d.Description).Contains("Gainward", StringComparison.OrdinalIgnoreCase));
+        bool hasGainwardPnpText = graphicsAdapters.Any(d =>
+            (d.Manufacturer + " " + d.FriendlyName).Contains("Gainward", StringComparison.OrdinalIgnoreCase));
+
+        // Nome Palit no OpenRGB não é prova de que a placa física seja Palit.
+        // Se o PnP não confirma Gainward e o controlador é nomeado Palit, marcar como não verificado.
+        bool identityUnverified = hasPalitController && !hasGainwardController;
+        bool possibleNameMismatch = identityUnverified &&
+            (graphicsAdapters.Length > 0 || hasGainwardPnpText);
 
         return new
         {
             ReadOnly = true,
-            Method = "Windows PCI Plug and Play inventory + OpenRGB SDK controller metadata",
+            Method = "Windows PCI Plug and Play inventory (separando classe gráfica e áudio) + OpenRGB SDK controller metadata",
             ExpectedUserHardware = new
             {
                 Manufacturer = "Gainward",
                 Model = "GeForce RTX 3060 Ghost 12GB",
                 KnownPciId = "PCI\\VEN_10DE&DEV_2504&SUBSYS_250410DE",
-                Note = "Expected identifier supplied for correlation; the live PnP values below are authoritative."
+                Note = "Identificador esperado informado pelo usuário; o PnP em tempo real é a fonte de identificação observada."
             },
-            NvidiaPnpAdapterCount = nvidiaAdapters.Length,
-            NvidiaPnpAdapters = nvidiaAdapters,
+            NvidiaPnpDeviceCount = nvidiaPnp.Length,
+            GraphicsAdapterCount = graphicsAdapters.Length,
+            GraphicsAdapters = pnpIdentity,
+            NvidiaAudioFunctionCount = audioFunctions.Length,
+            NvidiaAudioFunctions = audioFunctions.Select(d => new
+            {
+                d.FriendlyName, d.Manufacturer, d.HardwareIds, d.RedactedInstanceId
+            }).ToArray(),
             OpenRgbLightingControllerCount = lightingControllers.Length,
             OpenRgbLightingControllers = lightingControllers,
             ManufacturerCorrelation = new
             {
-                GainwardFoundInPnp = hasGainwardPnp,
+                GainwardFoundInPnp = hasGainwardPnpText,
                 GainwardFoundInOpenRgb = hasGainwardController,
                 PalitFoundInOpenRgb = hasPalitController,
-                PossibleNameMismatch = hasGainwardPnp && hasPalitController && !hasGainwardController,
-                Warning = hasGainwardPnp && hasPalitController && !hasGainwardController
-                    ? "O Windows identifica uma placa Gainward, mas o OpenRGB apresenta um controlador com nome Palit. Não associar nem enviar comandos NVAPI até confirmar o subsistema e a correspondência do controlador."
-                    : "Compare fabricante, Hardware IDs, subsistema PCI e controlador OpenRGB antes de qualquer operação de escrita."
+                ControllerIdentityVerified = !identityUnverified,
+                PossibleNameMismatch = possibleNameMismatch,
+                Assessment = identityUnverified
+                    ? "O OpenRGB apresenta um nome Palit, mas o nome do controlador não comprova o fabricante físico. A associação permanece não verificada."
+                    : "Não foi detectada divergência nominal que possa ser avaliada com os metadados disponíveis.",
+                Warning = identityUnverified
+                    ? "Não associar este controlador à GPU física nem enviar comandos NVAPI até confirmar o fabricante, SUBSYS e a correspondência do controlador."
+                    : "A identificação por nome ainda não substitui a confirmação física do modelo e do subsistema PCI."
             },
             Safety = "Somente leitura. Nenhum comando NVAPI, PCI, HID, I2C ou SMBus foi enviado; nenhum efeito ou cor foi alterado.",
-            NextStep = "Confirmar a identidade exata do controlador RGB e o mapeamento das zonas antes de implementar controle nativo."
+            NextStep = "Confirmar o fabricante físico e a correspondência do controlador RGB antes de implementar controle nativo."
         };
+
+        static bool ContainsId(string ids, string marker) =>
+            ids.Contains(marker, StringComparison.OrdinalIgnoreCase);
 
         static bool ContainsGpuMarker(string value) =>
             value.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase) ||
