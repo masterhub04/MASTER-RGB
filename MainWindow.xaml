@@ -29,10 +29,10 @@
                     <TextBlock Text="WORKSPACE" Foreground="#6F8CA3" FontSize="10" FontWeight="Bold" Margin="8,0,0,10"/>
                     <Button Content="▦   Dashboard" HorizontalContentAlignment="Left" Background="#17364D"/>
                     <Button Content="✦   Lighting Studio" HorizontalContentAlignment="Left" Background="Transparent" BorderBrush="Transparent"/>
-                    <Button Content="▣   Devices" HorizontalContentAlignment="Left" Background="Transparent" BorderBrush="Transparent"/>
+                    <Button Content="▣   Dispositivos" HorizontalContentAlignment="Left" Background="Transparent" BorderBrush="Transparent" Click="NavigateDevices_Click"/>
                     <Button Content="▤   Profiles" HorizontalContentAlignment="Left" Background="Transparent" BorderBrush="Transparent"/>
                     <TextBlock Text="SYSTEM" Foreground="#6F8CA3" FontSize="10" FontWeight="Bold" Margin="8,28,0,10"/>
-                    <Button Content="⚙   Settings" HorizontalContentAlignment="Left" Background="Transparent" BorderBrush="Transparent"/>
+                    <Button Content="⚙   Configurações" HorizontalContentAlignment="Left" Background="Transparent" BorderBrush="Transparent" Click="NavigateSettings_Click"/>
                     <Button x:Name="UpdatesButton" Content="↻   Verificar atualização" HorizontalContentAlignment="Left" Background="Transparent" BorderBrush="Transparent" Click="CheckUpdates_Click"/>
                     <TextBlock x:Name="CurrentVersionText" Text="Versão 0.8.7" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="30,0,0,4"/>
                     <TextBlock Text="APARÊNCIA" Foreground="#6F8CA3" FontSize="10" FontWeight="Bold" Margin="8,28,0,10"/>
@@ -54,7 +54,7 @@
         </Border>
 
         <!-- Main content -->
-        <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer x:Name="MainContentScroll" Grid.Column="1" VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="30,25,30,30">
                 <Grid Margin="0,0,0,24">
                     <StackPanel>
@@ -175,7 +175,7 @@
                 </Border>
 
                 <TextBlock Text="HARDWARE" FontSize="11" Foreground="#7F9BB0" FontWeight="Bold" Margin="0,8,0,12"/>
-                <Border Background="{StaticResource CardBrush}" CornerRadius="12" Padding="16" Margin="0,0,0,22">
+                <Border x:Name="DevicesSection" Background="{StaticResource CardBrush}" CornerRadius="12" Padding="16" Margin="0,0,0,22">
                     <StackPanel>
                         <Grid Margin="0,0,0,10">
                             <TextBlock Text="Dispositivos encontrados" FontWeight="SemiBold" FontSize="15"/>
@@ -327,6 +327,17 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <TextBlock Text="CONFIGURAÇÕES" FontSize="11" Foreground="#7F9BB0" FontWeight="Bold" Margin="0,8,0,12"/>
+                <Border x:Name="SettingsSection" Background="{StaticResource PanelBrush}" CornerRadius="12" Padding="18" Margin="0,0,0,22">
+                    <StackPanel>
+                        <TextBlock Text="Inicialização do aplicativo" FontSize="17" FontWeight="SemiBold"/>
+                        <TextBlock Text="Escolha como o MASTER RGB deve iniciar no Windows." Foreground="{StaticResource MutedBrush}" Margin="0,5,0,12" TextWrapping="Wrap"/>
+                        <CheckBox x:Name="StartWithWindowsCheckBox" Content="Iniciar o MASTER RGB junto com o Windows" Foreground="{StaticResource TextBrush}" Margin="0,5,0,10" Checked="StartupOption_Changed" Unchecked="StartupOption_Changed"/>
+                        <CheckBox x:Name="StartMinimizedCheckBox" Content="Iniciar minimizado" Foreground="{StaticResource TextBrush}" Margin="0,5,0,10" Checked="StartupOption_Changed" Unchecked="StartupOption_Changed"/>
+                        <TextBlock Text="As alterações são salvas automaticamente. A opção de iniciar minimizado só é aplicada quando o aplicativo é aberto pelo Windows." Foreground="{StaticResource MutedBrush}" FontSize="10" TextWrapping="Wrap" Margin="0,4,0,0"/>
                     </StackPanel>
                 </Border>
 
