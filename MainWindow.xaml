@@ -47,80 +47,196 @@
 
         <!-- Main content -->
         <Grid Grid.Column="1">
-            <Grid x:Name="DashboardPage" Grid.Column="0" Grid.ColumnSpan="2" Visibility="Visible">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="42,34,42,36">
-                        <Grid Margin="0,0,0,30">
-                            <StackPanel>
-                                <TextBlock Text="MASTER HUB" FontSize="11" Foreground="#55CFFF" FontWeight="Bold"/>
-                                <TextBlock Text="Central de aplicativos" FontSize="30" FontWeight="Bold" Margin="0,5,0,4"/>
-                                <TextBlock Text="Tudo o que você precisa para configurar e personalizar seu setup." Foreground="{StaticResource MutedBrush}" FontSize="13"/>
+            <Grid x:Name="DashboardPage" Grid.Column="0" Grid.ColumnSpan="2" Visibility="Visible" Background="{StaticResource BgBrush}">
+    <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="*"/>
+    </Grid.RowDefinitions>
+    <Border Grid.Row="0" Background="#080D19" BorderBrush="#252B55" BorderThickness="0,0,0,1" Padding="30,17">
+        <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Border Width="42" Height="42" CornerRadius="12" Background="#10143A" BorderBrush="#0000FF" BorderThickness="1">
+                    <TextBlock Text="M" FontSize="25" FontWeight="Black" Foreground="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <StackPanel Margin="13,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="MASTER HUB" FontSize="21" FontWeight="Bold" Foreground="#F4F7FF" CharacterSpacing="90"/>
+                    <TextBlock Text="SEU SISTEMA, NO SEU CONTROLE" FontSize="9" Foreground="#8792B7" FontWeight="SemiBold" CharacterSpacing="110" Margin="1,3,0,0"/>
+                </StackPanel>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Content="♧" ToolTip="Notificações" IsEnabled="False" Width="38" Height="36" Margin="0,0,8,0" Background="#11182B" BorderBrush="#28335B"/>
+                <Button Content="⚙" ToolTip="Configurações" Width="38" Height="36" Margin="0,0,18,0" Background="#11182B" BorderBrush="#28335B" Click="NavigateSettings_Click"/>
+                <Border Width="1" Height="28" Background="#29304E" Margin="0,0,16,0"/>
+                <TextBlock Text="MASTER ECOSYSTEM  /  HOME" Foreground="#68769D" FontSize="9" FontWeight="Bold" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="34,25,34,26">
+            <Grid Margin="0,0,0,20">
+                <StackPanel>
+                    <TextBlock Text="CENTRAL DE CONTROLE" FontSize="10" Foreground="#6575B5" FontWeight="Bold" CharacterSpacing="150"/>
+                    <TextBlock Text="Seu setup. Seu universo." FontSize="28" FontWeight="Bold" Foreground="{StaticResource TextBrush}" Margin="0,5,0,3"/>
+                    <TextBlock Text="Acesse seus aplicativos e personalize sua experiência." FontSize="12" Foreground="{StaticResource MutedBrush}"/>
+                </StackPanel>
+                <Border HorizontalAlignment="Right" VerticalAlignment="Center" BorderBrush="#164D38" BorderThickness="1" Background="#0D241E" CornerRadius="8" Padding="12,8">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse Width="7" Height="7" Fill="#38D996" Margin="0,0,8,0"/>
+                        <TextBlock Text="SISTEMA OPERACIONAL" Foreground="#70E7B2" FontSize="9" FontWeight="Bold" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+            <TextBlock Text="APLICATIVOS" FontSize="10" Foreground="#7885B3" FontWeight="Bold" CharacterSpacing="140" Margin="0,0,0,10"/>
+            <Grid Margin="0,0,0,20">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <Border Background="#0C1426" BorderBrush="#202B66" BorderThickness="1" CornerRadius="15" Padding="19" Margin="0,0,9,0">
+                    <Grid>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                        <Grid>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Width="43" Height="43" CornerRadius="11" Background="#111A4A" BorderBrush="#0000FF" BorderThickness="1">
+                                    <TextBlock Text="✦" FontSize="26" Foreground="#657BFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <StackPanel Margin="11,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock Text="MASTER RGB" FontSize="18" FontWeight="Bold" Foreground="#F2F5FF"/>
+                                    <TextBlock Text="ILUMINAÇÃO E DISPOSITIVOS" FontSize="9" Foreground="#8C9AC8" CharacterSpacing="65" Margin="0,3,0,0"/>
+                                </StackPanel>
                             </StackPanel>
-                            <Border HorizontalAlignment="Right" VerticalAlignment="Center" Background="#123B2B" CornerRadius="12" Padding="12,7">
-                                <TextBlock Text="●  CENTRAL DO MASTER" Foreground="#5CE0A1" FontSize="10" FontWeight="Bold"/>
+                            <Border HorizontalAlignment="Right" VerticalAlignment="Top" Background="#10291F" BorderBrush="#1B6845" BorderThickness="1" CornerRadius="6" Padding="8,4">
+                                <TextBlock Text="●  DISPONÍVEL" FontSize="8" Foreground="#61E5A4" FontWeight="Bold"/>
                             </Border>
                         </Grid>
-                        <TextBlock Text="MEUS APLICATIVOS" FontSize="11" Foreground="#7F9BB0" FontWeight="Bold" Margin="0,0,0,13"/>
-                        <UniformGrid Columns="2" Margin="0,0,0,28">
-                            <Border Background="{StaticResource PanelBrush}" BorderBrush="#287DA2" BorderThickness="1.5" CornerRadius="18" Padding="22" Margin="0,0,12,0">
-                                <Grid>
-                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                                    <StackPanel Orientation="Horizontal">
-                                        <Border Width="58" Height="58" CornerRadius="15" Background="#12364D">
-                                            <TextBlock Text="⚡" FontSize="34" Foreground="#35C8FF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                        <StackPanel Margin="14,3,0,0" VerticalAlignment="Center">
-                                            <TextBlock Text="MASTER RGB" FontSize="19" FontWeight="Bold"/>
-                                            <TextBlock Text="Iluminação e dispositivos" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,3,0,0"/>
-                                        </StackPanel>
-                                    </StackPanel>
-                                    <TextBlock Grid.Row="1" Text="Controle a iluminação do seu PC, personalize cores, gerencie dispositivos e crie seus próprios perfis RGB." Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,20,0,22" FontSize="12"/>
-                                    <Button Grid.Row="2" Content="Abrir MASTER RGB  →" HorizontalAlignment="Left" Padding="18,10" Click="EnterMasterRgb_Click"/>
-                                </Grid>
-                            </Border>
-                            <Border Background="{StaticResource PanelBrush}" BorderBrush="#293B4D" BorderThickness="1" CornerRadius="18" Padding="22" Margin="12,0,0,0" Opacity="0.88">
-                                <Grid>
-                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                                    <StackPanel Orientation="Horizontal">
-                                        <Border Width="58" Height="58" CornerRadius="15" Background="#25233D">
-                                            <TextBlock Text="🎙" FontSize="30" Foreground="#B9A5FF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                        <StackPanel Margin="14,3,0,0" VerticalAlignment="Center">
-                                            <TextBlock Text="MASTER MIC" FontSize="19" FontWeight="Bold"/>
-                                            <TextBlock Text="Áudio e microfones" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,3,0,0"/>
-                                        </StackPanel>
-                                    </StackPanel>
-                                    <TextBlock Grid.Row="1" Text="Configure seu microfone, ajuste o áudio e tenha ferramentas de processamento em um só aplicativo." Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,20,0,22" FontSize="12"/>
-                                    <Border Grid.Row="2" HorizontalAlignment="Left" Background="#263247" CornerRadius="8" Padding="13,8">
-                                        <TextBlock Text="EM DESENVOLVIMENTO" Foreground="#B9A5FF" FontSize="10" FontWeight="Bold"/>
-                                    </Border>
-                                </Grid>
-                            </Border>
-                        </UniformGrid>
-                        <Border Background="{StaticResource PanelBrush}" BorderBrush="#26394B" BorderThickness="1" CornerRadius="15" Padding="20" Margin="0,0,0,18">
-                            <StackPanel>
-                                <TextBlock Text="PREFERÊNCIAS DO MASTER HUB" FontSize="11" Foreground="#7F9BB0" FontWeight="Bold" Margin="0,0,0,15"/>
-                                <TextBlock Text="Aparência" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,9"/>
-                                <StackPanel Orientation="Horizontal">
-                                    <Button x:Name="BlueThemeButton" Content="●  Azul elétrico" Click="BlueTheme_Click" Margin="0,0,8,0" Padding="13,8"/>
-                                    <Button x:Name="LightThemeButton" Content="○  Claro" Click="LightTheme_Click" Margin="0,0,8,0" Padding="13,8"/>
-                                    <Button x:Name="DarkThemeButton" Content="○  Escuro" Click="DarkTheme_Click" Padding="13,8"/>
-                                </StackPanel>
-                                <Separator Margin="0,17,0,14" Background="#293D50"/>
-                                <Grid>
-                                    <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Text="Configurações" FontSize="14" FontWeight="SemiBold"/>
-                                        <TextBlock Text="Inicialização, atualizações e preferências do aplicativo." Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,3,0,0"/>
-                                    </StackPanel>
-                                    <Button Content="Abrir configurações  →" HorizontalAlignment="Right" VerticalAlignment="Center" Click="NavigateSettings_Click" Padding="14,9"/>
-                                </Grid>
+                        <Grid Grid.Row="1" Margin="0,13,0,12" MinHeight="126">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="1.15*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Controle RGB, dispositivos, cores e perfis." Foreground="#C1CBE8" FontSize="12" TextWrapping="Wrap" LineHeight="19"/>
+                                <TextBlock Text="Gerencie a iluminação do seu setup em um único lugar." Foreground="#7482A8" FontSize="10" TextWrapping="Wrap" Margin="0,7,0,0"/>
                             </StackPanel>
-                        </Border>
-                        <TextBlock Text="MASTER HUB • UM ECOSSISTEMA PARA O SEU SETUP" Foreground="{StaticResource MutedBrush}" FontSize="9" HorizontalAlignment="Center" Margin="0,8,0,0"/>
-                    </StackPanel>
-                </ScrollViewer>
+                            <Viewbox Grid.Column="1" Stretch="Uniform" MaxHeight="128" HorizontalAlignment="Right">
+                                <Grid Width="190" Height="120">
+                                    <Ellipse Width="150" Height="90" Fill="#151C66" Opacity="0.28" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <Rectangle Width="125" Height="77" RadiusX="8" RadiusY="8" Fill="#10182B" Stroke="#4559FF" StrokeThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <Rectangle Width="111" Height="62" RadiusX="4" RadiusY="4" Fill="#080D19" Stroke="#182A79" StrokeThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Rectangle Width="7" Height="7" Fill="#324CFF" Margin="2"/>
+                                        <Rectangle Width="7" Height="7" Fill="#5D65FF" Margin="2"/>
+                                        <Rectangle Width="7" Height="7" Fill="#7D54FF" Margin="2"/>
+                                        <Rectangle Width="7" Height="7" Fill="#324CFF" Margin="2"/>
+                                    </StackPanel>
+                                    <Polygon Points="0,0 24,0 24,5 5,5 5,24 0,24" Fill="#6377FF" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                                    <Polygon Points="0,0 24,0 24,5 5,5 5,24 0,24" Fill="#6377FF" HorizontalAlignment="Right" VerticalAlignment="Bottom" RenderTransformOrigin="0.5,0.5">
+                                        <Polygon.RenderTransform><RotateTransform Angle="180"/></Polygon.RenderTransform>
+                                    </Polygon>
+                                    <Rectangle Width="145" Height="4" Fill="#283DFF" Opacity="0.65" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,4"/>
+                                </Grid>
+                            </Viewbox>
+                        </Grid>
+                        <Button Grid.Row="2" Content="ABRIR APLICATIVO   →" Click="EnterMasterRgb_Click" HorizontalAlignment="Left" MinWidth="190" Padding="17,10" Background="#171B73" BorderBrush="#4B5EFF" Foreground="White" FontWeight="Bold"/>
+                    </Grid>
+                </Border>
+                <Border Grid.Column="1" Background="#111222" BorderBrush="#3A2D65" BorderThickness="1" CornerRadius="15" Padding="19" Margin="9,0,0,0">
+                    <Grid>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                        <Grid>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Width="43" Height="43" CornerRadius="11" Background="#24183C" BorderBrush="#7450A8" BorderThickness="1">
+                                    <TextBlock Text="♫" FontSize="25" Foreground="#C09AFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <StackPanel Margin="11,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock Text="MASTER MIC" FontSize="18" FontWeight="Bold" Foreground="#F2F0FF"/>
+                                    <TextBlock Text="ÁUDIO E MICROFONES" FontSize="9" Foreground="#A99AC8" CharacterSpacing="65" Margin="0,3,0,0"/>
+                                </StackPanel>
+                            </StackPanel>
+                            <Border HorizontalAlignment="Right" VerticalAlignment="Top" Background="#241A36" BorderBrush="#59417A" BorderThickness="1" CornerRadius="6" Padding="8,4">
+                                <TextBlock Text="EM DESENVOLVIMENTO" FontSize="8" Foreground="#C5A4FF" FontWeight="Bold"/>
+                            </Border>
+                        </Grid>
+                        <Grid Grid.Row="1" Margin="0,13,0,12" MinHeight="126">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="1.15*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Configuração de microfones e processamento de áudio." Foreground="#D1C8E8" FontSize="12" TextWrapping="Wrap" LineHeight="19"/>
+                                <TextBlock Text="Ajustes, filtros e ferramentas para sua experiência sonora." Foreground="#8D82A8" FontSize="10" TextWrapping="Wrap" Margin="0,7,0,0"/>
+                            </StackPanel>
+                            <Viewbox Grid.Column="1" Stretch="Uniform" MaxHeight="128" HorizontalAlignment="Right">
+                                <Grid Width="150" Height="120">
+                                    <Ellipse Width="116" Height="100" Fill="#43246B" Opacity="0.22"/>
+                                    <Rectangle Width="48" Height="70" RadiusX="23" RadiusY="23" Fill="#17182C" Stroke="#A47CEB" StrokeThickness="2" VerticalAlignment="Top"/>
+                                    <Rectangle Width="36" Height="54" RadiusX="18" RadiusY="18" Fill="#292344" Stroke="#6D55A4" StrokeThickness="1" VerticalAlignment="Top"/>
+                                    <Path Data="M 42,59 C 42,91 108,91 108,59" Stroke="#A47CEB" StrokeThickness="3" Fill="Transparent" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                    <Rectangle Width="4" Height="18" Fill="#A47CEB" VerticalAlignment="Bottom"/>
+                                    <Rectangle Width="32" Height="4" RadiusX="2" RadiusY="2" Fill="#A47CEB" VerticalAlignment="Bottom"/>
+                                </Grid>
+                            </Viewbox>
+                        </Grid>
+                        <Button Grid.Row="2" Content="EM BREVE" IsEnabled="False" HorizontalAlignment="Left" MinWidth="190" Padding="17,10" Background="#29213B" BorderBrush="#4A3C66" Foreground="#B5A4D0" FontWeight="Bold"/>
+                    </Grid>
+                </Border>
             </Grid>
-            <Grid x:Name="LightingPage" Visibility="Collapsed">
+            <TextBlock Text="FERRAMENTAS DO SISTEMA" FontSize="10" Foreground="#7885B3" FontWeight="Bold" CharacterSpacing="140" Margin="0,0,0,10"/>
+            <UniformGrid Columns="5" Margin="0,0,0,18">
+                <Border Background="#0D1525" BorderBrush="#202B4F" BorderThickness="1" CornerRadius="10" Padding="10" Margin="0,0,6,0">
+                    <StackPanel HorizontalAlignment="Center">
+                        <Border Width="34" Height="34" CornerRadius="17" BorderBrush="#273CFF" BorderThickness="1" Background="#111A3A"><TextBlock Text="◈" Foreground="#7184FF" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                        <TextBlock Text="Desempenho" Foreground="#E4E9FA" FontSize="10" FontWeight="Bold" Margin="0,7,0,2"/>
+                        <TextBlock Text="Em breve" Foreground="#7885A8" FontSize="8"/>
+                    </StackPanel>
+                </Border>
+                <Border Background="#0D1525" BorderBrush="#202B4F" BorderThickness="1" CornerRadius="10" Padding="10" Margin="3,0">
+                    <StackPanel HorizontalAlignment="Center">
+                        <Border Width="34" Height="34" CornerRadius="17" BorderBrush="#273CFF" BorderThickness="1" Background="#111A3A"><TextBlock Text="◇" Foreground="#7184FF" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                        <TextBlock Text="Segurança" Foreground="#E4E9FA" FontSize="10" FontWeight="Bold" Margin="0,7,0,2"/>
+                        <TextBlock Text="Em breve" Foreground="#7885A8" FontSize="8"/>
+                    </StackPanel>
+                </Border>
+                <Border Background="#0D1525" BorderBrush="#202B4F" BorderThickness="1" CornerRadius="10" Padding="10" Margin="3,0">
+                    <StackPanel HorizontalAlignment="Center">
+                        <Border Width="34" Height="34" CornerRadius="17" BorderBrush="#273CFF" BorderThickness="1" Background="#111A3A"><TextBlock Text="⌁" Foreground="#7184FF" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                        <TextBlock Text="Rede" Foreground="#E4E9FA" FontSize="10" FontWeight="Bold" Margin="0,7,0,2"/>
+                        <TextBlock Text="Em breve" Foreground="#7885A8" FontSize="8"/>
+                    </StackPanel>
+                </Border>
+                <Border Background="#0D1525" BorderBrush="#202B4F" BorderThickness="1" CornerRadius="10" Padding="10" Margin="3,0">
+                    <StackPanel HorizontalAlignment="Center">
+                        <Border Width="34" Height="34" CornerRadius="17" BorderBrush="#273CFF" BorderThickness="1" Background="#111A3A"><TextBlock Text="↻" Foreground="#7184FF" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                        <TextBlock Text="Atualizações" Foreground="#E4E9FA" FontSize="10" FontWeight="Bold" Margin="0,7,0,2"/>
+                        <TextBlock Text="Ver no MASTER RGB" Foreground="#7885A8" FontSize="8"/>
+                    </StackPanel>
+                </Border>
+                <Border Background="#0D1525" BorderBrush="#202B4F" BorderThickness="1" CornerRadius="10" Padding="10" Margin="6,0,0,0">
+                    <StackPanel HorizontalAlignment="Center">
+                        <Border Width="34" Height="34" CornerRadius="17" BorderBrush="#273CFF" BorderThickness="1" Background="#111A3A"><TextBlock Text="?" Foreground="#7184FF" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                        <TextBlock Text="Suporte" Foreground="#E4E9FA" FontSize="10" FontWeight="Bold" Margin="0,7,0,2"/>
+                        <TextBlock Text="Documentação futura" Foreground="#7885A8" FontSize="8"/>
+                    </StackPanel>
+                </Border>
+            </UniformGrid>
+            <Border Background="#0C1322" BorderBrush="#202B4F" BorderThickness="1" CornerRadius="12" Padding="17">
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="CONFIGURAÇÕES" FontSize="10" Foreground="#7885B3" FontWeight="Bold" CharacterSpacing="140"/>
+                        <TextBlock Text="Personalize o MASTER HUB" FontSize="15" FontWeight="Bold" Foreground="#EAF0FF" Margin="0,4,0,10"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Button x:Name="BlueThemeButton" Content="●  Azul (Padrão)" Click="BlueTheme_Click" Margin="0,0,7,0" Padding="12,7"/>
+                            <Button x:Name="LightThemeButton" Content="○  Claro" Click="LightTheme_Click" Margin="0,0,7,0" Padding="12,7"/>
+                            <Button x:Name="DarkThemeButton" Content="○  Escuro" Click="DarkTheme_Click" Padding="12,7"/>
+                        </StackPanel>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right">
+                        <TextBlock Text="IDIOMA" FontSize="9" Foreground="#7885B3" FontWeight="Bold" Margin="0,0,0,5"/>
+                        <ComboBox Width="170" SelectedIndex="0" IsEnabled="False" ToolTip="Mais idiomas serão adicionados futuramente">
+                            <ComboBoxItem Content="Português (Brasil)"/>
+                        </ComboBox>
+                        <Button Content="⚙  Configurações avançadas" Click="NavigateSettings_Click" Margin="0,9,0,0" Padding="12,7"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+            <TextBlock Text="MASTER HUB  •  SEU SISTEMA, NO SEU CONTROLE" Foreground="#536080" FontSize="8" HorizontalAlignment="Center" Margin="0,13,0,0"/>
+        </StackPanel>
+    </ScrollViewer>
+</Grid>
+<Grid x:Name="LightingPage" Visibility="Collapsed">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="30,25,30,30">
                 <Grid Margin="0,0,0,12">
