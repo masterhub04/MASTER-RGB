@@ -48,6 +48,26 @@ public partial class MainWindow : Window
         // seletores/grupos que operam exclusivamente sobre controladores OpenRGB.
         try
         {
+            // Identificação independente da placa MSI pelo inventário PnP do Windows.
+            // Esta consulta lê somente metadados do Registro; não abre HID nem envia comandos.
+            var pnpDevices = new WindowsHardwareInventory().Collect();
+            var msiBoard = pnpDevices.FirstOrDefault(d =>
+                (d.Source is "HID" or "USB") &&
+                (d.HardwareIds.Contains("VID_1462&PID_7C56", StringComparison.OrdinalIgnoreCase) ||
+                 d.CompatibleIds.Contains("VID_1462&PID_7C56", StringComparison.OrdinalIgnoreCase)));
+
+            var previousBoard = _displayDevices.FirstOrDefault(d => d.Name == "MSI MPG B550 Gaming Plus (MS-7C56)");
+            if (previousBoard is not null) _displayDevices.Remove(previousBoard);
+            if (msiBoard is not null)
+            {
+                _displayDevices.Add(new DeviceDisplayRow(
+                    "MSI MPG B550 Gaming Plus (MS-7C56)",
+                    "MSI • Windows PnP • VID_1462 / PID_7C56 • Detecção independente",
+                    "Interface USB/HID enumerada pelo Windows. Protocolo Mystic Light 185-byte associado ao modelo; nenhuma comunicação RGB foi realizada.",
+                    "Zonas de referência: JRGB1 • JRAINBOW1 • JRAINBOW2 • ONBOARD (não verificadas por leitura direta)",
+                    "IDENTIFICADO"));
+            }
+
             var detection = new LogitechG203HidDriver().DetectConnectedDevice();
             var previous = _displayDevices.FirstOrDefault(d => d.Name == "Logitech G203 Prodigy");
             if (previous is not null) _displayDevices.Remove(previous);
@@ -152,7 +172,7 @@ public partial class MainWindow : Window
                 Report = new
                 {
                     Application = "MASTER RGB",
-                    ApplicationVersion = "0.8.0",
+                    ApplicationVersion = "0.8.1",
                     GeneratedAtLocal = DateTimeOffset.Now,
                     DiagnosticMode = "Read-only; no lighting mode or LED color commands are sent",
                     Computer = Environment.MachineName,
