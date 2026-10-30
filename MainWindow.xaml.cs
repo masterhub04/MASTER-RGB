@@ -24,6 +24,7 @@ public partial class MainWindow : Window
     private bool _updatingColorText;
     private Ellipse? _hueMarker;
     private bool _hueArcDrawn;
+    private string _currentTheme = "Blue";
     private readonly ObservableCollection<FavoriteColorRow> _favoriteColors = new();
     private readonly Dictionary<string, int> _zoneLedOverrides = new(StringComparer.OrdinalIgnoreCase);
     private readonly string _userSettingsPath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MASTER RGB", "user-settings.json");
@@ -38,6 +39,7 @@ public partial class MainWindow : Window
         MultiDeviceList.AddHandler(CheckBox.UncheckedEvent, new RoutedEventHandler(MultiDeviceCheckChanged));
         FavoriteColorsList.ItemsSource = _favoriteColors;
         LoadUserSettings();
+        ApplyTheme(_currentTheme, false);
         RefreshDirectHardwareDisplay();
     }
 
@@ -875,7 +877,7 @@ public partial class MainWindow : Window
             }
             foreach (var pair in settings.ZoneLedOverrides ?? new Dictionary<string, int>())
                 if (pair.Value > 0 && pair.Value <= ushort.MaxValue) _zoneLedOverrides[pair.Key] = pair.Value;
-            BrightnessSlider.Value = Math.Clamp(settings.Brightness, 0, 100);
+            BrightnessSlider.Value = Math.Clamp(settings.Brightness, 0, 100);\n            _currentTheme = settings.Theme ?? "Blue";
         }
         catch (Exception ex)
         {
@@ -889,7 +891,7 @@ public partial class MainWindow : Window
         {
             string? directory = System.IO.Path.GetDirectoryName(_userSettingsPath);
             if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
-            var settings = new UserSettings(_favoriteColors.Select(c => c.Hex).ToList(), _zoneLedOverrides, BrightnessSlider.Value);
+            var settings = new UserSettings(_favoriteColors.Select(c => c.Hex).ToList(), _zoneLedOverrides, BrightnessSlider.Value, _currentTheme);
             File.WriteAllText(_userSettingsPath, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
         }
         catch (Exception ex)
@@ -956,5 +958,5 @@ public partial class MainWindow : Window
     {
         public Brush Brush => new SolidColorBrush((Color)ColorConverter.ConvertFromString(Hex));
     }
-    private sealed record UserSettings(List<string>? FavoriteColors, Dictionary<string, int>? ZoneLedOverrides, double Brightness = 100);
+    private sealed record UserSettings(List<string>? FavoriteColors, Dictionary<string, int>? ZoneLedOverrides, double Brightness = 100, string? Theme = "Blue");
 }
