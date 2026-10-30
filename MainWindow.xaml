@@ -430,7 +430,7 @@
             <Grid x:Name="SettingsPage" Visibility="Collapsed" Background="{StaticResource BgBrush}">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="54,42,54,42">
-                <TextBlock Text="CONFIGURAÇÕES" FontSize="24" FontSize="11" Foreground="#7F9BB0" FontWeight="Bold" Margin="0,8,0,12"/>
+                <TextBlock Text="CONFIGURAÇÕES" FontSize="24" Foreground="{StaticResource TextBrush}" FontWeight="Bold" Margin="0,0,0,8"/>
                 <Border x:Name="SettingsSection" Background="{StaticResource PanelBrush}" CornerRadius="12" Padding="18" Margin="0,0,0,22">
                     <StackPanel>
                         <TextBlock Text="Inicialização do aplicativo" FontSize="17" FontWeight="SemiBold"/>
