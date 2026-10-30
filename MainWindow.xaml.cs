@@ -19,6 +19,7 @@ namespace MasterRgb;
 public partial class MainWindow : Window
 {
     private readonly OpenRgbSdkClient _openRgb = new();
+    private readonly OpenRgbEngineHost _openRgbEngine = new();
     private UpdateManager? _updateManager;
     private UpdateInfo? _pendingUpdate;
     private readonly ObservableCollection<DeviceRow> _devices = new();
@@ -49,12 +50,25 @@ public partial class MainWindow : Window
         ApplyTheme(_currentTheme, false);
         RefreshDirectHardwareDisplay();
         Loaded += MainWindow_Loaded;
+        Closed += (_, _) => _openRgbEngine.Dispose();
     }
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
         if (Environment.GetCommandLineArgs().Any(a => a.Equals("--minimized", StringComparison.OrdinalIgnoreCase)))
             WindowState = WindowState.Minimized;
+        try
+        {
+            await _openRgbEngine.EnsureStartedAsync();
+            EngineStatusText.Text = "Mecanismo RGB integrado • inicializado";
+            EngineStatusText.Foreground = Brushes.LightGreen;
+        }
+        catch (Exception ex)
+        {
+            EngineStatusText.Text = "Mecanismo RGB indisponível";
+            EngineStatusText.Foreground = Brushes.Orange;
+            StatusText.Text = "Não foi possível iniciar a compatibilidade RGB integrada: " + ex.Message;
+        }
         await CheckForUpdatesAsync();
     }
 
@@ -248,6 +262,7 @@ public partial class MainWindow : Window
         DeviceCountText.Text = "Lendo...";
         try
         {
+            await _openRgbEngine.EnsureStartedAsync();
             var devices = await _openRgb.ReadDevicesAsync();
             foreach (var device in devices)
             {
@@ -278,8 +293,8 @@ public partial class MainWindow : Window
             RefreshDirectHardwareDisplay();
             DeviceCountText.Text = $"{_displayDevices.Count} dispositivo(s) • OpenRGB indisponível";
             EmptyDevicesText.Visibility = _displayDevices.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-            EmptyDevicesText.Text = _displayDevices.Count == 0 ? "Não foi possível ler a lista. Abra o OpenRGB, ative o SDK Server e tente novamente." : string.Empty;
-            StatusText.Text = $"Erro ao consultar o OpenRGB: {ex.Message}";
+            EmptyDevicesText.Text = _displayDevices.Count == 0 ? "Não foi possível ler a lista pelo mecanismo RGB integrado. Verifique se o Windows bloqueou o componente ou se faltam permissões de driver." : string.Empty;
+            StatusText.Text = $"Erro ao consultar o mecanismo RGB integrado: {ex.Message}";
         }
         finally { ConnectButtonState(false); }
     }
