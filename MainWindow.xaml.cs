@@ -20,6 +20,9 @@ using Brush = System.Windows.Media.Brush;
 using Color = System.Windows.Media.Color;
 using Brushes = System.Windows.Media.Brushes;
 using CheckBox = System.Windows.Controls.CheckBox;
+using ColorConverter = System.Windows.Media.ColorConverter;
+using Point = System.Windows.Point;
+using SaveFileDialog = Microsoft.Win32.SaveFileDialog;
 
 namespace MasterRgb;
 
