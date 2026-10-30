@@ -72,7 +72,17 @@ public partial class MainWindow : Window
         await CheckForUpdatesAsync();
     }
 
-    private void NavigateDashboard_Click(object sender, RoutedEventArgs e) => ShowPage(DashboardPage, DashboardNavButton);
+    private void NavigateDashboard_Click(object sender, RoutedEventArgs e)
+    {
+        ShowPage(DashboardPage, DashboardNavButton);
+        AppSidebar.Visibility = Visibility.Collapsed;
+    }
+
+    private void EnterMasterRgb_Click(object sender, RoutedEventArgs e)
+    {
+        AppSidebar.Visibility = Visibility.Visible;
+        ShowPage(LightingPage, LightingNavButton);
+    }
     private void NavigateLighting_Click(object sender, RoutedEventArgs e) => ShowPage(LightingPage, LightingNavButton);
     private void NavigateDevices_Click(object sender, RoutedEventArgs e) => ShowPage(DevicesPage, DevicesNavButton);
     private void NavigateProfiles_Click(object sender, RoutedEventArgs e) => ShowPage(ProfilesPage, ProfilesNavButton);
@@ -80,6 +90,7 @@ public partial class MainWindow : Window
 
     private void ShowPage(FrameworkElement page, Button activeButton)
     {
+        if (!ReferenceEquals(page, DashboardPage)) AppSidebar.Visibility = Visibility.Visible;
         DashboardPage.Visibility = Visibility.Collapsed;
         LightingPage.Visibility = Visibility.Collapsed;
         DevicesPage.Visibility = Visibility.Collapsed;
