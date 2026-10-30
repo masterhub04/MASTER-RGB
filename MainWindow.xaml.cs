@@ -11,13 +11,16 @@ using Microsoft.Win32;
 using MasterRgb.Services;
 using MasterRgb.Services.DirectHardware;
 using MasterRgb.Services.DirectHardware.Drivers;
+using Velopack;
+using Velopack.Sources;
 
 namespace MasterRgb;
 
 public partial class MainWindow : Window
 {
     private readonly OpenRgbSdkClient _openRgb = new();
-    private readonly GitHubReleaseChecker _updates = new();
+    private UpdateManager? _updateManager;
+    private UpdateInfo? _pendingUpdate;
     private readonly ObservableCollection<DeviceRow> _devices = new();
     private readonly ObservableCollection<DeviceRow> _selectableDevices = new();
     private readonly ObservableCollection<DeviceDisplayRow> _displayDevices = new();
@@ -974,25 +977,13 @@ public partial class MainWindow : Window
 
     private bool _checkingUpdates;
     private bool _updatesAvailable;
-    private string? _releaseUrl;
 
     private async void CheckUpdates_Click(object sender, RoutedEventArgs e)
     {
         if (_checkingUpdates) return;
-        if (_updatesAvailable && !string.IsNullOrWhiteSpace(_releaseUrl))
+        if (_pendingUpdate is not null)
         {
-            try
-            {
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = _releaseUrl,
-                    UseShellExecute = true
-                });
-            }
-            catch (Exception ex)
-            {
-                UpdateText.Text = "Não foi possível abrir a página da atualização: " + ex.Message;
-            }
+            await DownloadAndApplyUpdateAsync();
             return;
         }
         await CheckForUpdatesAsync();
@@ -1004,36 +995,73 @@ public partial class MainWindow : Window
         _checkingUpdates = true;
         UpdatesButton.IsEnabled = false;
         UpdatesButton.Content = "↻   Verificando...";
-        UpdateText.Text = "Consultando a versão mais recente no GitHub...";
+        UpdateText.Text = "Consultando atualizações oficiais...";
         try
         {
-            var result = await _updates.CheckLatestAsync();
-            _updatesAvailable = result.UpdateAvailable;
-            _releaseUrl = result.ReleaseUrl;
-            if (result.Success && result.UpdateAvailable)
+            _updateManager ??= new UpdateManager(
+                new GithubSource("https://github.com/masterhub04/MASTER-RGB", null, false));
+
+            if (!_updateManager.IsInstalled)
+            {
+                _updatesAvailable = false;
+                UpdatesButton.Content = "↻   Verificar atualização";
+                UpdateText.Text = "Atualizações automáticas disponíveis após instalar o MASTER RGB pelo instalador oficial.";
+                return;
+            }
+
+            var update = await _updateManager.CheckForUpdatesAsync();
+            _pendingUpdate = update;
+            _updatesAvailable = update is not null;
+
+            if (update is not null)
             {
                 UpdatesButton.Content = "⬇   Atualizar";
-                UpdateText.Text = $"Nova versão disponível: {result.LatestVersion}. Versão instalada: {result.CurrentVersion}. Clique em Atualizar para abrir a página da versão.";
-            }
-            else if (result.Success)
-            {
-                UpdatesButton.Content = "↻   Verificar atualização";
-                UpdateText.Text = $"MASTER RGB atualizado. Versão instalada: {result.CurrentVersion}. Última versão: {result.LatestVersion}.";
+                UpdateText.Text = $"Nova versão {update.TargetFullRelease.Version} disponível. Clique em Atualizar para baixar e instalar.";
             }
             else
             {
                 UpdatesButton.Content = "↻   Verificar atualização";
-                UpdateText.Text = result.Message;
+                UpdateText.Text = $"MASTER RGB atualizado. Versão instalada: {_updateManager.CurrentVersion}.";
             }
         }
         catch (Exception ex)
         {
+            _pendingUpdate = null;
+            _updatesAvailable = false;
             UpdatesButton.Content = "↻   Verificar atualização";
-            UpdateText.Text = "Falha ao consultar atualizações: " + ex.Message;
+            UpdateText.Text = "Não foi possível verificar atualizações: " + ex.Message;
         }
         finally
         {
             UpdatesButton.IsEnabled = true;
+            _checkingUpdates = false;
+        }
+    }
+
+    private async Task DownloadAndApplyUpdateAsync()
+    {
+        if (_pendingUpdate is null || _updateManager is null || _checkingUpdates) return;
+
+        _checkingUpdates = true;
+        UpdatesButton.IsEnabled = false;
+        UpdatesButton.Content = "⬇   Baixando...";
+        try
+        {
+            UpdateText.Text = "Baixando a atualização. Não feche o programa...";
+            await _updateManager.DownloadUpdatesAsync(_pendingUpdate, progress =>
+                Dispatcher.Invoke(() => UpdateText.Text = $"Baixando atualização... {progress}%"));
+
+            UpdateText.Text = "Download concluído. O MASTER RGB será reiniciado para concluir a instalação...";
+            await Task.Delay(700);
+            _updateManager.ApplyUpdatesAndRestart(_pendingUpdate);
+        }
+        catch (Exception ex)
+        {
+            UpdatesButton.Content = "↻   Verificar atualização";
+            UpdatesButton.IsEnabled = true;
+            _pendingUpdate = null;
+            _updatesAvailable = false;
+            UpdateText.Text = "Falha ao baixar/aplicar a atualização: " + ex.Message;
             _checkingUpdates = false;
         }
     }
