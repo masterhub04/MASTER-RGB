@@ -58,13 +58,29 @@ public partial class MainWindow : Window
         await CheckForUpdatesAsync();
     }
 
-    private void NavigateDevices_Click(object sender, RoutedEventArgs e) => ScrollToSection(DevicesSection);
-    private void NavigateSettings_Click(object sender, RoutedEventArgs e) => ScrollToSection(SettingsSection);
+    private void NavigateDashboard_Click(object sender, RoutedEventArgs e) => ShowPage(DashboardPage, DashboardNavButton);
+    private void NavigateLighting_Click(object sender, RoutedEventArgs e) => ShowPage(LightingPage, LightingNavButton);
+    private void NavigateDevices_Click(object sender, RoutedEventArgs e) => ShowPage(DevicesPage, DevicesNavButton);
+    private void NavigateProfiles_Click(object sender, RoutedEventArgs e) => ShowPage(ProfilesPage, ProfilesNavButton);
+    private void NavigateSettings_Click(object sender, RoutedEventArgs e) => ShowPage(SettingsPage, SettingsNavButton);
 
-    private void ScrollToSection(FrameworkElement section)
+    private void ShowPage(FrameworkElement page, Button activeButton)
     {
-        section.BringIntoView();
-        MainContentScroll.ScrollToVerticalOffset(section.TransformToAncestor(MainContentScroll).Transform(new Point(0, 0)).Y);
+        DashboardPage.Visibility = Visibility.Collapsed;
+        LightingPage.Visibility = Visibility.Collapsed;
+        DevicesPage.Visibility = Visibility.Collapsed;
+        ProfilesPage.Visibility = Visibility.Collapsed;
+        SettingsPage.Visibility = Visibility.Collapsed;
+        DashboardPage.Visibility = ReferenceEquals(page, DashboardPage) ? Visibility.Visible : Visibility.Collapsed;
+        LightingPage.Visibility = ReferenceEquals(page, LightingPage) ? Visibility.Visible : Visibility.Collapsed;
+        DevicesPage.Visibility = ReferenceEquals(page, DevicesPage) ? Visibility.Visible : Visibility.Collapsed;
+        ProfilesPage.Visibility = ReferenceEquals(page, ProfilesPage) ? Visibility.Visible : Visibility.Collapsed;
+        SettingsPage.Visibility = ReferenceEquals(page, SettingsPage) ? Visibility.Visible : Visibility.Collapsed;
+        foreach (var button in new[] { DashboardNavButton, LightingNavButton, DevicesNavButton, ProfilesNavButton, SettingsNavButton })
+        {
+            button.Background = ReferenceEquals(button, activeButton) ? new SolidColorBrush(Color.FromRgb(23, 54, 77)) : Brushes.Transparent;
+            button.BorderBrush = ReferenceEquals(button, activeButton) ? new SolidColorBrush(Color.FromRgb(35, 74, 104)) : Brushes.Transparent;
+        }
     }
 
     private void StartupOption_Changed(object sender, RoutedEventArgs e)
