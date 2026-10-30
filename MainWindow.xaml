@@ -1,7 +1,7 @@
 <Window x:Class="MasterRgb.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="MASTER RGB v0.8.5" Icon="Assets/master-rgb.ico" Height="820" Width="1320"
+        Title="MASTER RGB v0.8.6" Icon="Assets/master-rgb.ico" Height="820" Width="1320"
         MinHeight="700" MinWidth="1100"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource BgBrush}"
@@ -34,7 +34,7 @@
                     <TextBlock Text="SYSTEM" Foreground="#6F8CA3" FontSize="10" FontWeight="Bold" Margin="8,28,0,10"/>
                     <Button Content="⚙   Settings" HorizontalContentAlignment="Left" Background="Transparent" BorderBrush="Transparent"/>
                     <Button x:Name="UpdatesButton" Content="↻   Verificar atualização" HorizontalContentAlignment="Left" Background="Transparent" BorderBrush="Transparent" Click="CheckUpdates_Click"/>
-                    <TextBlock x:Name="CurrentVersionText" Text="Versão 0.8.5" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="30,0,0,4"/>
+                    <TextBlock x:Name="CurrentVersionText" Text="Versão 0.8.6" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="30,0,0,4"/>
                     <TextBlock Text="APARÊNCIA" Foreground="#6F8CA3" FontSize="10" FontWeight="Bold" Margin="8,28,0,10"/>
                     <TextBlock Text="Escolha seu tema" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="8,0,0,8"/>
                     <UniformGrid Columns="1">
