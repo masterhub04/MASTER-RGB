@@ -1,0 +1,186 @@
+<UserControl x:Class="MasterRgb.Controls.MasterMicControl"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Background="#080D18">
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="Panel" Color="#111E30"/>
+        <SolidColorBrush x:Key="Muted" Color="#9DB0C7"/>
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="#12324A"/>
+            <Setter Property="Foreground" Value="#EAF7FF"/>
+            <Setter Property="BorderBrush" Value="#17658B"/>
+            <Setter Property="Padding" Value="13,8"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style TargetType="ComboBox">
+            <Setter Property="Background" Value="#12324A"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="7"/>
+            <Setter Property="BorderBrush" Value="#17658B"/>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ComboBoxItem">
+                        <Setter Property="Foreground" Value="#EAF7FF"/>
+                        <Setter Property="Background" Value="#0A1422"/>
+                        <Setter Property="Padding" Value="8,6"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter Property="Background" Value="#164565"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#12324A"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="DataGrid">
+            <Setter Property="Background" Value="#0D1726"/>
+            <Setter Property="Foreground" Value="#EAF7FF"/>
+            <Setter Property="RowBackground" Value="#101C2C"/>
+            <Setter Property="AlternatingRowBackground" Value="#142338"/>
+            <Setter Property="BorderBrush" Value="#263A52"/>
+            <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+            <Setter Property="HeadersVisibility" Value="Column"/>
+            <Setter Property="CanUserAddRows" Value="False"/>
+            <Setter Property="IsReadOnly" Value="True"/>
+            <Setter Property="AutoGenerateColumns" Value="False"/>
+        </Style>
+    </UserControl.Resources>
+    <Grid Margin="22">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid Grid.Row="0" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Text="MASTER MIC" FontSize="28" FontWeight="Bold" Foreground="White"/>
+                <TextBlock Text="VOICE STUDIO &amp; USB INSPECTOR  •  VERSION 0.4.0" Foreground="#00C8FF" FontSize="11" FontWeight="SemiBold" Margin="1,3,0,0"/>
+                <TextBlock Text="Controle de áudio do Windows e investigação segura do FIFINE A8 Plus." Foreground="{StaticResource Muted}" Margin="1,8,0,0"/>
+            </StackPanel>
+            <Border Grid.Column="1" Background="#102A25" BorderBrush="#1E765B" BorderThickness="1" CornerRadius="8" Padding="12,8" VerticalAlignment="Top">
+                <StackPanel Orientation="Horizontal"><Ellipse Width="8" Height="8" Fill="#39D98A" Margin="0,0,8,0"/><TextBlock Text="CONTROLE DE ÁUDIO" Foreground="#B8F5D5" FontWeight="SemiBold"/></StackPanel>
+            </Border>
+        </Grid>
+        <TabControl Grid.Row="1" Background="#080D18" BorderBrush="#263A52" Foreground="#EAF7FF">
+            <TabItem Header="CONTROLE DE ÁUDIO" Padding="16,8">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="14">
+                        <Border Background="{StaticResource Panel}" CornerRadius="10" Padding="18" Margin="0,0,0,14">
+                            <StackPanel>
+                                <TextBlock Text="DISPOSITIVO DE CAPTURA" Foreground="#00C8FF" FontWeight="Bold" FontSize="11"/>
+                                <DockPanel Margin="0,9,0,0">
+                                    <ComboBox x:Name="MicrophoneCombo" MinWidth="400" Height="34" DisplayMemberPath="FriendlyName" SelectionChanged="MicrophoneCombo_SelectionChanged"/>
+                                    <Button Content="Atualizar dispositivos" Click="RefreshAudio_Click" Margin="10,0,0,0"/>
+                                </DockPanel>
+                                <TextBlock x:Name="DeviceStatusText" Text="Procurando microfones..." Foreground="{StaticResource Muted}" Margin="0,9,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Background="{StaticResource Panel}" CornerRadius="10" Padding="18" Margin="0,0,0,14">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="VOLUME DE ENTRADA DO WINDOWS" Foreground="#00C8FF" FontWeight="Bold" FontSize="11"/>
+                                        <TextBlock x:Name="VolumeValueText" Text="--%" Foreground="White" FontSize="30" FontWeight="Bold" Margin="0,5,0,0"/>
+                                    </StackPanel>
+                                    <Button Grid.Column="1" x:Name="MuteButton" Content="MUTAR MICROFONE" Width="170" Height="42" VerticalAlignment="Center" Click="MuteButton_Click" Margin="0"/>
+                                </Grid>
+                                <Slider x:Name="VolumeSlider" Minimum="0" Maximum="100" Value="50" Margin="0,17,0,5" IsEnabled="False" ValueChanged="VolumeSlider_ValueChanged"/>
+                                <DockPanel><TextBlock Text="0%" Foreground="{StaticResource Muted}"/><TextBlock Text="100%" Foreground="{StaticResource Muted}" DockPanel.Dock="Right"/></DockPanel>
+                                <TextBlock x:Name="MuteStatusText" Text="Estado do mute: --" Foreground="{StaticResource Muted}" Margin="0,12,0,0"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Background="{StaticResource Panel}" CornerRadius="10" Padding="18" Margin="0,0,0,14">
+                            <StackPanel>
+                                <TextBlock Text="MONITORAMENTO DO MICROFONE" Foreground="#00C8FF" FontWeight="Bold" FontSize="11"/>
+                                <CheckBox x:Name="NoiseSuppressionCheck"
+                                          Content="ATIVAR SUPRESSOR DE RUÍDO (RNNOISE)"
+                                          Foreground="#00D5FF" FontWeight="Bold"
+                                          FontSize="12" Margin="0,10,0,0"
+                                          Checked="NoiseSuppressionCheck_Changed"
+                                          Unchecked="NoiseSuppressionCheck_Changed"/>
+                                <TextBlock Text="Processamento local em tempo real. Os efeitos abaixo são aplicados ao monitoramento do MASTER MIC."
+                                           Foreground="#C8D7E8" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                                <Border Background="#0A1422" BorderBrush="#263A52" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,12,0,4">
+                                    <StackPanel>
+                                        <TextBlock Text="VOICE EFFECTS" Foreground="#00C8FF" FontWeight="Bold" FontSize="11" Margin="0,0,0,10"/>
+                                        <CheckBox x:Name="NoiseGateCheck" Content="NOISE GATE — reduzir ruído quando não estiver falando"
+                                                  Foreground="#EAF7FF" Margin="0,0,0,5"
+                                                  Checked="VoiceEffects_Changed" Unchecked="VoiceEffects_Changed"/>
+                                        <DockPanel Margin="0,0,0,10">
+                                            <TextBlock Text="Sensibilidade do Gate" Foreground="#C8D7E8" Width="190" VerticalAlignment="Center"/>
+                                            <Slider x:Name="GateThresholdSlider" Minimum="-60" Maximum="-20" Value="-45"
+                                                    TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center"
+                                                    ValueChanged="VoiceEffectsSlider_Changed"/>
+                                            <TextBlock x:Name="GateThresholdValue" Text="-45 dB" Foreground="#00D5FF" Width="58" TextAlignment="Right" VerticalAlignment="Center"/>
+                                        </DockPanel>
+                                        <CheckBox x:Name="CompressorCheck" Content="COMPRESSOR — equilibrar partes altas e baixas da voz"
+                                                  Foreground="#EAF7FF" Margin="0,0,0,5"
+                                                  Checked="VoiceEffects_Changed" Unchecked="VoiceEffects_Changed"/>
+                                        <DockPanel Margin="0,0,0,10">
+                                            <TextBlock Text="Intensidade" Foreground="#C8D7E8" Width="190" VerticalAlignment="Center"/>
+                                            <Slider x:Name="CompressorRatioSlider" Minimum="1" Maximum="6" Value="3"
+                                                    TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center"
+                                                    ValueChanged="VoiceEffectsSlider_Changed"/>
+                                            <TextBlock x:Name="CompressorRatioValue" Text="3:1" Foreground="#00D5FF" Width="58" TextAlignment="Right" VerticalAlignment="Center"/>
+                                        </DockPanel>
+                                        <DockPanel>
+                                            <TextBlock Text="VOICE CLARITY — presença" Foreground="#C8D7E8" Width="190" VerticalAlignment="Center"/>
+                                            <Slider x:Name="PresenceSlider" Minimum="0" Maximum="6" Value="0"
+                                                    TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center"
+                                                    ValueChanged="VoiceEffectsSlider_Changed"/>
+                                            <TextBlock x:Name="PresenceValue" Text="+0 dB" Foreground="#00D5FF" Width="58" TextAlignment="Right" VerticalAlignment="Center"/>
+                                        </DockPanel>
+                                        <TextBlock Text="Os efeitos são aplicados em sequência ao áudio monitorado. Gate, compressor e presença começam com valores moderados; ajuste ouvindo com fones."
+                                                   Foreground="#8FA6BF" FontSize="10" TextWrapping="Wrap" Margin="0,10,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                <DockPanel Margin="0,10,0,0">
+                                    <Button x:Name="MonitorButton" Content="OUVIR MICROFONE" Width="190" Height="42" Margin="0,0,14,0" Click="MonitorButton_Click"/>
+                                    <TextBlock x:Name="MonitorStatusText" Text="Monitoramento desligado" Foreground="#9DB0C7" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                </DockPanel>
+                                <TextBlock Text="O áudio capturado será reproduzido no dispositivo de saída padrão do Windows. Use fones de ouvido para evitar microfonia/eco. Pode haver um pequeno atraso." Foreground="#C8D7E8" TextWrapping="Wrap" Margin="0,10,0,0"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Background="#102338" BorderBrush="#1B5475" BorderThickness="1" CornerRadius="10" Padding="15">
+                            <StackPanel>
+                                <TextBlock Text="IMPORTANTE SOBRE O GANHO" Foreground="#00C8FF" FontWeight="Bold" FontSize="11"/>
+                                <TextBlock Text="Este controle altera o volume do endpoint de captura do Windows. Ele não confirma nem altera diretamente o ganho analógico interno do FIFINE A8 Plus. O estado é atualizado periodicamente para refletir mudanças feitas no próprio Windows." Foreground="#C8D7E8" TextWrapping="Wrap" Margin="0,7,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem Header="DIAGNÓSTICO USB" Padding="16,8">
+                <Grid Margin="12">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="2*"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <DockPanel Margin="0,0,0,12">
+                        <StackPanel DockPanel.Dock="Left"><TextBlock Text="DISPOSITIVOS USB / ÁUDIO / HID" Foreground="White" FontWeight="Bold"/><TextBlock x:Name="StatusText" Text="Pronto para investigar." Foreground="{StaticResource Muted}" FontSize="12" Margin="0,4,0,0"/></StackPanel>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                            <CheckBox x:Name="ShowAllCheck" Content="Mostrar todos" Foreground="#C8D7E8" VerticalAlignment="Center" Margin="0,0,12,0" Checked="ShowAllCheck_Changed" Unchecked="ShowAllCheck_Changed"/>
+                            <Button Content="Atualizar" Click="RefreshUsb_Click"/><Button Content="Exportar TXT" Click="Export_Click" Margin="0"/>
+                        </StackPanel>
+                    </DockPanel>
+                    <DataGrid x:Name="DevicesGrid" Grid.Row="1" Margin="0,0,0,12" SelectionChanged="DevicesGrid_SelectionChanged">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Dispositivo" Binding="{Binding Name}" Width="2*"/>
+                            <DataGridTextColumn Header="Fabricante" Binding="{Binding Manufacturer}" Width="*"/>
+                            <DataGridTextColumn Header="Classe" Binding="{Binding PnpClass}" Width="*"/>
+                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="90"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <TextBlock Grid.Row="2" Text="DETALHES DO DISPOSITIVO SELECIONADO" Foreground="#00C8FF" FontWeight="Bold" FontSize="11" Margin="0,0,0,7"/>
+                    <TextBox x:Name="DetailsText" Grid.Row="3" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Background="#0A1422" Foreground="#D9E8F7" BorderBrush="#263A52" FontFamily="Consolas" FontSize="11" Padding="9" Text="Selecione um dispositivo para ver os detalhes."/>
+                </Grid>
+            </TabItem>
+        </TabControl>
+        <TextBlock Grid.Row="2" Text="MASTER MIC V0.4.0  •  Voice Studio  •  RGB fora desta versão  •  Nenhum comando USB desconhecido é enviado." Foreground="#70869F" FontSize="10" Margin="2,12,0,0"/>
+    </Grid>
+</UserControl>
