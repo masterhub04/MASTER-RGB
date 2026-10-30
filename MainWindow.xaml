@@ -254,6 +254,10 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="30,25,30,30">
                 <TextBlock Text="HARDWARE" FontSize="11" Foreground="#7F9BB0" FontWeight="Bold" Margin="0,8,0,12"/>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                    <Button x:Name="ConnectOpenRgbButton" Content="Detectar dispositivos RGB" Click="ConnectOpenRgb_Click" MinWidth="210" Padding="16,10" Margin="0,0,10,0"/>
+                    <Button x:Name="RunDiagnosticButton" Content="Executar diagnóstico" Click="RunDiagnostic_Click" MinWidth="175" Padding="16,10"/>
+                </StackPanel>
                 <Border x:Name="DevicesSection" Background="{StaticResource CardBrush}" CornerRadius="12" Padding="16" Margin="0,0,0,22">
                     <StackPanel>
                         <Grid Margin="0,0,0,10">
