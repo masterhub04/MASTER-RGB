@@ -161,6 +161,40 @@ public partial class MainWindow : Window
                     msiZones, false, true));
             }
 
+            // Identifica a GPU NVIDIA pelo inventário PCI do Windows.
+            // A GPU aparece na lista como hardware detectado, mas não é tratada
+            // como controlador RGB sem uma interface de iluminação confirmada.
+            const string gpuName = "Gainward GeForce RTX 3060 Ghost 12GB";
+            var previousGpu = _displayDevices.FirstOrDefault(d => d.Name == gpuName);
+            if (previousGpu is not null) _displayDevices.Remove(previousGpu);
+            var previousGpuSelectable = _selectableDevices.FirstOrDefault(d => d.Index == -3);
+            if (previousGpuSelectable is not null) _selectableDevices.Remove(previousGpuSelectable);
+            var previousGpuGroup = _devices.FirstOrDefault(d => d.Index == -3);
+            if (previousGpuGroup is not null) _devices.Remove(previousGpuGroup);
+
+            var gpu = pnpDevices.FirstOrDefault(d =>
+                d.Source == "PCI" &&
+                (d.HardwareIds.Contains("VEN_10DE", StringComparison.OrdinalIgnoreCase) ||
+                 d.CompatibleIds.Contains("VEN_10DE", StringComparison.OrdinalIgnoreCase)) &&
+                (d.HardwareIds.Contains("CC_0300", StringComparison.OrdinalIgnoreCase) ||
+                 d.CompatibleIds.Contains("CC_0300", StringComparison.OrdinalIgnoreCase) ||
+                 d.CompatibleIds.Contains("CC_0302", StringComparison.OrdinalIgnoreCase) ||
+                 d.HardwareIds.Contains("CC_0302", StringComparison.OrdinalIgnoreCase)));
+
+            if (gpu is not null)
+            {
+                string detectedGpuName = string.IsNullOrWhiteSpace(gpu.FriendlyName) ? gpuName : gpu.FriendlyName;
+                string gpuDetails = $"NVIDIA • PCI • {gpu.RedactedInstanceId} • Identificação somente leitura";
+                _displayDevices.Add(new DeviceDisplayRow(detectedGpuName, gpuDetails,
+                    "GPU detectada • controlador RGB ainda não identificado", "DETECTADO"));
+
+                var gpuRow = new DeviceRow(-3, detectedGpuName, gpuDetails,
+                    "GPU detectada • sem zonas RGB confirmadas",
+                    new[] { new OpenRgbZone("RGB não identificado", 0) }, false, true);
+                _selectableDevices.Add(gpuRow);
+                _devices.Add(gpuRow);
+            }
+
             var detection = new LogitechG203HidDriver().DetectConnectedDevice();
             var previous = _displayDevices.FirstOrDefault(d => d.Name == "Logitech G203 Prodigy");
             if (previous is not null) _displayDevices.Remove(previous);
@@ -178,6 +212,8 @@ public partial class MainWindow : Window
                     "Logitech • USB HID • Controle direto",
                     "Iluminação RGB do mouse (1 zona)",
                     new[] { new OpenRgbZone("Iluminação RGB", 1) }, true));
+                var mouseRow = _selectableDevices.Last();
+                _devices.Add(mouseRow);
             }
             DeviceCountText.Text = $"{_displayDevices.Count} dispositivo(s)";
             EmptyDevicesText.Visibility = _displayDevices.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -265,7 +301,7 @@ public partial class MainWindow : Window
                 Report = new
                 {
                     Application = "MASTER RGB",
-                    ApplicationVersion = "0.8.3",
+                    ApplicationVersion = "0.9.1",
                     GeneratedAtLocal = DateTimeOffset.Now,
                     DiagnosticMode = "Read-only; no lighting mode or LED color commands are sent",
                     Computer = Environment.MachineName,
