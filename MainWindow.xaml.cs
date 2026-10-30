@@ -18,6 +18,8 @@ using Application = System.Windows.Application;
 using Button = System.Windows.Controls.Button;
 using Brush = System.Windows.Media.Brush;
 using Color = System.Windows.Media.Color;
+using Brushes = System.Windows.Media.Brushes;
+using CheckBox = System.Windows.Controls.CheckBox;
 
 namespace MasterRgb;
 
@@ -189,7 +191,7 @@ public partial class MainWindow : Window
                 menu.Items.Add(message);
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Verificar atualizações", null, async (_, _) => await CheckForUpdatesAsync());
-        menu.Show(Cursor.Position.X, Cursor.Position.Y);
+        menu.Show(System.Windows.Forms.Cursor.Position.X, System.Windows.Forms.Cursor.Position.Y);
     }
 
     private void StartupOption_Changed(object sender, RoutedEventArgs e)
