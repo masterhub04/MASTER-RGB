@@ -217,7 +217,7 @@
                 <Grid>
                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                     <StackPanel>
-                        <TextBlock Text="CONFIGURAÇÕES" FontSize="10" Foreground="#7885B3" FontWeight="Bold"/>
+                        <TextBlock Text="CONFIGURAÇÕES" FontSize="24" Foreground="{StaticResource TextBrush}" FontWeight="Bold" Margin="0,0,0,8"/>
                         <TextBlock Text="Personalize o MASTER HUB" FontSize="15" FontWeight="Bold" Foreground="#EAF0FF" Margin="0,4,0,10"/>
                         <StackPanel Orientation="Horizontal">
                             <Button x:Name="BlueThemeButton" Content="●  Azul (Padrão)" Click="BlueTheme_Click" Margin="0,0,7,0" Padding="12,7"/>
