@@ -78,10 +78,10 @@
                         <StackPanel>
                             <TextBlock Text="WELCOME TO MASTER RGB" Foreground="#52CFFF" FontSize="10" FontWeight="Bold"/>
                             <TextBlock Text="Sua iluminação. Um só lugar." FontSize="23" FontWeight="Bold" Margin="0,8,0,5"/>
-                            <TextBlock Text="Controle de cores estáticas por dispositivo e zona, usando o OpenRGB SDK." Foreground="#A8C1D3" TextWrapping="Wrap" MaxWidth="650"/>
+                            <TextBlock Text="Controle de iluminação por dispositivo e zona, com mecanismo de compatibilidade integrado ao MASTER RGB." Foreground="#A8C1D3" TextWrapping="Wrap" MaxWidth="650"/>
                         </StackPanel>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                            <Button x:Name="ConnectOpenRgbButton" Content="Conectar ao OpenRGB" Click="ConnectOpenRgb_Click" Margin="0,0,8,0"/>
+                            <Button x:Name="ConnectOpenRgbButton" Content="Detectar dispositivos RGB" Click="ConnectOpenRgb_Click" Margin="0,0,8,0"/>
                             <Button x:Name="RunDiagnosticButton" Content="▤  Diagnóstico completo" Background="#17435A" Click="RunDiagnostic_Click"/>
                         </StackPanel>
                     </Grid>
