@@ -57,7 +57,7 @@
                         <Border Background="#123B2B" CornerRadius="12" Padding="10,6" Margin="0,0,10,0">
                             <TextBlock Text="●  LOCAL" Foreground="#5CE0A1" FontSize="10" FontWeight="Bold"/>
                         </Border>
-                        <TextBlock Text="v0.7.8" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="v0.8.1" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Grid>
 
