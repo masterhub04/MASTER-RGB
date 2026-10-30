@@ -14,6 +14,10 @@ using MasterRgb.Services.DirectHardware.Drivers;
 using Velopack;
 using Velopack.Sources;
 using Forms = System.Windows.Forms;
+using Application = System.Windows.Application;
+using Button = System.Windows.Controls.Button;
+using Brush = System.Windows.Media.Brush;
+using Color = System.Windows.Media.Color;
 
 namespace MasterRgb;
 
