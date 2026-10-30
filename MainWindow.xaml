@@ -56,7 +56,7 @@
         <Grid>
             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <Border Width="42" Height="42" CornerRadius="12" Background="#10143A" BorderBrush="#0000FF" BorderThickness="1">
+                <Border Width="42" Height="42" CornerRadius="12" Background="#10143A" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1">
                     <TextBlock Text="M" FontSize="25" FontWeight="Black" Foreground="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Border>
                 <StackPanel Margin="13,0,0,0" VerticalAlignment="Center">
@@ -95,8 +95,8 @@
                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                         <Grid>
                             <StackPanel Orientation="Horizontal">
-                                <Border Width="43" Height="43" CornerRadius="11" Background="#111A4A" BorderBrush="#0000FF" BorderThickness="1">
-                                    <TextBlock Text="✦" FontSize="26" Foreground="#657BFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <Border Width="43" Height="43" CornerRadius="11" Background="#111A4A" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1">
+                                    <TextBlock Text="✦" FontSize="26" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
                                 <StackPanel Margin="11,0,0,0" VerticalAlignment="Center">
                                     <TextBlock Text="MASTER RGB" FontSize="18" FontWeight="Bold" Foreground="#F2F5FF"/>
@@ -132,7 +132,7 @@
                                 </Grid>
                             </Viewbox>
                         </Grid>
-                        <Button Grid.Row="2" Content="ABRIR APLICATIVO   →" Click="EnterMasterRgb_Click" HorizontalAlignment="Left" MinWidth="190" Padding="17,10" Background="#171B73" BorderBrush="#4B5EFF" Foreground="White" FontWeight="Bold"/>
+                        <Button Grid.Row="2" Content="ABRIR APLICATIVO   →" Click="EnterMasterRgb_Click" HorizontalAlignment="Left" MinWidth="190" Padding="17,10" Background="#171B73" BorderBrush="{DynamicResource AccentBrush}" Foreground="White" FontWeight="Bold"/>
                     </Grid>
                 </Border>
                 <Border Grid.Column="1" Background="#111222" BorderBrush="#3A2D65" BorderThickness="1" CornerRadius="15" Padding="19" Margin="9,0,0,0">
@@ -177,35 +177,35 @@
             <UniformGrid Columns="5" Margin="0,0,0,18">
                 <Border Background="#0D1525" BorderBrush="#202B4F" BorderThickness="1" CornerRadius="10" Padding="10" Margin="0,0,6,0">
                     <StackPanel HorizontalAlignment="Center">
-                        <Border Width="34" Height="34" CornerRadius="17" BorderBrush="#273CFF" BorderThickness="1" Background="#111A3A"><TextBlock Text="◈" Foreground="#7184FF" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                        <Border Width="34" Height="34" CornerRadius="17" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" Background="#111A3A"><TextBlock Text="◈" Foreground="{DynamicResource AccentBrush}" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
                         <TextBlock Text="Desempenho" Foreground="#E4E9FA" FontSize="10" FontWeight="Bold" Margin="0,7,0,2"/>
                         <TextBlock Text="Em breve" Foreground="#7885A8" FontSize="8"/>
                     </StackPanel>
                 </Border>
                 <Border Background="#0D1525" BorderBrush="#202B4F" BorderThickness="1" CornerRadius="10" Padding="10" Margin="3,0">
                     <StackPanel HorizontalAlignment="Center">
-                        <Border Width="34" Height="34" CornerRadius="17" BorderBrush="#273CFF" BorderThickness="1" Background="#111A3A"><TextBlock Text="◇" Foreground="#7184FF" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                        <Border Width="34" Height="34" CornerRadius="17" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" Background="#111A3A"><TextBlock Text="◇" Foreground="{DynamicResource AccentBrush}" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
                         <TextBlock Text="Segurança" Foreground="#E4E9FA" FontSize="10" FontWeight="Bold" Margin="0,7,0,2"/>
                         <TextBlock Text="Em breve" Foreground="#7885A8" FontSize="8"/>
                     </StackPanel>
                 </Border>
                 <Border Background="#0D1525" BorderBrush="#202B4F" BorderThickness="1" CornerRadius="10" Padding="10" Margin="3,0">
                     <StackPanel HorizontalAlignment="Center">
-                        <Border Width="34" Height="34" CornerRadius="17" BorderBrush="#273CFF" BorderThickness="1" Background="#111A3A"><TextBlock Text="⌁" Foreground="#7184FF" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                        <Border Width="34" Height="34" CornerRadius="17" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" Background="#111A3A"><TextBlock Text="⌁" Foreground="{DynamicResource AccentBrush}" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
                         <TextBlock Text="Rede" Foreground="#E4E9FA" FontSize="10" FontWeight="Bold" Margin="0,7,0,2"/>
                         <TextBlock Text="Em breve" Foreground="#7885A8" FontSize="8"/>
                     </StackPanel>
                 </Border>
                 <Border Background="#0D1525" BorderBrush="#202B4F" BorderThickness="1" CornerRadius="10" Padding="10" Margin="3,0">
                     <StackPanel HorizontalAlignment="Center">
-                        <Border Width="34" Height="34" CornerRadius="17" BorderBrush="#273CFF" BorderThickness="1" Background="#111A3A"><TextBlock Text="↻" Foreground="#7184FF" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                        <Border Width="34" Height="34" CornerRadius="17" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" Background="#111A3A"><TextBlock Text="↻" Foreground="{DynamicResource AccentBrush}" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
                         <TextBlock Text="Atualizações" Foreground="#E4E9FA" FontSize="10" FontWeight="Bold" Margin="0,7,0,2"/>
                         <TextBlock Text="Ver no MASTER RGB" Foreground="#7885A8" FontSize="8"/>
                     </StackPanel>
                 </Border>
                 <Border Background="#0D1525" BorderBrush="#202B4F" BorderThickness="1" CornerRadius="10" Padding="10" Margin="6,0,0,0">
                     <StackPanel HorizontalAlignment="Center">
-                        <Border Width="34" Height="34" CornerRadius="17" BorderBrush="#273CFF" BorderThickness="1" Background="#111A3A"><TextBlock Text="?" Foreground="#7184FF" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                        <Border Width="34" Height="34" CornerRadius="17" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" Background="#111A3A"><TextBlock Text="?" Foreground="{DynamicResource AccentBrush}" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
                         <TextBlock Text="Suporte" Foreground="#E4E9FA" FontSize="10" FontWeight="Bold" Margin="0,7,0,2"/>
                         <TextBlock Text="Documentação futura" Foreground="#7885A8" FontSize="8"/>
                     </StackPanel>
