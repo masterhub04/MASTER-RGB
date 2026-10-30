@@ -29,6 +29,7 @@ public partial class MainWindow : Window
     private Ellipse? _hueMarker;
     private bool _hueArcDrawn;
     private string _currentTheme = "Blue";
+    private string _uiAccentColor = "#0000FF";
     private bool _startWithWindows;
     private bool _startMinimized;
     private readonly ObservableCollection<FavoriteColorRow> _favoriteColors = new();
@@ -862,6 +863,7 @@ public partial class MainWindow : Window
             try
             {
                 ColorPreview.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(value));
+                ApplyUiAccentColor(value);
                 _updatingColorText = true;
                 RedSlider.Value = (rgb >> 16) & 0xFF;
                 GreenSlider.Value = (rgb >> 8) & 0xFF;
@@ -1017,7 +1019,7 @@ public partial class MainWindow : Window
         Application.Current.Resources["CardBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(card));
         Application.Current.Resources["TextBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(text));
         Application.Current.Resources["MutedBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(muted));
-        Application.Current.Resources["AccentBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(accent));
+        Application.Current.Resources["AccentBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(_uiAccentColor));
 
         Background = (Brush)Application.Current.Resources["BgBrush"];
         Foreground = (Brush)Application.Current.Resources["TextBrush"];
@@ -1049,6 +1051,7 @@ public partial class MainWindow : Window
                 if (pair.Value > 0 && pair.Value <= ushort.MaxValue) _zoneLedOverrides[pair.Key] = pair.Value;
             BrightnessSlider.Value = Math.Clamp(settings.Brightness, 0, 100);
             _currentTheme = settings.Theme ?? "Blue";
+            _uiAccentColor = NormalizeHexColor(settings.UiAccentColor) ?? "#0000FF";
             _startWithWindows = settings.StartWithWindows;
             _startMinimized = settings.StartMinimized;
         }
@@ -1064,7 +1067,7 @@ public partial class MainWindow : Window
         {
             string? directory = System.IO.Path.GetDirectoryName(_userSettingsPath);
             if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
-            var settings = new UserSettings(_favoriteColors.Select(c => c.Hex).ToList(), _zoneLedOverrides, BrightnessSlider.Value, _currentTheme, _startWithWindows, _startMinimized);
+            var settings = new UserSettings(_favoriteColors.Select(c => c.Hex).ToList(), _zoneLedOverrides, BrightnessSlider.Value, _currentTheme, _startWithWindows, _startMinimized, _uiAccentColor);
             File.WriteAllText(_userSettingsPath, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
         }
         catch (Exception ex)
@@ -1215,5 +1218,22 @@ public partial class MainWindow : Window
     {
         public Brush Brush => new SolidColorBrush((Color)ColorConverter.ConvertFromString(Hex));
     }
-    private sealed record UserSettings(List<string>? FavoriteColors, Dictionary<string, int>? ZoneLedOverrides, double Brightness = 100, string? Theme = "Blue", bool StartWithWindows = false, bool StartMinimized = false);
+    private static string? NormalizeHexColor(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        string normalized = value.Trim().ToUpperInvariant();
+        if (!normalized.StartsWith('#')) normalized = "#" + normalized;
+        return normalized.Length == 7 && uint.TryParse(normalized[1..], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out _) ? normalized : null;
+    }
+
+    private void ApplyUiAccentColor(string hex, bool save = true)
+    {
+        string? normalized = NormalizeHexColor(hex);
+        if (normalized is null) return;
+        _uiAccentColor = normalized;
+        Application.Current.Resources["AccentBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(_uiAccentColor));
+        if (save) SaveUserSettings();
+    }
+
+    private sealed record UserSettings(List<string>? FavoriteColors, Dictionary<string, int>? ZoneLedOverrides, double Brightness = 100, string? Theme = "Blue", bool StartWithWindows = false, bool StartMinimized = false, string? UiAccentColor = "#0000FF");
 }
