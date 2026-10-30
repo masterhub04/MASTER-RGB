@@ -12,11 +12,11 @@ using System.Reflection;
 
 [assembly: System.Reflection.AssemblyCompanyAttribute("MASTER RGB")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
-[assembly: System.Reflection.AssemblyFileVersionAttribute("0.7.8.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("0.7.8+3738cd43cfa5db4fe042601af5ca9662637288d4")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("0.7.9.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("0.7.9+9dc326484b33c7b19bae2306f5e64bdf00c17110")]
 [assembly: System.Reflection.AssemblyProductAttribute("MASTER RGB")]
 [assembly: System.Reflection.AssemblyTitleAttribute("MASTER RGB")]
-[assembly: System.Reflection.AssemblyVersionAttribute("0.7.8.0")]
+[assembly: System.Reflection.AssemblyVersionAttribute("0.7.9.0")]
 [assembly: System.Runtime.Versioning.TargetPlatformAttribute("Windows7.0")]
 [assembly: System.Runtime.Versioning.SupportedOSPlatformAttribute("Windows7.0")]
 
