@@ -1,7 +1,7 @@
 <Window x:Class="MasterRgb.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="MASTER RGB v0.8.8" Icon="Assets/master-rgb.ico" Height="820" Width="1320"
+        Title="MASTER RGB v0.8.9" Icon="Assets/master-rgb.ico" Height="820" Width="1320"
         MinHeight="700" MinWidth="1100"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource BgBrush}"
@@ -27,14 +27,14 @@
                         </StackPanel>
                     </StackPanel>
                     <TextBlock Text="WORKSPACE" Foreground="#6F8CA3" FontSize="10" FontWeight="Bold" Margin="8,0,0,10"/>
-                    <Button Content="▦   Dashboard" HorizontalContentAlignment="Left" Background="#17364D"/>
-                    <Button Content="✦   Lighting Studio" HorizontalContentAlignment="Left" Background="Transparent" BorderBrush="Transparent"/>
-                    <Button Content="▣   Dispositivos" HorizontalContentAlignment="Left" Background="Transparent" BorderBrush="Transparent" Click="NavigateDevices_Click"/>
-                    <Button Content="▤   Profiles" HorizontalContentAlignment="Left" Background="Transparent" BorderBrush="Transparent"/>
+                    <Button x:Name="DashboardNavButton" Content="▦   Dashboard" HorizontalContentAlignment="Left" Background="#17364D" Click="NavigateDashboard_Click"/>
+                    <Button x:Name="LightingNavButton" Content="✦   Lighting Studio" HorizontalContentAlignment="Left" Background="Transparent" BorderBrush="Transparent" Click="NavigateLighting_Click"/>
+                    <Button Content="▣   Dispositivos" HorizontalContentAlignment="Left" Background="Transparent" BorderBrush="Transparent" Click="NavigateDevices_Click" x:Name="DevicesNavButton"/>
+                    <Button x:Name="ProfilesNavButton" Content="▤   Perfis" HorizontalContentAlignment="Left" Background="Transparent" BorderBrush="Transparent" Click="NavigateProfiles_Click"/>
                     <TextBlock Text="SYSTEM" Foreground="#6F8CA3" FontSize="10" FontWeight="Bold" Margin="8,28,0,10"/>
-                    <Button Content="⚙   Configurações" HorizontalContentAlignment="Left" Background="Transparent" BorderBrush="Transparent" Click="NavigateSettings_Click"/>
+                    <Button Content="⚙   Configurações" HorizontalContentAlignment="Left" Background="Transparent" BorderBrush="Transparent" Click="NavigateSettings_Click" x:Name="SettingsNavButton"/>
                     <Button x:Name="UpdatesButton" Content="↻   Verificar atualização" HorizontalContentAlignment="Left" Background="Transparent" BorderBrush="Transparent" Click="CheckUpdates_Click"/>
-                    <TextBlock x:Name="CurrentVersionText" Text="Versão 0.8.8" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="30,0,0,4"/>
+                    <TextBlock x:Name="CurrentVersionText" Text="Versão 0.8.9" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="30,0,0,4"/>
                     <TextBlock Text="APARÊNCIA" Foreground="#6F8CA3" FontSize="10" FontWeight="Bold" Margin="8,28,0,10"/>
                     <TextBlock Text="Escolha seu tema" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="8,0,0,8"/>
                     <UniformGrid Columns="1">
@@ -55,7 +55,10 @@
 
         <!-- Main content -->
         <ScrollViewer x:Name="MainContentScroll" Grid.Column="1" VerticalScrollBarVisibility="Auto">
-            <StackPanel Margin="30,25,30,30">
+            <Grid Grid.Column="1">
+            <Grid x:Name="DashboardPage" Visibility="Visible">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="30,25,30,30">
                 <Grid Margin="0,0,0,24">
                     <StackPanel>
                         <TextBlock Text="Dashboard" FontSize="28" FontWeight="Bold"/>
@@ -65,7 +68,7 @@
                         <Border Background="#123B2B" CornerRadius="12" Padding="10,6" Margin="0,0,10,0">
                             <TextBlock Text="●  LOCAL" Foreground="#5CE0A1" FontSize="10" FontWeight="Bold"/>
                         </Border>
-                        <TextBlock Text="v0.8.8" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="v0.8.9" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Grid>
 
@@ -174,39 +177,13 @@
                     </Grid>
                 </Border>
 
-                <TextBlock Text="HARDWARE" FontSize="11" Foreground="#7F9BB0" FontWeight="Bold" Margin="0,8,0,12"/>
-                <Border x:Name="DevicesSection" Background="{StaticResource CardBrush}" CornerRadius="12" Padding="16" Margin="0,0,0,22">
-                    <StackPanel>
-                        <Grid Margin="0,0,0,10">
-                            <TextBlock Text="Dispositivos encontrados" FontWeight="SemiBold" FontSize="15"/>
-                            <TextBlock x:Name="DeviceCountText" Text="Ainda não lido" Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                        </Grid>
-                        <ItemsControl x:Name="DeviceList">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Background="#111F2E" CornerRadius="9" Padding="12" Margin="0,4,0,4">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel>
-                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="14"/>
-                                                <TextBlock Text="{Binding Details}" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,4,0,0" TextWrapping="Wrap"/>
-                                                <TextBlock Text="{Binding ZonesText}" Foreground="#55CFFF" FontSize="11" Margin="0,4,0,0" TextWrapping="Wrap"/>
-                                            </StackPanel>
-                                            <Border Grid.Column="1" Background="#123B2B" CornerRadius="8" Padding="9,5" VerticalAlignment="Center" Margin="12,0,0,0">
-                                                <TextBlock Text="{Binding Status}" Foreground="#5CE0A1" FontSize="9" FontWeight="Bold"/>
-                                            </Border>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                        <TextBlock x:Name="EmptyDevicesText" Text="Clique em Conectar ao OpenRGB para ler os dispositivos reais." Foreground="{StaticResource MutedBrush}" Margin="0,8,0,0" TextWrapping="Wrap"/>
-                    </StackPanel>
-                </Border>
 
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+            <Grid x:Name="LightingPage" Visibility="Collapsed">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="30,25,30,30">
                 <Grid Margin="0,0,0,12">
                     <TextBlock Text="LIGHTING STUDIO" FontSize="11" Foreground="#7F9BB0" FontWeight="Bold" VerticalAlignment="Center"/>
                     <TextBlock Text="Controle estático • aplicação por zona" Foreground="{StaticResource MutedBrush}" FontSize="10" HorizontalAlignment="Right"/>
@@ -330,6 +307,68 @@
                     </StackPanel>
                 </Border>
 
+
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+            <Grid x:Name="DevicesPage" Visibility="Collapsed">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="30,25,30,30">
+                <TextBlock Text="HARDWARE" FontSize="11" Foreground="#7F9BB0" FontWeight="Bold" Margin="0,8,0,12"/>
+                <Border x:Name="DevicesSection" Background="{StaticResource CardBrush}" CornerRadius="12" Padding="16" Margin="0,0,0,22">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,10">
+                            <TextBlock Text="Dispositivos encontrados" FontWeight="SemiBold" FontSize="15"/>
+                            <TextBlock x:Name="DeviceCountText" Text="Ainda não lido" Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                        </Grid>
+                        <ItemsControl x:Name="DeviceList">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="#111F2E" CornerRadius="9" Padding="12" Margin="0,4,0,4">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="14"/>
+                                                <TextBlock Text="{Binding Details}" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                                <TextBlock Text="{Binding ZonesText}" Foreground="#55CFFF" FontSize="11" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                            <Border Grid.Column="1" Background="#123B2B" CornerRadius="8" Padding="9,5" VerticalAlignment="Center" Margin="12,0,0,0">
+                                                <TextBlock Text="{Binding Status}" Foreground="#5CE0A1" FontSize="9" FontWeight="Bold"/>
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock x:Name="EmptyDevicesText" Text="Clique em Conectar ao OpenRGB para ler os dispositivos reais." Foreground="{StaticResource MutedBrush}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+
+
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+            <Grid x:Name="ProfilesPage" Visibility="Collapsed">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="30,25,30,30">
+                <TextBlock Text="PERFIS" FontSize="11" Foreground="#7F9BB0" FontWeight="Bold" Margin="0,8,0,12"/>
+                <Border Background="{StaticResource PanelBrush}" CornerRadius="14" Padding="22">
+                    <StackPanel>
+                        <TextBlock Text="Perfis de iluminação" FontSize="22" FontWeight="Bold"/>
+                        <TextBlock Text="Aqui ficarão seus perfis e configurações de iluminação salvas." Foreground="{StaticResource MutedBrush}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                        <TextBlock Text="Em desenvolvimento" Foreground="#55CFFF" Margin="0,16,0,0"/>
+                    </StackPanel>
+                </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+            <Grid x:Name="SettingsPage" Visibility="Collapsed">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="30,25,30,30">
                 <TextBlock Text="CONFIGURAÇÕES" FontSize="11" Foreground="#7F9BB0" FontWeight="Bold" Margin="0,8,0,12"/>
                 <Border x:Name="SettingsSection" Background="{StaticResource PanelBrush}" CornerRadius="12" Padding="18" Margin="0,0,0,22">
                     <StackPanel>
@@ -349,7 +388,10 @@
                         <TextBlock x:Name="UpdateText" Text="Atualizações: configure o endereço do repositório GitHub em Settings.json." Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,5,0,0"/>
                     </StackPanel>
                 </Border>
-            </StackPanel>
-        </ScrollViewer>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
     </Grid>
 </Window>
