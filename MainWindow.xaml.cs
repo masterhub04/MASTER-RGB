@@ -58,13 +58,28 @@ public partial class MainWindow : Window
 
             var previousBoard = _displayDevices.FirstOrDefault(d => d.Name == "MSI MPG B550 Gaming Plus (MS-7C56)");
             if (previousBoard is not null) _displayDevices.Remove(previousBoard);
+            var previousMsiSelectable = _selectableDevices.FirstOrDefault(d => d.Index == -2);
+            if (previousMsiSelectable is not null) _selectableDevices.Remove(previousMsiSelectable);
+            var previousMsiDisplay = _displayDevices.FirstOrDefault(d => d.Name == "MSI MPG B550 Gaming Plus (MS-7C56)");
+            if (previousMsiDisplay is not null) _displayDevices.Remove(previousMsiDisplay);
             if (msiBoard is not null)
             {
+                const string msiName = "MSI MPG B550 Gaming Plus (MS-7C56)";
                 _displayDevices.Add(new DeviceDisplayRow(
-                    "MSI MPG B550 Gaming Plus (MS-7C56)",
-                    "MSI • Windows PnP • VID_1462 / PID_7C56 • Detecção independente. Interface USB/HID enumerada; nenhuma comunicação RGB foi realizada.",
-                    "Zonas de referência: JRGB1 • JRAINBOW1 • JRAINBOW2 • ONBOARD (ainda não verificadas por leitura direta)",
-                    "IDENTIFICADO"));
+                    msiName,
+                    "MSI • Windows PnP • VID_1462 / PID_7C56 • Identificação independente; controle nativo ainda bloqueado.",
+                    "Zonas de referência: JRGB1 • JRAINBOW1 • JRAINBOW2 • ONBOARD",
+                    "DETECTADO"));
+                _selectableDevices.Add(new DeviceRow(-2, msiName,
+                    "MSI Mystic Light • HID 185 bytes • somente seleção/inspeção",
+                    "Controlador RGB da placa-mãe (controle nativo em validação)",
+                    new[]
+                    {
+                        new OpenRgbZone("JRGB1 • RGB 12V", 1),
+                        new OpenRgbZone("JRAINBOW1 • ARGB 5V", 8),
+                        new OpenRgbZone("JRAINBOW2 • ARGB 5V", 8),
+                        new OpenRgbZone("ONBOARD", 6)
+                    }, false, true));
             }
 
             var detection = new LogitechG203HidDriver().DetectConnectedDevice();
@@ -171,7 +186,7 @@ public partial class MainWindow : Window
                 Report = new
                 {
                     Application = "MASTER RGB",
-                    ApplicationVersion = "0.8.1",
+                    ApplicationVersion = "0.8.2",
                     GeneratedAtLocal = DateTimeOffset.Now,
                     DiagnosticMode = "Read-only; no lighting mode or LED color commands are sent",
                     Computer = Environment.MachineName,
@@ -644,7 +659,9 @@ public partial class MainWindow : Window
         }
         ZoneSelector.ItemsSource = device.Zones.Select((zone, index) => new ZoneRow(index, zone.Name, zone.LedCount)).ToList();
         if (ZoneSelector.Items.Count > 0) ZoneSelector.SelectedIndex = 0;
-        if (device.IsNative)
+        if (device.IsReadOnlyOnly)
+            ZoneLedCountInfo.Text = "MSI detectada • seleção informativa • envio RGB desativado até validar o protocolo";
+        else if (device.IsNative)
             ZoneLedCountInfo.Text = "Controle direto do Logitech G203 • zona única • sem OpenRGB";
     }
 
@@ -659,9 +676,11 @@ public partial class MainWindow : Window
         string key = GetZoneKey(device, zone);
         int configured = _zoneLedOverrides.TryGetValue(key, out int value) ? value : zone.LedCount;
         ZoneLedCountBox.Text = configured.ToString(CultureInfo.InvariantCulture);
-        ZoneLedCountInfo.Text = device.IsNative
-            ? "Controle direto do Logitech G203 • zona única • quantidade fixa"
-            : $"Detectados pelo OpenRGB: {zone.LedCount} • Ajuste conforme a quantidade física";
+        ZoneLedCountInfo.Text = device.IsReadOnlyOnly
+            ? "Quantidade de referência; ainda não lida diretamente do controlador MSI"
+            : device.IsNative
+                ? "Controle direto do Logitech G203 • zona única • quantidade fixa"
+                : $"Detectados pelo OpenRGB: {zone.LedCount} • Ajuste conforme a quantidade física";
     }
 
     private async void ApplyColor_Click(object sender, RoutedEventArgs e) => await ApplySelectedColorAsync();
@@ -727,6 +746,13 @@ public partial class MainWindow : Window
         if (DeviceSelector.SelectedItem is not DeviceRow device || ZoneSelector.SelectedItem is not ZoneRow zone)
         {
             StatusText.Text = "Selecione um dispositivo e uma zona antes de aplicar a cor.";
+            return;
+        }
+        if (device.IsReadOnlyOnly)
+        {
+            EngineStatusText.Text = "MSI detectada • controle bloqueado";
+            EngineStatusText.Foreground = Brushes.Orange;
+            StatusText.Text = "A placa-mãe MSI já pode ser selecionada e inspecionada. O envio de comandos RGB permanece bloqueado até concluir a validação específica do protocolo MS-7C56.";
             return;
         }
         string hex = HexColorBox.Text.Trim();
@@ -891,10 +917,11 @@ public partial class MainWindow : Window
     }
 
     private sealed record DeviceDisplayRow(string Name, string Details, string ZonesText, string Status);
-    private sealed class DeviceRow(int index, string name, string details, string zonesText, IReadOnlyList<OpenRgbZone> sourceZones, bool isNative = false)
+    private sealed class DeviceRow(int index, string name, string details, string zonesText, IReadOnlyList<OpenRgbZone> sourceZones, bool isNative = false, bool isReadOnlyOnly = false)
     {
         public int Index { get; } = index;
         public bool IsNative { get; } = isNative;
+        public bool IsReadOnlyOnly { get; } = isReadOnlyOnly;
         public string Name { get; } = name;
         public string Details { get; } = details;
         public string ZonesText { get; } = zonesText;
