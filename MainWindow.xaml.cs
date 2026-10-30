@@ -58,6 +58,8 @@ public partial class MainWindow : Window
 
             var previousBoard = _displayDevices.FirstOrDefault(d => d.Name == "MSI MPG B550 Gaming Plus (MS-7C56)");
             if (previousBoard is not null) _displayDevices.Remove(previousBoard);
+            var previousMsiGroup = _devices.FirstOrDefault(d => d.Index == -2);
+            if (previousMsiGroup is not null) _devices.Remove(previousMsiGroup);
             var previousMsiSelectable = _selectableDevices.FirstOrDefault(d => d.Index == -2);
             if (previousMsiSelectable is not null) _selectableDevices.Remove(previousMsiSelectable);
             var previousMsiDisplay = _displayDevices.FirstOrDefault(d => d.Name == "MSI MPG B550 Gaming Plus (MS-7C56)");
@@ -70,16 +72,21 @@ public partial class MainWindow : Window
                     "MSI • Windows PnP • VID_1462 / PID_7C56 • Identificação independente; controle nativo ainda bloqueado.",
                     "Zonas de referência: JRGB1 • JRAINBOW1 • JRAINBOW2 • ONBOARD",
                     "DETECTADO"));
+                var msiZones = new[]
+                {
+                    new OpenRgbZone("JRGB1 • RGB 12V", 1),
+                    new OpenRgbZone("JRAINBOW1 • ARGB 5V", 8),
+                    new OpenRgbZone("JRAINBOW2 • ARGB 5V", 8),
+                    new OpenRgbZone("ONBOARD", 6)
+                };
                 _selectableDevices.Add(new DeviceRow(-2, msiName,
                     "MSI Mystic Light • HID 185 bytes • somente seleção/inspeção",
                     "Controlador RGB da placa-mãe (controle nativo em validação)",
-                    new[]
-                    {
-                        new OpenRgbZone("JRGB1 • RGB 12V", 1),
-                        new OpenRgbZone("JRAINBOW1 • ARGB 5V", 8),
-                        new OpenRgbZone("JRAINBOW2 • ARGB 5V", 8),
-                        new OpenRgbZone("ONBOARD", 6)
-                    }, false, true));
+                    msiZones, false, true));
+                _devices.Add(new DeviceRow(-2, msiName,
+                    "MSI • seleção em grupo disponível; aplicação RGB aguardando validação do protocolo",
+                    "Zonas de referência MSI",
+                    msiZones, false, true));
             }
 
             var detection = new LogitechG203HidDriver().DetectConnectedDevice();
@@ -186,7 +193,7 @@ public partial class MainWindow : Window
                 Report = new
                 {
                     Application = "MASTER RGB",
-                    ApplicationVersion = "0.8.2",
+                    ApplicationVersion = "0.8.3",
                     GeneratedAtLocal = DateTimeOffset.Now,
                     DiagnosticMode = "Read-only; no lighting mode or LED color commands are sent",
                     Computer = Environment.MachineName,
@@ -492,9 +499,12 @@ public partial class MainWindow : Window
     {
         if (MultiSelectInfo is null) return;
         int count = _devices.Count(d => d.IsSelected);
+        int pending = _devices.Count(d => d.IsSelected && d.IsReadOnlyOnly);
         MultiSelectInfo.Text = count == 0
             ? "Nenhum dispositivo selecionado para aplicação em grupo."
-            : $"{count} dispositivo(s) selecionado(s). A aplicação em grupo alcança todas as zonas controláveis.";
+            : pending > 0
+                ? $"{count} selecionado(s). {pending} aguardando controle nativo validado; os demais recebem a cor."
+                : $"{count} dispositivo(s) selecionado(s). A aplicação em grupo alcança todas as zonas controláveis.";
     }
 
     private void SelectAllDevices_Click(object sender, RoutedEventArgs e)
@@ -593,6 +603,13 @@ public partial class MainWindow : Window
             StatusText.Text = "Marque pelo menos um dispositivo na seção Aplicação em grupo.";
             return;
         }
+        var writableSelected = selected.Where(d => !d.IsReadOnlyOnly).ToList();
+        int readOnlySelected = selected.Count - writableSelected.Count;
+        if (writableSelected.Count == 0)
+        {
+            StatusText.Text = "A MSI está marcada, mas o controle RGB nativo ainda está bloqueado até validar o protocolo da placa. Nenhum comando foi enviado.";
+            return;
+        }
         string hex = HexColorBox.Text.Trim().TrimStart('#');
         if (hex.Length != 6 || !uint.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint rgb))
         {
@@ -603,7 +620,7 @@ public partial class MainWindow : Window
         byte red = (byte)Math.Round(((rgb >> 16) & 0xFF) * brightness);
         byte green = (byte)Math.Round(((rgb >> 8) & 0xFF) * brightness);
         byte blue = (byte)Math.Round((rgb & 0xFF) * brightness);
-        var targets = selected.SelectMany(d => d.Zones.Select(z => (Device: d, Zone: z)))
+        var targets = writableSelected.SelectMany(d => d.Zones.Select(z => (Device: d, Zone: z)))
             .Where(t => t.Zone.LedCount > 0).ToList();
         if (targets.Count == 0)
         {
@@ -642,7 +659,9 @@ public partial class MainWindow : Window
             await Task.WhenAll(updateTasks);
             EngineStatusText.Text = failures.IsEmpty ? "Aplicação em grupo concluída" : "Aplicação em grupo parcial";
             EngineStatusText.Foreground = failures.IsEmpty ? Brushes.LightGreen : Brushes.Orange;
-            StatusText.Text = $"Aplicação em grupo: {succeeded}/{targets.Count} zona(s) atualizada(s) em {selected.Count} dispositivo(s), cor #{hex.ToUpperInvariant()}, brilho {(int)Math.Round(BrightnessSlider.Value)}%. Envio otimizado por dispositivo e em paralelo.";
+            StatusText.Text = $"Aplicação em grupo: {succeeded}/{targets.Count} zona(s) atualizada(s) em {writableSelected.Count} dispositivo(s), cor #{hex.ToUpperInvariant()}, brilho {(int)Math.Round(BrightnessSlider.Value)}%.";
+            if (readOnlySelected > 0) StatusText.Text += $" {readOnlySelected} dispositivo(s) selecionado(s) ignorado(s): controle nativo ainda não validado.";
+            StatusText.Text += " Envio otimizado por dispositivo e em paralelo.";
             if (!failures.IsEmpty) StatusText.Text += " Falhas: " + string.Join(" | ", failures.Take(3));
         }
         finally { ApplyControlsEnabled(true); }
