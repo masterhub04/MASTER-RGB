@@ -889,6 +889,7 @@ public partial class MainWindow : Window
         string hex = $"#{r:X2}{g:X2}{b:X2}";
         _updatingColorText = true;
         HexColorBox.Text = hex;
+        ApplyUiAccentColor(hex);
         ColorPreview.Background = new SolidColorBrush(Color.FromRgb((byte)r, (byte)g, (byte)b));
         _updatingColorText = false;
     }
