@@ -28,6 +28,8 @@ public partial class MainWindow : Window
     private Ellipse? _hueMarker;
     private bool _hueArcDrawn;
     private string _currentTheme = "Blue";
+    private bool _startWithWindows;
+    private bool _startMinimized;
     private readonly ObservableCollection<FavoriteColorRow> _favoriteColors = new();
     private readonly Dictionary<string, int> _zoneLedOverrides = new(StringComparer.OrdinalIgnoreCase);
     private readonly string _userSettingsPath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MASTER RGB", "user-settings.json");
@@ -42,6 +44,8 @@ public partial class MainWindow : Window
         MultiDeviceList.AddHandler(CheckBox.UncheckedEvent, new RoutedEventHandler(MultiDeviceCheckChanged));
         FavoriteColorsList.ItemsSource = _favoriteColors;
         LoadUserSettings();
+        StartWithWindowsCheckBox.IsChecked = _startWithWindows;
+        StartMinimizedCheckBox.IsChecked = _startMinimized;
         ApplyTheme(_currentTheme, false);
         RefreshDirectHardwareDisplay();
         Loaded += MainWindow_Loaded;
@@ -49,7 +53,48 @@ public partial class MainWindow : Window
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
+        if (Environment.GetCommandLineArgs().Any(a => a.Equals("--minimized", StringComparison.OrdinalIgnoreCase)))
+            WindowState = WindowState.Minimized;
         await CheckForUpdatesAsync();
+    }
+
+    private void NavigateDevices_Click(object sender, RoutedEventArgs e) => ScrollToSection(DevicesSection);
+    private void NavigateSettings_Click(object sender, RoutedEventArgs e) => ScrollToSection(SettingsSection);
+
+    private void ScrollToSection(FrameworkElement section)
+    {
+        section.BringIntoView();
+        MainContentScroll.ScrollToVerticalOffset(section.TransformToAncestor(MainContentScroll).Transform(new Point(0, 0)).Y);
+    }
+
+    private void StartupOption_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        _startWithWindows = StartWithWindowsCheckBox.IsChecked == true;
+        _startMinimized = StartMinimizedCheckBox.IsChecked == true;
+        try
+        {
+            ConfigureWindowsStartup(_startWithWindows, _startMinimized);
+            SaveUserSettings();
+        }
+        catch (Exception ex) { StatusText.Text = "Não foi possível atualizar a inicialização do Windows: " + ex.Message; }
+    }
+
+    private static void ConfigureWindowsStartup(bool enabled, bool minimized)
+    {
+        const string runKeyPath = @"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+        const string appValueName = "MASTER RGB";
+        using var runKey = Registry.CurrentUser.OpenSubKey(runKeyPath, writable: true)
+            ?? Registry.CurrentUser.CreateSubKey(runKeyPath, writable: true);
+        if (!enabled)
+        {
+            runKey.DeleteValue(appValueName, throwOnMissingValue: false);
+            return;
+        }
+        string? executable = Environment.ProcessPath;
+        if (string.IsNullOrWhiteSpace(executable))
+            throw new InvalidOperationException("Não foi possível localizar o executável do MASTER RGB.");
+        runKey.SetValue(appValueName, $"\\\"{executable}\\\"{(minimized ? " --minimized" : string.Empty)}");
     }
 
     private void RefreshDirectHardwareDisplay()
@@ -923,6 +968,8 @@ public partial class MainWindow : Window
                 if (pair.Value > 0 && pair.Value <= ushort.MaxValue) _zoneLedOverrides[pair.Key] = pair.Value;
             BrightnessSlider.Value = Math.Clamp(settings.Brightness, 0, 100);
             _currentTheme = settings.Theme ?? "Blue";
+            _startWithWindows = settings.StartWithWindows;
+            _startMinimized = settings.StartMinimized;
         }
         catch (Exception ex)
         {
@@ -936,7 +983,7 @@ public partial class MainWindow : Window
         {
             string? directory = System.IO.Path.GetDirectoryName(_userSettingsPath);
             if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
-            var settings = new UserSettings(_favoriteColors.Select(c => c.Hex).ToList(), _zoneLedOverrides, BrightnessSlider.Value, _currentTheme);
+            var settings = new UserSettings(_favoriteColors.Select(c => c.Hex).ToList(), _zoneLedOverrides, BrightnessSlider.Value, _currentTheme, _startWithWindows, _startMinimized);
             File.WriteAllText(_userSettingsPath, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
         }
         catch (Exception ex)
@@ -1087,5 +1134,5 @@ public partial class MainWindow : Window
     {
         public Brush Brush => new SolidColorBrush((Color)ColorConverter.ConvertFromString(Hex));
     }
-    private sealed record UserSettings(List<string>? FavoriteColors, Dictionary<string, int>? ZoneLedOverrides, double Brightness = 100, string? Theme = "Blue");
+    private sealed record UserSettings(List<string>? FavoriteColors, Dictionary<string, int>? ZoneLedOverrides, double Brightness = 100, string? Theme = "Blue", bool StartWithWindows = false, bool StartMinimized = false);
 }
