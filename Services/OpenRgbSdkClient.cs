@@ -1,0 +1,298 @@
+using System.IO;
+using System.Buffers.Binary;
+using System.Net.Sockets;
+using System.Text;
+
+namespace MasterRgb.Services;
+
+public sealed record OpenRgbZone(string Name, int LedCount);
+public sealed record OpenRgbDevice(
+    int Index, string Name, string Vendor, string Description, string Version,
+    int ZoneCount, int LedCount, IReadOnlyList<OpenRgbZone> Zones, int DeviceType, uint ProtocolVersion, string RawDataHex);
+
+public sealed class OpenRgbSdkClient
+{
+    private const int Port = 6742;
+    private const uint RequestControllerCount = 0;
+    private const uint RequestControllerData = 1;
+    private const uint RequestProtocolVersion = 40;
+    private const uint SetClientName = 50;
+    private const uint DeviceListUpdated = 100;
+    private const uint UpdateZoneLeds = 1051;
+    private const uint SetCustomMode = 1100;
+    private const uint ClientProtocolVersion = 5;
+
+    public async Task<IReadOnlyList<OpenRgbDevice>> ReadDevicesAsync(CancellationToken cancellationToken = default)
+    {
+        using var client = new TcpClient { NoDelay = true };
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(8));
+        await client.ConnectAsync("127.0.0.1", Port, timeout.Token);
+        using NetworkStream stream = client.GetStream();
+
+        uint protocol = 0;
+        await SendPacketAsync(stream, 0, RequestProtocolVersion, UInt32(ClientProtocolVersion), timeout.Token);
+        // DEVICE_LIST_UPDATED (100) may arrive before the protocol-version reply (40).
+        // Keep reading until the actual reply arrives; otherwise packet 40 remains queued
+        // and is mistaken for the controller-count response (packet 0).
+        using (var versionTimeout = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token))
+        {
+            versionTimeout.CancelAfter(TimeSpan.FromSeconds(1));
+            try
+            {
+                while (!versionTimeout.IsCancellationRequested)
+                {
+                    var versionPacket = await ReadPacketAsync(stream, versionTimeout.Token);
+                    if (versionPacket.Id == RequestProtocolVersion)
+                    {
+                        if (versionPacket.Data.Length >= 4)
+                            protocol = Math.Min(ReadUInt32(versionPacket.Data, 0), ClientProtocolVersion);
+                        break;
+                    }
+                    if (versionPacket.Id != DeviceListUpdated)
+                        throw new InvalidDataException($"Resposta inesperada durante a negociação do protocolo (pacote {versionPacket.Id}).");
+                }
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                // Protocol 0 servers do not reply to packet 40; use the legacy format.
+                protocol = 0;
+            }
+        }
+
+        await SendPacketAsync(stream, 0, SetClientName, Encoding.UTF8.GetBytes("MASTER RGB\0"), timeout.Token);
+        await SendPacketAsync(stream, 0, RequestControllerCount, Array.Empty<byte>(), timeout.Token);
+        var countPacket = await ReadExpectedAsync(stream, RequestControllerCount, timeout.Token);
+        if (countPacket.Data.Length < 4) throw new InvalidDataException("Resposta de quantidade de dispositivos inválida.");
+        uint count = ReadUInt32(countPacket.Data, 0);
+        if (count > 256) throw new InvalidDataException($"O OpenRGB informou uma quantidade inesperada de dispositivos: {count}.");
+
+        var devices = new List<OpenRgbDevice>((int)count);
+        for (uint i = 0; i < count; i++)
+        {
+            byte[] requestData = protocol >= 1 ? UInt32(protocol) : Array.Empty<byte>();
+            await SendPacketAsync(stream, i, RequestControllerData, requestData, timeout.Token);
+            var dataPacket = await ReadExpectedAsync(stream, RequestControllerData, timeout.Token);
+            devices.Add(ParseController(i, dataPacket.Data, protocol));
+        }
+        return devices;
+    }
+
+
+    public async Task ApplyDeviceZonesColorAsync(int deviceIndex, IReadOnlyList<(int ZoneIndex, int LedCount)> zones, byte red, byte green, byte blue, CancellationToken cancellationToken = default)
+    {
+        if (deviceIndex < 0) throw new ArgumentOutOfRangeException(nameof(deviceIndex));
+        if (zones.Count == 0) return;
+        if (zones.Any(z => z.ZoneIndex < 0 || z.LedCount < 1 || z.LedCount > ushort.MaxValue))
+            throw new InvalidOperationException("Uma das zonas não possui uma quantidade válida de LEDs.");
+
+        using var client = new TcpClient { NoDelay = true };
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(8));
+        await client.ConnectAsync("127.0.0.1", Port, timeout.Token);
+        using NetworkStream stream = client.GetStream();
+        await SendPacketAsync(stream, 0, SetClientName, Encoding.UTF8.GetBytes("MASTER RGB\0"), timeout.Token);
+        await SendPacketAsync(stream, (uint)deviceIndex, SetCustomMode, Array.Empty<byte>(), timeout.Token);
+
+        // A troca para o modo Custom é feita uma única vez por dispositivo.
+        // Antes, cada zona abria uma conexão e repetia as esperas de 500 + 750 ms.
+        await Task.Delay(500, timeout.Token);
+
+        uint packedColor = (uint)red | ((uint)green << 8) | ((uint)blue << 16);
+        foreach (var zone in zones)
+        {
+            byte[] payload = new byte[10 + (zone.LedCount * 4)];
+            BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(0, 4), (uint)payload.Length);
+            BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(4, 4), (uint)zone.ZoneIndex);
+            BinaryPrimitives.WriteUInt16LittleEndian(payload.AsSpan(8, 2), (ushort)zone.LedCount);
+            for (int i = 0; i < zone.LedCount; i++)
+                BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(10 + (i * 4), 4), packedColor);
+            await SendPacketAsync(stream, (uint)deviceIndex, UpdateZoneLeds, payload, timeout.Token);
+        }
+
+        // Pequena margem para o servidor encaminhar os buffers aos controladores.
+        await Task.Delay(150, timeout.Token);
+    }
+
+    public async Task ApplyZoneColorAsync(int deviceIndex, int zoneIndex, int ledCount, byte red, byte green, byte blue, CancellationToken cancellationToken = default)
+    {
+        if (deviceIndex < 0 || zoneIndex < 0) throw new ArgumentOutOfRangeException("Índice de dispositivo ou zona inválido.");
+        if (ledCount < 1 || ledCount > ushort.MaxValue) throw new InvalidOperationException("A zona selecionada não possui LEDs controláveis.");
+
+        using var client = new TcpClient { NoDelay = true };
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(8));
+        await client.ConnectAsync("127.0.0.1", Port, timeout.Token);
+        using NetworkStream stream = client.GetStream();
+        await SendPacketAsync(stream, 0, SetClientName, Encoding.UTF8.GetBytes("MASTER RGB\0"), timeout.Token);
+        await SendPacketAsync(stream, (uint)deviceIndex, SetCustomMode, Array.Empty<byte>(), timeout.Token);
+
+        // Give the controller a moment to switch to direct/custom mode before
+        // sending the LED buffer. Some SDK/device combinations need this gap.
+        await Task.Delay(500, timeout.Token);
+
+        // OpenRGB RGBColor uses ToRGBColor(r,g,b) = (b << 16) | (g << 8) | r.
+        // Its least-significant byte is RED, not BLUE.
+        uint packedColor = (uint)red | ((uint)green << 8) | ((uint)blue << 16);
+        byte[] payload = new byte[10 + (ledCount * 4)];
+        // OpenRGB SDK data_size includes the 4-byte data_size field itself.
+        BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(0, 4), (uint)payload.Length);
+        BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(4, 4), (uint)zoneIndex);
+        BinaryPrimitives.WriteUInt16LittleEndian(payload.AsSpan(8, 2), (ushort)ledCount);
+        for (int i = 0; i < ledCount; i++)
+            BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(10 + (i * 4), 4), packedColor);
+        await SendPacketAsync(stream, (uint)deviceIndex, UpdateZoneLeds, payload, timeout.Token);
+        // OpenRGB SDK clients should leave a delay between repeated operations on the same device.
+        // Keep this connection alive long enough for the device worker to apply the update.
+        await Task.Delay(750, timeout.Token);
+    }
+
+    private static OpenRgbDevice ParseController(uint index, byte[] payload, uint protocol)
+    {
+        var reader = new PacketReader(payload);
+        uint dataSize = reader.UInt32();
+        // OpenRGB versions/builds have used both interpretations for this length:
+        // bytes following the length field, or total payload bytes. Accept both.
+        // The TCP packet itself has already been read completely from its header size.
+        int remainingBytes = payload.Length - 4;
+        if (dataSize != (uint)remainingBytes && dataSize != (uint)payload.Length)
+        {
+            throw new InvalidDataException(
+                $"Tamanho do bloco do dispositivo incompatível (informado: {dataSize} bytes; recebido: {payload.Length} bytes). " +
+                "Verifique a versão do OpenRGB/SDK. Nenhum LED foi alterado.");
+        }
+        int type = reader.Int32();
+        string name = reader.String16();
+        string vendor = protocol >= 1 ? reader.String16() : string.Empty;
+        string description = reader.String16();
+        string version = reader.String16();
+        _ = reader.String16(); // serial
+        _ = reader.String16(); // location
+
+        ushort modeCount = reader.UInt16();
+        _ = reader.Int32(); // active mode
+        for (int i = 0; i < modeCount; i++)
+        {
+            _ = reader.String16();
+            reader.Skip(4 * 4); // value, flags, speed min/max
+            if (protocol >= 3) reader.Skip(8); // brightness min/max
+            reader.Skip(4 * 2); // colors min/max
+            reader.Skip(4); // speed
+            if (protocol >= 3) reader.Skip(4); // brightness
+            reader.Skip(4 * 2); // direction, color mode
+            ushort modeColors = reader.UInt16();
+            reader.Skip(modeColors * 4);
+        }
+
+        ushort zoneCount = reader.UInt16();
+        var zones = new List<OpenRgbZone>(zoneCount);
+        for (int i = 0; i < zoneCount; i++)
+        {
+            string zoneName = reader.String16();
+            reader.Skip(4 * 3); // type, min, max
+            uint zoneLedCount = reader.UInt32();
+            zones.Add(new OpenRgbZone(zoneName, checked((int)zoneLedCount)));
+            ushort matrixLength = reader.UInt16();
+            reader.Skip(matrixLength);
+            if (protocol >= 4)
+            {
+                ushort segments = reader.UInt16();
+                for (int s = 0; s < segments; s++)
+                {
+                    _ = reader.String16();
+                    reader.Skip(12);
+                }
+            }
+            if (protocol >= 5) reader.Skip(4);
+        }
+
+        ushort ledCount = reader.UInt16();
+        for (int i = 0; i < ledCount; i++)
+        {
+            _ = reader.String16();
+            reader.Skip(4);
+        }
+        ushort colorCount = reader.UInt16();
+        reader.Skip(colorCount * 4);
+        if (protocol >= 5)
+        {
+            ushort alternateNames = reader.UInt16();
+            for (int i = 0; i < alternateNames; i++) _ = reader.String16();
+            reader.Skip(4); // controller flags
+        }
+        return new OpenRgbDevice((int)index, name, vendor, description, version, zoneCount, ledCount, zones, type, protocol, Convert.ToHexString(payload));
+    }
+
+    private static async Task<Packet> ReadExpectedAsync(NetworkStream stream, uint expectedId, CancellationToken token)
+    {
+        for (int attempt = 0; attempt < 8; attempt++)
+        {
+            var packet = await ReadPacketAsync(stream, token);
+            if (packet.Id == expectedId) return packet;
+            if (packet.Id != DeviceListUpdated)
+                throw new InvalidDataException($"Resposta inesperada do OpenRGB (pacote {packet.Id}, esperado {expectedId}).");
+        }
+        throw new InvalidDataException("O OpenRGB atualizou a lista repetidamente. Tente novamente.");
+    }
+
+    private static async Task SendPacketAsync(NetworkStream stream, uint device, uint id, byte[] data, CancellationToken token)
+    {
+        byte[] packet = new byte[16 + data.Length];
+        Encoding.ASCII.GetBytes("ORGB").CopyTo(packet, 0);
+        BinaryPrimitives.WriteUInt32LittleEndian(packet.AsSpan(4, 4), device);
+        BinaryPrimitives.WriteUInt32LittleEndian(packet.AsSpan(8, 4), id);
+        BinaryPrimitives.WriteUInt32LittleEndian(packet.AsSpan(12, 4), (uint)data.Length);
+        data.CopyTo(packet, 16);
+        await stream.WriteAsync(packet, token);
+    }
+
+    private static async Task<Packet> ReadPacketAsync(NetworkStream stream, CancellationToken token)
+    {
+        byte[] header = new byte[16];
+        await ReadExactlyAsync(stream, header, token);
+        if (Encoding.ASCII.GetString(header, 0, 4) != "ORGB") throw new InvalidDataException("Cabeçalho SDK do OpenRGB inválido.");
+        uint id = ReadUInt32(header, 8);
+        uint size = ReadUInt32(header, 12);
+        if (size > 16 * 1024 * 1024) throw new InvalidDataException("Pacote do OpenRGB excede o limite de segurança.");
+        byte[] data = new byte[checked((int)size)];
+        if (size > 0) await ReadExactlyAsync(stream, data, token);
+        return new Packet(id, data);
+    }
+
+    private static async Task ReadExactlyAsync(NetworkStream stream, byte[] buffer, CancellationToken token)
+    {
+        int offset = 0;
+        while (offset < buffer.Length)
+        {
+            int read = await stream.ReadAsync(buffer.AsMemory(offset), token);
+            if (read == 0) throw new EndOfStreamException("O OpenRGB encerrou a conexão durante a leitura.");
+            offset += read;
+        }
+    }
+
+    private static byte[] UInt32(uint value)
+    {
+        byte[] bytes = new byte[4];
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes, value);
+        return bytes;
+    }
+    private static uint ReadUInt32(byte[] bytes, int offset) => BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(offset, 4));
+    private sealed record Packet(uint Id, byte[] Data);
+
+    private sealed class PacketReader(byte[] data)
+    {
+        private int _position;
+        public ushort UInt16() { Ensure(2); ushort v = BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(_position, 2)); _position += 2; return v; }
+        public uint UInt32() { Ensure(4); uint v = BinaryPrimitives.ReadUInt32LittleEndian(data.AsSpan(_position, 4)); _position += 4; return v; }
+        public int Int32() => unchecked((int)UInt32());
+        public string String16()
+        {
+            ushort length = UInt16(); Ensure(length);
+            string value = Encoding.UTF8.GetString(data, _position, length).TrimEnd('\0');
+            _position += length;
+            return value;
+        }
+        public void Skip(int count) { if (count < 0) throw new InvalidDataException(); Ensure(count); _position += count; }
+        private void Ensure(int count) { if (count < 0 || _position + count > data.Length) throw new InvalidDataException("Dados do dispositivo OpenRGB truncados ou incompatíveis."); }
+    }
+}

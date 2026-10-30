@@ -1,0 +1,25 @@
+name: Windows x64 publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Publish self-contained single-file
+        run: dotnet publish MASTER_RGB.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o publish/win-x64
+      - name: Package executable
+        run: Compress-Archive -Path "publish/win-x64/*" -DestinationPath "MASTER_RGB_v0.6.4_win-x64.zip"
+        shell: pwsh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MASTER_RGB_v0.6.4_win-x64
+          path: MASTER_RGB_v0.6.4_win-x64.zip

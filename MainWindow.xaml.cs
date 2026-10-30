@@ -1,0 +1,755 @@
+using System.Collections.ObjectModel;
+using System.Globalization;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Shapes;
+using System.Windows.Input;
+using System.IO;
+using System.Text.Json;
+using Microsoft.Win32;
+using MasterRgb.Services;
+using MasterRgb.Services.DirectHardware;
+using MasterRgb.Services.DirectHardware.Drivers;
+
+namespace MasterRgb;
+
+public partial class MainWindow : Window
+{
+    private readonly OpenRgbSdkClient _openRgb = new();
+    private readonly GitHubReleaseChecker _updates = new();
+    private readonly ObservableCollection<DeviceRow> _devices = new();
+    private readonly ObservableCollection<DeviceRow> _selectableDevices = new();
+    private readonly ObservableCollection<DeviceDisplayRow> _displayDevices = new();
+    private bool _updatingColorText;
+    private Ellipse? _hueMarker;
+    private bool _hueArcDrawn;
+    private readonly ObservableCollection<FavoriteColorRow> _favoriteColors = new();
+    private readonly Dictionary<string, int> _zoneLedOverrides = new(StringComparer.OrdinalIgnoreCase);
+    private readonly string _userSettingsPath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MASTER RGB", "user-settings.json");
+
+    public MainWindow()
+    {
+        InitializeComponent();
+        DeviceList.ItemsSource = _displayDevices;
+        DeviceSelector.ItemsSource = _selectableDevices;
+        MultiDeviceList.ItemsSource = _devices;
+        MultiDeviceList.AddHandler(CheckBox.CheckedEvent, new RoutedEventHandler(MultiDeviceCheckChanged));
+        MultiDeviceList.AddHandler(CheckBox.UncheckedEvent, new RoutedEventHandler(MultiDeviceCheckChanged));
+        FavoriteColorsList.ItemsSource = _favoriteColors;
+        LoadUserSettings();
+        RefreshDirectHardwareDisplay();
+    }
+
+    private void RefreshDirectHardwareDisplay()
+    {
+        // A enumeração HID é somente leitura: não abre o mouse e não envia comandos RGB.
+        // A entrada é acrescentada à lista visual separada para não interferir nos
+        // seletores/grupos que operam exclusivamente sobre controladores OpenRGB.
+        try
+        {
+            var detection = new LogitechG203HidDriver().DetectConnectedDevice();
+            var previous = _displayDevices.FirstOrDefault(d => d.Name == "Logitech G203 Prodigy");
+            if (previous is not null) _displayDevices.Remove(previous);
+            var previousSelectable = _selectableDevices.FirstOrDefault(d => d.IsNative);
+            if (previousSelectable is not null) _selectableDevices.Remove(previousSelectable);
+            if (detection.Found)
+            {
+                const string name = "Logitech G203 Prodigy";
+                _displayDevices.Add(new DeviceDisplayRow(
+                    name,
+                    "Logitech • USB HID • 046D:C084 • Controle direto",
+                    detection.Details,
+                    "NATIVO"));
+                _selectableDevices.Add(new DeviceRow(-1, name,
+                    "Logitech • USB HID • Controle direto",
+                    "Iluminação RGB do mouse (1 zona)",
+                    new[] { new OpenRgbZone("Iluminação RGB", 1) }, true));
+            }
+            DeviceCountText.Text = $"{_displayDevices.Count} dispositivo(s)";
+            EmptyDevicesText.Visibility = _displayDevices.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            if (_displayDevices.Count > 0) EmptyDevicesText.Text = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = "Não foi possível atualizar a detecção HID do G203: " + ex.Message;
+        }
+    }
+
+    private bool TryReadSelectedColor(out byte red, out byte green, out byte blue)
+    {
+        red = green = blue = 0;
+        string hex = HexColorBox.Text.Trim().TrimStart('#');
+        if (hex.Length != 6 || !uint.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint value)) return false;
+        red = (byte)(value >> 16); green = (byte)(value >> 8); blue = (byte)value;
+        return true;
+    }
+
+    private async void ConnectOpenRgb_Click(object sender, RoutedEventArgs e)
+    {
+        ConnectButtonState(true);
+        EngineStatusText.Text = "Lendo dispositivos...";
+        EngineStatusText.Foreground = Brushes.LightSkyBlue;
+        StatusText.Text = "Conectando ao SDK e solicitando a lista real de controladores...";
+        _devices.Clear();
+        _selectableDevices.Clear();
+        _displayDevices.Clear();
+        ZoneSelector.ItemsSource = null;
+        EmptyDevicesText.Visibility = Visibility.Visible;
+        DeviceCountText.Text = "Lendo...";
+        try
+        {
+            var devices = await _openRgb.ReadDevicesAsync();
+            foreach (var device in devices)
+            {
+                string vendor = string.IsNullOrWhiteSpace(device.Vendor) ? "Fabricante não informado" : device.Vendor;
+                string details = $"{vendor} • {device.LedCount} LED(s) • {device.ZoneCount} zona(s)";
+                string zones = device.Zones.Count == 0 ? "Sem zonas informadas" : "Zonas: " + string.Join(" • ", device.Zones.Select(z => $"{z.Name} ({z.LedCount})"));
+                var row = new DeviceRow(device.Index, device.Name, details, zones, device.Zones);
+                _devices.Add(row);
+                _selectableDevices.Add(row);
+                _displayDevices.Add(new DeviceDisplayRow(device.Name, details, zones, "OPENRGB"));
+            }
+            RefreshDirectHardwareDisplay();
+            EmptyDevicesText.Visibility = _displayDevices.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            EmptyDevicesText.Text = _displayDevices.Count == 0 ? "Nenhum dispositivo RGB compatível foi encontrado." : string.Empty;
+            DeviceCountText.Text = $"{_displayDevices.Count} dispositivo(s)";
+            MultiSelectInfo.Text = $"{devices.Count} dispositivo(s) disponível(is) para seleção em grupo.";
+            EngineStatusText.Text = "SDK conectado • pronto para controlar";
+            EngineStatusText.Foreground = Brushes.LightGreen;
+            if (_selectableDevices.Count > 0) DeviceSelector.SelectedIndex = 0;
+            StatusText.Text = devices.Count == 0
+                ? "Conexão estabelecida. Nenhum controlador foi retornado pelo OpenRGB."
+                : $"Leitura concluída: {devices.Count} dispositivo(s). Selecione uma zona no Lighting Studio para aplicar uma cor estática.";
+        }
+        catch (Exception ex)
+        {
+            EngineStatusText.Text = "Falha na leitura SDK";
+            EngineStatusText.Foreground = Brushes.Orange;
+            RefreshDirectHardwareDisplay();
+            DeviceCountText.Text = $"{_displayDevices.Count} dispositivo(s) • OpenRGB indisponível";
+            EmptyDevicesText.Visibility = _displayDevices.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            EmptyDevicesText.Text = _displayDevices.Count == 0 ? "Não foi possível ler a lista. Abra o OpenRGB, ative o SDK Server e tente novamente." : string.Empty;
+            StatusText.Text = $"Erro ao consultar o OpenRGB: {ex.Message}";
+        }
+        finally { ConnectButtonState(false); }
+    }
+
+    private async void RunDiagnostic_Click(object sender, RoutedEventArgs e)
+    {
+        RunDiagnosticButton.IsEnabled = false;
+        ConnectOpenRgbButton.IsEnabled = false;
+        StatusText.Text = "Executando diagnóstico do OpenRGB + inventário PnP do Windows (somente leitura)...";
+        EngineStatusText.Text = "Diagnóstico em andamento";
+        EngineStatusText.Foreground = Brushes.LightSkyBlue;
+        try
+        {
+            var devices = await _openRgb.ReadDevicesAsync();
+            var pnpDevices = new WindowsHardwareInventory().Collect();
+            var report = new
+            {
+                Report = new
+                {
+                    Application = "MASTER RGB",
+                    ApplicationVersion = "0.7.4",
+                    GeneratedAtLocal = DateTimeOffset.Now,
+                    DiagnosticMode = "Read-only; no lighting mode or LED color commands are sent",
+                    Computer = Environment.MachineName,
+                    OperatingSystem = Environment.OSVersion.ToString(),
+                    Framework = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,
+                    Architecture = System.Runtime.InteropServices.RuntimeInformation.OSArchitecture.ToString(),
+                    SdkEndpoint = "127.0.0.1:6742",
+                    ClientProtocolVersion = 5,
+                    ProtocolNegotiation = "SDK protocol version is recorded per controller response; legacy servers may use protocol 0",
+                    ReadOnlySdkPackets = new[]
+                    {
+                        new { Id = 40, Name = "RequestProtocolVersion" },
+                        new { Id = 50, Name = "SetClientName (MASTER RGB)" },
+                        new { Id = 0, Name = "RequestControllerCount" },
+                        new { Id = 1, Name = "RequestControllerData" }
+                    },
+                    KnownLightingWritePackets = new[]
+                    {
+                        new { Id = 1100, Name = "SetCustomMode", Note = "Known from the normal color-control path; not sent by this diagnostic" },
+                        new { Id = 1051, Name = "UpdateZoneLEDs", Note = "Known from the normal color-control path; not sent by this diagnostic" }
+                    },
+                    ImportantLimit = "The SDK exposes controller metadata and logical zones. It does not necessarily reveal the USB/HID/SMBus transactions or internal driver implementation performed inside OpenRGB.",
+                    DirectDiscovery = "Read-only Windows Plug and Play registry inventory plus read-only HidSharp descriptor enumeration for Logitech G203. No device handles are opened and no USB/HID/SMBus commands are sent.",
+                    DirectControlStatus = "Logitech G203 appears in the Lighting Studio device selector and receives static colors through the validated native HID Output Report driver. Detection itself remains read-only. OpenRGB SDK color control remains unchanged."
+                },
+                MotherboardAnalysis = BuildMotherboardAnalysis(pnpDevices, devices),
+                WindowsPnPInventory = new
+                {
+                    ReadOnly = true,
+                    Sources = new[] { @"HKLM\SYSTEM\CurrentControlSet\Enum\USB", @"HKLM\SYSTEM\CurrentControlSet\Enum\HID", @"HKLM\SYSTEM\CurrentControlSet\Enum\PCI" },
+                    MatchingDeviceCount = pnpDevices.Count,
+                    Devices = pnpDevices
+                },
+                DeviceCount = devices.Count,
+                Devices = devices.Select(d => new
+                {
+                    d.Index,
+                    d.Name,
+                    d.Vendor,
+                    d.Description,
+                    d.Version,
+                    d.DeviceType,
+                    d.ProtocolVersion,
+                    d.ZoneCount,
+                    d.LedCount,
+                    Zones = d.Zones.Select((z, index) => new { Index = index, z.Name, z.LedCount }),
+                    RawControllerPacketHex = d.RawDataHex,
+                    RawDataLengthBytes = d.RawDataHex.Length / 2
+                }).ToList()
+            };
+
+            var dialog = new SaveFileDialog
+            {
+                Title = "Salvar diagnóstico do MASTER RGB",
+                FileName = $"MASTER_RGB_Diagnostico_{DateTime.Now:yyyyMMdd_HHmmss}.json",
+                Filter = "Relatório JSON (*.json)|*.json",
+                DefaultExt = ".json",
+                AddExtension = true
+            };
+            if (dialog.ShowDialog() != true)
+            {
+                StatusText.Text = "Diagnóstico coletado, mas o salvamento foi cancelado. Nenhuma configuração RGB foi alterada.";
+                return;
+            }
+
+            var options = new JsonSerializerOptions { WriteIndented = true };
+            await File.WriteAllTextAsync(dialog.FileName, JsonSerializer.Serialize(report, options));
+            EngineStatusText.Text = "Diagnóstico concluído";
+            EngineStatusText.Foreground = Brushes.LightGreen;
+            StatusText.Text = $"Relatório salvo em: {dialog.FileName}\n{devices.Count} dispositivo(s) analisado(s). Envie esse JSON aqui para avaliarmos os dados.";
+        }
+        catch (Exception ex)
+        {
+            EngineStatusText.Text = "Falha no diagnóstico";
+            EngineStatusText.Foreground = Brushes.Orange;
+            StatusText.Text = "Não foi possível gerar o diagnóstico. Confirme se o OpenRGB está aberto e se o SDK Server está ativo na porta 6742. Erro: " + ex.Message;
+        }
+        finally
+        {
+            RunDiagnosticButton.IsEnabled = true;
+            ConnectOpenRgbButton.IsEnabled = true;
+        }
+    }
+
+    private static object BuildMotherboardAnalysis(
+        IReadOnlyList<PnpDeviceRecord> pnpDevices,
+        IReadOnlyList<OpenRgbDevice> openRgbDevices)
+    {
+        // SMBIOS/BIOS metadata is read from the Windows registry; no hardware bus is accessed.
+        string ReadBiosValue(string name)
+        {
+            try
+            {
+                using var key = Registry.LocalMachine.OpenSubKey(
+                    @"HARDWARE\DESCRIPTION\System\BIOS", false);
+                return key?.GetValue(name)?.ToString()?.Trim() ?? string.Empty;
+            }
+            catch { return string.Empty; }
+        }
+
+        var board = new
+        {
+            Manufacturer = ReadBiosValue("BaseBoardManufacturer"),
+            Product = ReadBiosValue("BaseBoardProduct"),
+            Version = ReadBiosValue("BaseBoardVersion"),
+            BiosVendor = ReadBiosValue("BIOSVendor"),
+            BiosVersion = ReadBiosValue("BIOSVersion")
+        };
+
+        var candidates = pnpDevices
+            .Where(d => d.DeviceFamily.Contains("MSI", StringComparison.OrdinalIgnoreCase)
+                || d.DeviceFamily.Contains("SMBus", StringComparison.OrdinalIgnoreCase)
+                || d.FriendlyName.Contains("SMBus", StringComparison.OrdinalIgnoreCase)
+                || d.HardwareIds.Contains("VEN_1462", StringComparison.OrdinalIgnoreCase)
+                || d.HardwareIds.Contains("VEN_1022", StringComparison.OrdinalIgnoreCase))
+            .Select(d => new
+            {
+                d.Source,
+                d.FriendlyName,
+                d.Manufacturer,
+                d.Service,
+                d.HardwareIds,
+                d.CompatibleIds,
+                d.RedactedInstanceId,
+                d.DeviceFamily,
+                d.RgbRelevance,
+                d.RecommendedNextStep
+            }).ToArray();
+
+        var controllers = openRgbDevices
+            .Where(d => d.Name.Contains("MSI", StringComparison.OrdinalIgnoreCase)
+                || d.Vendor.Contains("MSI", StringComparison.OrdinalIgnoreCase)
+                || d.Description.Contains("Mystic", StringComparison.OrdinalIgnoreCase)
+                || d.Name.Contains("Mystic", StringComparison.OrdinalIgnoreCase))
+            .Select(d => new
+            {
+                d.Index,
+                d.Name,
+                d.Vendor,
+                d.Description,
+                d.DeviceType,
+                d.ProtocolVersion,
+                d.ZoneCount,
+                d.LedCount,
+                Zones = d.Zones.Select(z => new { z.Name, z.LedCount }).ToArray(),
+                RawControllerPacketHex = d.RawDataHex
+            }).ToArray();
+
+        return new
+        {
+            ReadOnly = true,
+            Method = "SMBIOS registry metadata + Windows PnP inventory + OpenRGB SDK controller metadata",
+            Motherboard = board,
+            PnpCandidateCount = candidates.Length,
+            PnpCandidates = candidates,
+            OpenRgbMysticLightControllerCount = controllers.Length,
+            OpenRgbMysticLightControllers = controllers,
+            Safety = "No direct USB/HID/PCI/SMBus/I2C commands were sent. No RGB modes or colors were changed.",
+            NextStep = "Use the exact motherboard model, PnP candidates, SMBus controller IDs and OpenRGB controller metadata to study the matching open-source driver before implementing any direct write operation."
+        };
+    }
+
+    private void MultiDeviceCheckChanged(object sender, RoutedEventArgs e)
+    {
+        if (MultiSelectInfo is null) return;
+        int count = _devices.Count(d => d.IsSelected);
+        MultiSelectInfo.Text = count == 0
+            ? "Nenhum dispositivo selecionado para aplicação em grupo."
+            : $"{count} dispositivo(s) selecionado(s). A aplicação em grupo alcança todas as zonas controláveis.";
+    }
+
+    private void SelectAllDevices_Click(object sender, RoutedEventArgs e)
+    {
+        foreach (var device in _devices) device.IsSelected = true;
+        MultiDeviceList.Items.Refresh();
+        MultiDeviceCheckChanged(sender, e);
+    }
+
+    private void ClearDeviceSelection_Click(object sender, RoutedEventArgs e)
+    {
+        foreach (var device in _devices) device.IsSelected = false;
+        MultiDeviceList.Items.Refresh();
+        MultiDeviceCheckChanged(sender, e);
+    }
+
+    private void HueArcCanvas_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (_hueArcDrawn) return;
+        DrawHueArc();
+    }
+
+    private void DrawHueArc()
+    {
+        HueArcCanvas.Children.Clear();
+        const double cx = 180, cy = 166, radius = 140, thickness = 27;
+        // Draw a smooth, 180-degree spectrum from red through the full hue wheel back to red.
+        for (int i = 0; i < 180; i++)
+        {
+            double a1 = Math.PI - (i * Math.PI / 180.0);
+            double a2 = Math.PI - ((i + 1.15) * Math.PI / 180.0);
+            var p1 = new Point(cx + radius * Math.Cos(a1), cy - radius * Math.Sin(a1));
+            var p2 = new Point(cx + radius * Math.Cos(a2), cy - radius * Math.Sin(a2));
+            var path = new System.Windows.Shapes.Path
+            {
+                Stroke = new SolidColorBrush(HsvColor(i * 2.0, 1, 1)),
+                StrokeThickness = thickness,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round,
+                Data = new LineGeometry(p1, p2),
+                IsHitTestVisible = false
+            };
+            HueArcCanvas.Children.Add(path);
+        }
+        _hueMarker = new Ellipse { Width = 19, Height = 19, Fill = Brushes.White, Stroke = new SolidColorBrush(Color.FromRgb(20, 35, 48)), StrokeThickness = 4, IsHitTestVisible = false };
+        HueArcCanvas.Children.Add(_hueMarker);
+        _hueArcDrawn = true;
+        UpdateHueMarker(180);
+    }
+
+    private void HueArcCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        Point point = e.GetPosition(HueArcCanvas);
+        const double cx = 180, cy = 166;
+        double dx = point.X - cx;
+        double dy = cy - point.Y;
+        if (dy < -8) return;
+        double angle = Math.Atan2(dy, dx);
+        if (angle < 0 || angle > Math.PI) return;
+        double hue = (1.0 - angle / Math.PI) * 360.0;
+        if (hue >= 360) hue = 0;
+        Color color = HsvColor(hue, 1, 1);
+        HexColorBox.Text = $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+        UpdateHueMarker(hue);
+        e.Handled = true;
+    }
+
+    private void UpdateHueMarker(double hue)
+    {
+        if (_hueMarker is null) return;
+        const double cx = 180, cy = 166, radius = 140;
+        double angle = (1.0 - (hue % 360.0) / 360.0) * Math.PI;
+        Canvas.SetLeft(_hueMarker, cx + radius * Math.Cos(angle) - _hueMarker.Width / 2);
+        Canvas.SetTop(_hueMarker, cy - radius * Math.Sin(angle) - _hueMarker.Height / 2);
+    }
+
+    private static Color HsvColor(double hue, double saturation, double value)
+    {
+        hue = ((hue % 360) + 360) % 360;
+        double c = value * saturation;
+        double x = c * (1 - Math.Abs((hue / 60.0 % 2) - 1));
+        double m = value - c;
+        (double r, double g, double b) = hue switch
+        {
+            < 60 => (c, x, 0.0), < 120 => (x, c, 0.0), < 180 => (0.0, c, x),
+            < 240 => (0.0, x, c), < 300 => (x, 0.0, c), _ => (c, 0.0, x)
+        };
+        return Color.FromRgb((byte)Math.Round((r + m) * 255), (byte)Math.Round((g + m) * 255), (byte)Math.Round((b + m) * 255));
+    }
+
+    private async void ApplyToSelectedDevices_Click(object sender, RoutedEventArgs e)
+    {
+        var selected = _devices.Where(d => d.IsSelected).ToList();
+        if (selected.Count == 0)
+        {
+            StatusText.Text = "Marque pelo menos um dispositivo na seção Aplicação em grupo.";
+            return;
+        }
+        string hex = HexColorBox.Text.Trim().TrimStart('#');
+        if (hex.Length != 6 || !uint.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint rgb))
+        {
+            StatusText.Text = "Cor inválida. Use #RRGGBB.";
+            return;
+        }
+        double brightness = Math.Clamp(BrightnessSlider.Value, 0, 100) / 100.0;
+        byte red = (byte)Math.Round(((rgb >> 16) & 0xFF) * brightness);
+        byte green = (byte)Math.Round(((rgb >> 8) & 0xFF) * brightness);
+        byte blue = (byte)Math.Round((rgb & 0xFF) * brightness);
+        var targets = selected.SelectMany(d => d.Zones.Select(z => (Device: d, Zone: z)))
+            .Where(t => t.Zone.LedCount > 0).ToList();
+        if (targets.Count == 0)
+        {
+            StatusText.Text = "Os dispositivos selecionados não possuem zonas com LEDs controláveis.";
+            return;
+        }
+
+        ApplyControlsEnabled(false);
+        int succeeded = 0;
+        var failures = new System.Collections.Concurrent.ConcurrentBag<string>();
+        try
+        {
+            // Uma conexão por dispositivo: ativa o modo Custom uma vez e envia
+            // todas as zonas sem repetir as pausas de cada operação.
+            // Dispositivos diferentes continuam sendo atualizados em paralelo.
+            var deviceGroups = targets.GroupBy(t => t.Device).ToList();
+            var updateTasks = deviceGroups.Select(async deviceGroup =>
+            {
+                var groupTargets = deviceGroup.ToList();
+                var zoneCommands = groupTargets.Select(target => (
+                    ZoneIndex: target.Zone.Index,
+                    LedCount: _zoneLedOverrides.TryGetValue(GetZoneKey(target.Device, target.Zone), out int configured)
+                        ? configured : target.Zone.LedCount)).ToList();
+                try
+                {
+                    await _openRgb.ApplyDeviceZonesColorAsync(deviceGroup.Key.Index, zoneCommands, red, green, blue);
+                    System.Threading.Interlocked.Add(ref succeeded, groupTargets.Count);
+                }
+                catch (Exception ex)
+                {
+                    foreach (var target in groupTargets)
+                        failures.Add($"{target.Device.Name}/{target.Zone.Name}: {ex.Message}");
+                }
+            });
+
+            await Task.WhenAll(updateTasks);
+            EngineStatusText.Text = failures.IsEmpty ? "Aplicação em grupo concluída" : "Aplicação em grupo parcial";
+            EngineStatusText.Foreground = failures.IsEmpty ? Brushes.LightGreen : Brushes.Orange;
+            StatusText.Text = $"Aplicação em grupo: {succeeded}/{targets.Count} zona(s) atualizada(s) em {selected.Count} dispositivo(s), cor #{hex.ToUpperInvariant()}, brilho {(int)Math.Round(BrightnessSlider.Value)}%. Envio otimizado por dispositivo e em paralelo.";
+            if (!failures.IsEmpty) StatusText.Text += " Falhas: " + string.Join(" | ", failures.Take(3));
+        }
+        finally { ApplyControlsEnabled(true); }
+    }
+
+    private void DeviceSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (DeviceSelector.SelectedItem is not DeviceRow device)
+        {
+            ZoneSelector.ItemsSource = null;
+            ZoneLedCountBox.Text = "0";
+            ZoneLedCountInfo.Text = "Quantidade detectada pelo OpenRGB";
+            return;
+        }
+        ZoneSelector.ItemsSource = device.Zones.Select((zone, index) => new ZoneRow(index, zone.Name, zone.LedCount)).ToList();
+        if (ZoneSelector.Items.Count > 0) ZoneSelector.SelectedIndex = 0;
+        if (device.IsNative)
+            ZoneLedCountInfo.Text = "Controle direto do Logitech G203 • zona única • sem OpenRGB";
+    }
+
+    private void ZoneSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (ZoneSelector.SelectedItem is not ZoneRow zone || DeviceSelector.SelectedItem is not DeviceRow device)
+        {
+            ZoneLedCountBox.Text = "0";
+            ZoneLedCountInfo.Text = "Quantidade detectada pelo OpenRGB";
+            return;
+        }
+        string key = GetZoneKey(device, zone);
+        int configured = _zoneLedOverrides.TryGetValue(key, out int value) ? value : zone.LedCount;
+        ZoneLedCountBox.Text = configured.ToString(CultureInfo.InvariantCulture);
+        ZoneLedCountInfo.Text = device.IsNative
+            ? "Controle direto do Logitech G203 • zona única • quantidade fixa"
+            : $"Detectados pelo OpenRGB: {zone.LedCount} • Ajuste conforme a quantidade física";
+    }
+
+    private async void ApplyColor_Click(object sender, RoutedEventArgs e) => await ApplySelectedColorAsync();
+
+    private async void TurnOffZone_Click(object sender, RoutedEventArgs e)
+    {
+        HexColorBox.Text = "#000000";
+        await ApplySelectedColorAsync();
+    }
+
+    private void QuickColor_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && button.Tag is string color) HexColorBox.Text = color;
+    }
+
+    private void HexColorBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_updatingColorText || ColorPreview is null) return;
+        string value = HexColorBox.Text.Trim();
+        if (value.Length == 7 && value[0] == '#' && uint.TryParse(value[1..], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint rgb))
+        {
+            if (RedSlider is null || GreenSlider is null || BlueSlider is null || RedValueText is null || GreenValueText is null || BlueValueText is null) return;
+            try
+            {
+                ColorPreview.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(value));
+                _updatingColorText = true;
+                RedSlider.Value = (rgb >> 16) & 0xFF;
+                GreenSlider.Value = (rgb >> 8) & 0xFF;
+                BlueSlider.Value = rgb & 0xFF;
+                RedValueText.Text = ((int)RedSlider.Value).ToString();
+                GreenValueText.Text = ((int)GreenSlider.Value).ToString();
+                BlueValueText.Text = ((int)BlueSlider.Value).ToString();
+            }
+            catch { }
+            finally { _updatingColorText = false; }
+        }
+    }
+
+    private void CustomColorSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (_updatingColorText || HexColorBox is null || RedSlider is null || GreenSlider is null || BlueSlider is null || RedValueText is null || GreenValueText is null || BlueValueText is null) return;
+        int r = (int)Math.Round(RedSlider.Value);
+        int g = (int)Math.Round(GreenSlider.Value);
+        int b = (int)Math.Round(BlueSlider.Value);
+        RedValueText.Text = r.ToString();
+        GreenValueText.Text = g.ToString();
+        BlueValueText.Text = b.ToString();
+        string hex = $"#{r:X2}{g:X2}{b:X2}";
+        _updatingColorText = true;
+        HexColorBox.Text = hex;
+        ColorPreview.Background = new SolidColorBrush(Color.FromRgb((byte)r, (byte)g, (byte)b));
+        _updatingColorText = false;
+    }
+
+    private void BrightnessSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (BrightnessValueText is null) return;
+        BrightnessValueText.Text = $"{(int)Math.Round(BrightnessSlider.Value)}%";
+    }
+
+    private async Task ApplySelectedColorAsync()
+    {
+        if (DeviceSelector.SelectedItem is not DeviceRow device || ZoneSelector.SelectedItem is not ZoneRow zone)
+        {
+            StatusText.Text = "Selecione um dispositivo e uma zona antes de aplicar a cor.";
+            return;
+        }
+        string hex = HexColorBox.Text.Trim();
+        if (hex.StartsWith('#')) hex = hex[1..];
+        if (hex.Length != 6 || !uint.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint rgb))
+        {
+            StatusText.Text = "Cor inválida. Use o formato hexadecimal #RRGGBB, por exemplo #35C8FF.";
+            return;
+        }
+        if (zone.LedCount <= 0)
+        {
+            StatusText.Text = "A zona selecionada não informa LEDs controláveis.";
+            return;
+        }
+        if (!int.TryParse(ZoneLedCountBox.Text.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int configuredLedCount) || configuredLedCount < 1 || configuredLedCount > ushort.MaxValue)
+        {
+            StatusText.Text = $"Informe uma quantidade entre 1 e 65535 LEDs para esta zona. O OpenRGB detectou {zone.LedCount}.";
+            return;
+        }
+        _zoneLedOverrides[GetZoneKey(device, zone)] = configuredLedCount;
+        SaveUserSettings();
+
+        ApplyControlsEnabled(false);
+        try
+        {
+            double brightness = Math.Clamp(BrightnessSlider.Value, 0, 100) / 100.0;
+            byte red = (byte)Math.Round(((rgb >> 16) & 0xFF) * brightness);
+            byte green = (byte)Math.Round(((rgb >> 8) & 0xFF) * brightness);
+            byte blue = (byte)Math.Round((rgb & 0xFF) * brightness);
+            if (device.IsNative)
+            {
+                var result = await Task.Run(() => new LogitechG203HidDriver().ApplyStaticColor(red, green, blue));
+                EngineStatusText.Text = result.Success ? "G203 • cor enviada pelo controle direto" : "Falha no controle direto do G203";
+                EngineStatusText.Foreground = result.Success ? Brushes.LightGreen : Brushes.Orange;
+                StatusText.Text = result.Message + (result.Success ? $" Cor #{hex.ToUpperInvariant()} • brilho {(int)Math.Round(BrightnessSlider.Value)}%." : " Feche Logitech G HUB/OpenRGB se estiverem disputando o mouse.");
+            }
+            else
+            {
+                await _openRgb.ApplyZoneColorAsync(device.Index, zone.Index, configuredLedCount, red, green, blue);
+                EngineStatusText.Text = "Cor enviada ao OpenRGB";
+                EngineStatusText.Foreground = Brushes.LightGreen;
+                StatusText.Text = $"Comando enviado: {device.Name} → {zone.Name} • {configuredLedCount}/{zone.LedCount} LED(s) • #{hex.ToUpperInvariant()} • brilho {(int)Math.Round(BrightnessSlider.Value)}%. Confira o resultado físico do dispositivo.";
+            }
+        }
+        catch (Exception ex)
+        {
+            EngineStatusText.Text = "Falha ao aplicar cor";
+            EngineStatusText.Foreground = Brushes.Orange;
+            StatusText.Text = $"Não foi possível aplicar a cor: {ex.Message}";
+        }
+        finally { ApplyControlsEnabled(true); }
+    }
+
+    private void AddFavorite_Click(object sender, RoutedEventArgs e)
+    {
+        string value = HexColorBox.Text.Trim().ToUpperInvariant();
+        if (!value.StartsWith('#')) value = "#" + value;
+        if (value.Length != 7 || !uint.TryParse(value[1..], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out _))
+        {
+            StatusText.Text = "Escolha uma cor HEX válida antes de salvá-la como favorita.";
+            return;
+        }
+        if (_favoriteColors.Any(c => c.Hex.Equals(value, StringComparison.OrdinalIgnoreCase)))
+        {
+            StatusText.Text = $"A cor {value} já está nas favoritas.";
+            return;
+        }
+        _favoriteColors.Add(new FavoriteColorRow(value));
+        SaveUserSettings();
+        StatusText.Text = $"Cor {value} adicionada às favoritas.";
+    }
+
+    private void RemoveFavorite_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && button.Tag is string hex)
+        {
+            var item = _favoriteColors.FirstOrDefault(c => c.Hex.Equals(hex, StringComparison.OrdinalIgnoreCase));
+            if (item is not null)
+            {
+                _favoriteColors.Remove(item);
+                SaveUserSettings();
+                StatusText.Text = $"Cor {hex} removida das favoritas.";
+            }
+        }
+    }
+
+    private static string GetZoneKey(DeviceRow device, ZoneRow zone) => $"{device.Name}|{zone.Name}|{zone.Index}";
+
+    private void LoadUserSettings()
+    {
+        try
+        {
+            if (!File.Exists(_userSettingsPath)) return;
+            var settings = JsonSerializer.Deserialize<UserSettings>(File.ReadAllText(_userSettingsPath));
+            if (settings is null) return;
+            foreach (string color in settings.FavoriteColors ?? new())
+            {
+                string normalized = color.StartsWith('#') ? color.ToUpperInvariant() : "#" + color.ToUpperInvariant();
+                if (normalized.Length == 7 && uint.TryParse(normalized[1..], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out _) && !_favoriteColors.Any(c => c.Hex == normalized))
+                    _favoriteColors.Add(new FavoriteColorRow(normalized));
+            }
+            foreach (var pair in settings.ZoneLedOverrides ?? new Dictionary<string, int>())
+                if (pair.Value > 0 && pair.Value <= ushort.MaxValue) _zoneLedOverrides[pair.Key] = pair.Value;
+            BrightnessSlider.Value = Math.Clamp(settings.Brightness, 0, 100);
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"Não foi possível carregar as preferências: {ex.Message}";
+        }
+    }
+
+    private void SaveUserSettings()
+    {
+        try
+        {
+            string? directory = System.IO.Path.GetDirectoryName(_userSettingsPath);
+            if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
+            var settings = new UserSettings(_favoriteColors.Select(c => c.Hex).ToList(), _zoneLedOverrides, BrightnessSlider.Value);
+            File.WriteAllText(_userSettingsPath, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"Não foi possível salvar as preferências: {ex.Message}";
+        }
+    }
+
+    private void ApplyControlsEnabled(bool enabled)
+    {
+        DeviceSelector.IsEnabled = enabled;
+        ZoneSelector.IsEnabled = enabled;
+        HexColorBox.IsEnabled = enabled;
+        RedSlider.IsEnabled = enabled;
+        GreenSlider.IsEnabled = enabled;
+        BlueSlider.IsEnabled = enabled;
+        BrightnessSlider.IsEnabled = enabled;
+        ZoneLedCountBox.IsEnabled = enabled;
+        foreach (var button in FindVisualChildren<Button>(this))
+            if (button.Content?.ToString() is "Aplicar cor" or "Desligar zona (preto)" or "Aplicar aos selecionados") button.IsEnabled = enabled;
+    }
+
+    private static IEnumerable<T> FindVisualChildren<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (int i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, i);
+            if (child is T typed) yield return typed;
+            foreach (var descendant in FindVisualChildren<T>(child)) yield return descendant;
+        }
+    }
+
+    private void ConnectButtonState(bool busy)
+    {
+        ConnectOpenRgbButton.IsEnabled = !busy;
+        ConnectOpenRgbButton.Content = busy ? "Lendo dispositivos..." : "Conectar ao OpenRGB";
+    }
+
+    private async void CheckUpdates_Click(object sender, RoutedEventArgs e)
+    {
+        UpdateText.Text = "Consultando o GitHub...";
+        var result = await _updates.CheckLatestAsync();
+        UpdateText.Text = result;
+    }
+
+    private sealed record DeviceDisplayRow(string Name, string Details, string ZonesText, string Status);
+    private sealed class DeviceRow(int index, string name, string details, string zonesText, IReadOnlyList<OpenRgbZone> sourceZones, bool isNative = false)
+    {
+        public int Index { get; } = index;
+        public bool IsNative { get; } = isNative;
+        public string Name { get; } = name;
+        public string Details { get; } = details;
+        public string ZonesText { get; } = zonesText;
+        public IReadOnlyList<OpenRgbZone> SourceZones { get; } = sourceZones;
+        public bool IsSelected { get; set; }
+        public IReadOnlyList<ZoneRow> Zones => SourceZones.Select((zone, zoneIndex) => new ZoneRow(zoneIndex, zone.Name, zone.LedCount)).ToList();
+    }
+    private sealed record ZoneRow(int Index, string Name, int LedCount)
+    {
+        public string DisplayName => $"{Name} • {LedCount} LED(s)";
+    }
+    private sealed record FavoriteColorRow(string Hex)
+    {
+        public Brush Brush => new SolidColorBrush((Color)ColorConverter.ConvertFromString(Hex));
+    }
+    private sealed record UserSettings(List<string>? FavoriteColors, Dictionary<string, int>? ZoneLedOverrides, double Brightness = 100);
+}

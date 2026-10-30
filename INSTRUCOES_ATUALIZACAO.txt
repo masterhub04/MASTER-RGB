@@ -1,0 +1,42 @@
+MASTER RGB v0.7.4 — DIAGNÓSTICO AVANÇADO DA MSI / MYSTIC LIGHT
+
+OBJETIVO
+Esta versão amplia o relatório de diagnóstico para identificar a placa-mãe pelo SMBIOS/BIOS e correlacionar:
+- Fabricante, modelo e versão da placa-mãe;
+- Fabricante e versão da BIOS;
+- Dispositivos PnP MSI e controladores SMBus AMD/Intel relevantes;
+- Controladores MSI/Mystic Light já expostos pelo OpenRGB SDK;
+- Zonas, LEDs e metadados brutos retornados pelo OpenRGB.
+
+SEGURANÇA
+- Somente leitura.
+- Não envia comandos RGB à placa-mãe.
+- Não abre nem escreve diretamente em SMBus/I2C/PCI.
+- Não altera cores, modos ou configurações.
+- Mantém intacto o driver HID nativo do Logitech G203.
+- Mantém a comunicação de cores do OpenRGB sem alterações.
+
+ARQUIVOS PARA SUBSTITUIR
+Na pasta principal do projeto, substitua:
+1. MainWindow.xaml.cs
+2. MASTER_RGB.csproj
+3. Services\DirectHardware\WindowsHardwareInventory.cs
+
+NÃO substitua:
+- MainWindow.xaml
+- Services\DirectHardware\Drivers\LogitechG203HidDriver.cs
+- Services\DirectHardware\DirectHardwareEngine.cs
+- Services\DirectHardware\IRgbDeviceDriver.cs
+- GERAR_EXE.bat
+- publish-win-x64.ps1
+
+GERAR O EXECUTÁVEL
+1. Feche o MASTER RGB.
+2. Copie os três arquivos acima, confirmando a substituição.
+3. Execute GERAR_EXE.bat na pasta principal.
+4. Abra o novo MASTER RGB.exe.
+5. Clique em “Diagnóstico completo” e salve o JSON.
+6. Envie o JSON gerado para análise do controlador MSI.
+
+VERSÃO: 0.7.4
+Pacote de atualização. A integridade do ZIP foi verificada; compilação não executada neste ambiente.
