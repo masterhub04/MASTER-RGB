@@ -100,36 +100,6 @@
         <Grid x:Name="MainContentHost" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2">
             <Grid x:Name="DashboardPage" Grid.Column="0" Grid.ColumnSpan="2" Visibility="Visible" Background="{StaticResource BgBrush}">
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <Grid>
-            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <Border Width="42" Height="42" CornerRadius="12" Background="#10143A" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1">
-                    <TextBlock Text="M" FontSize="25" FontWeight="Black" Foreground="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                </Border>
-                <StackPanel Margin="13,0,0,0" VerticalAlignment="Center">
-                    <TextBlock Text="MASTER HUB" FontSize="21" FontWeight="Bold" Foreground="#F4F7FF"/>
-                    <TextBlock Text="SEU SISTEMA, NO SEU CONTROLE" FontSize="9" Foreground="#8792B7" FontWeight="SemiBold" Margin="1,3,0,0"/>
-                </StackPanel>
-            </StackPanel>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
-                <Button x:Name="NotificationsButton" Content="&#xE7F4;" FontFamily="Segoe MDL2 Assets" FontSize="17"
-                        ToolTip="Notificações" Width="44" Height="42" Margin="0,0,10,0"
-                        Background="#11182B" BorderBrush="#28335B" Click="Notifications_Click"/>
-                <Button Content="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="17"
-                        ToolTip="Configurações" Width="44" Height="42" Margin="0,0,18,0"
-                        Background="#11182B" BorderBrush="#28335B" Click="NavigateSettings_Click"/>
-                <Button Content="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="15"
-                        ToolTip="Minimizar" Width="44" Height="42" Margin="0,0,8,0"
-                        Background="#11182B" BorderBrush="#28335B" Click="MinimizeWindow_Click"/>
-                <Button x:Name="MaximizeButton" Content="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                        ToolTip="Maximizar" Width="44" Height="42" Margin="0,0,8,0"
-                        Background="#11182B" BorderBrush="#28335B" Click="MaximizeWindow_Click"/>
-                <Button Content="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="13"
-                        ToolTip="Fechar" Width="44" Height="42" Margin="0,0,0,0"
-                        Background="#2A1422" BorderBrush="#63304A" Foreground="#FFB4CB" Click="CloseWindow_Click"/>
-            </StackPanel>
-        </Grid>
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="42,34,42,38">
             <Grid Margin="0,0,0,20">
                 <StackPanel>
