@@ -20,15 +20,46 @@ jobs:
 
       - name: Get release version
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if ("${{ github.ref_type }}" -eq "tag") {
             $version = "${{ github.ref_name }}".TrimStart("v")
           } else {
             [xml]$project = Get-Content MASTER_RGB.csproj
-            $version = $project.Project.PropertyGroup.Version
+            $baseVersion = [version]$project.Project.PropertyGroup.Version
+
+            $headers = @{
+              Accept = "application/vnd.github+json"
+              Authorization = "Bearer $env:GH_TOKEN"
+              "X-GitHub-Api-Version" = "2022-11-28"
+            }
+            $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/releases?per_page=100" -Headers $headers
+            $publishedVersions = @(
+              $releases |
+                ForEach-Object {
+                  if ($_.tag_name -match '^v?(\d+\.\d+\.\d+)$') {
+                    try { [version]$Matches[1] } catch { $null }
+                  }
+                } |
+                Where-Object { $null -ne $_ }
+            )
+
+            $latestVersion = $baseVersion
+            if ($publishedVersions.Count -gt 0) {
+              $latestPublished = $publishedVersions | Sort-Object -Descending | Select-Object -First 1
+              if ($latestPublished -gt $latestVersion) {
+                $latestVersion = $latestPublished
+              }
+            }
+
+            $version = "$($latestVersion.Major).$($latestVersion.Minor).$($latestVersion.Build + 1)"
           }
+
           if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Invalid release version: $version" }
           "VERSION=$version" >> $env:GITHUB_ENV
+          "### MASTER HUB release version: $version" >> $env:GITHUB_STEP_SUMMARY
+          Write-Host "Selected release version: $version"
 
       - name: Restore
         run: dotnet restore MASTER_RGB.csproj
