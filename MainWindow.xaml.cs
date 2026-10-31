@@ -149,12 +149,25 @@ public partial class MainWindow : Window
     private void HeaderBar_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
         if (e.ChangedButton != System.Windows.Input.MouseButton.Left) return;
+        // Os botões e seus ícones não devem iniciar o arraste da janela.
+        if (e.OriginalSource is DependencyObject source &&
+            FindVisualAncestor<Button>(source) is not null) return;
         if (e.ClickCount == 2)
         {
             ToggleWindowState();
             return;
         }
         if (e.ButtonState == System.Windows.Input.MouseButtonState.Pressed) DragMove();
+    }
+
+    private static T? FindVisualAncestor<T>(DependencyObject? current) where T : DependencyObject
+    {
+        while (current is not null)
+        {
+            if (current is T match) return match;
+            current = VisualTreeHelper.GetParent(current);
+        }
+        return null;
     }
 
     private void MaximizeWindow_Click(object sender, RoutedEventArgs e) => ToggleWindowState();
