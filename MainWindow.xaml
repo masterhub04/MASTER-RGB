@@ -3,8 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:MasterRgb.Controls"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
-        Title="MASTER HUB" Icon="Assets/master-rgb.ico" Height="900" Width="1460"
-        MinHeight="760" MinWidth="1180" WindowStyle="None" ResizeMode="CanResize"
+        Title="MASTER HUB" Icon="Assets/master-rgb.ico" Height="780" Width="1240"
+        MinHeight="640" MinWidth="900" WindowStyle="None" ResizeMode="CanResize"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource BgBrush}"
         Foreground="{StaticResource TextBrush}">
@@ -108,11 +108,11 @@
         <Grid x:Name="MainContentHost" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2">
             <Grid x:Name="DashboardPage" Grid.Column="0" Grid.ColumnSpan="2" Visibility="Visible" Background="{StaticResource BgBrush}">
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Margin="42,34,42,38">
+        <StackPanel Margin="26,22,26,26">
             <Grid Margin="0,0,0,20">
                 <StackPanel>
                     <TextBlock Text="CENTRAL DE CONTROLE" FontSize="10" Foreground="#6575B5" FontWeight="Bold"/>
-                    <TextBlock Text="Seu setup. Seu universo." FontSize="34" FontWeight="Bold" Foreground="{StaticResource TextBrush}" Margin="0,5,0,3"/>
+                    <TextBlock Text="Seu setup. Seu universo." FontSize="29" FontWeight="Bold" Foreground="{StaticResource TextBrush}" Margin="0,5,0,3"/>
                     <TextBlock Text="Acesse seus aplicativos e personalize sua experiência." FontSize="12" Foreground="{StaticResource MutedBrush}"/>
                 </StackPanel>
                 <Border HorizontalAlignment="Right" VerticalAlignment="Center" BorderBrush="#164D38" BorderThickness="1" Background="#0D241E" CornerRadius="8" Padding="12,8">
@@ -123,9 +123,9 @@
                 </Border>
             </Grid>
             <TextBlock Text="APLICATIVOS" FontSize="10" Foreground="#7885B3" FontWeight="Bold" Margin="0,0,0,10"/>
-            <Grid Margin="0,0,0,28" MinHeight="300">
+            <Grid Margin="0,0,0,18" MinHeight="250">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                <Border Background="#0C1426" BorderBrush="#202B66" BorderThickness="1" CornerRadius="20" Padding="25" Margin="0,0,9,0">
+                <Border Background="#0C1426" BorderBrush="#202B66" BorderThickness="1" CornerRadius="16" Padding="18" Margin="0,0,9,0">
                     <Grid>
                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                         <Grid>
@@ -170,7 +170,7 @@
                         <Button Grid.Row="2" Content="ABRIR APLICATIVO   →" Click="EnterMasterRgb_Click" HorizontalAlignment="Left" MinWidth="210" Padding="20,13" Background="#171B73" BorderBrush="{DynamicResource AccentBrush}" Foreground="White" FontWeight="Bold"/>
                     </Grid>
                 </Border>
-                <Border Grid.Column="1" Background="#111222" BorderBrush="#3A2D65" BorderThickness="1" CornerRadius="15" Padding="19" Margin="9,0,0,0">
+                <Border Grid.Column="1" Background="#111222" BorderBrush="#3A2D65" BorderThickness="1" CornerRadius="13" Padding="15" Margin="9,0,0,0">
                     <Grid>
                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                         <Grid>
