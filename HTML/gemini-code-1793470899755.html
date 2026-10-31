@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="azul">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master Hub</title>
+    <style>
+        /* Variáveis de Cores para os 3 Temas */
+        :root {
+            --bg-main: #060913;
+            --bg-panel: rgba(13, 20, 38, 0.75);
+            --bg-card: rgba(11, 18, 33, 0.85);
+            --border-color: rgba(0, 162, 255, 0.3);
+            --border-glow: rgba(0, 162, 255, 0.6);
+            --accent: #00a2ff;
+            --accent-gradient: linear-gradient(135deg, #0077ff, #00d4ff);
+            --text-main: #ffffff;
+            --text-secondary: #8ab4f8;
+            --text-muted: #64748b;
+            --header-bg: #04060d;
+        }
+
+        [data-theme="claro"] {
+            --bg-main: #f0f4f8;
+            --bg-panel: rgba(255, 255, 255, 0.9);
+            --bg-card: rgba(245, 247, 250, 0.95);
+            --border-color: rgba(0, 120, 255, 0.25);
+            --border-glow: rgba(0, 120, 255, 0.5);
+            --accent: #0066cc;
+            --accent-gradient: linear-gradient(135deg, #0052cc, #0080ff);
+            --text-main: #1e293b;
+            --text-secondary: #0066cc;
+            --text-muted: #64748b;
+            --header-bg: #e2e8f0;
+        }
+
+        [data-theme="escuro"] {
+            --bg-main: #0a0a0c;
+            --bg-panel: rgba(18, 18, 22, 0.9);
+            --bg-card: rgba(14, 14, 18, 0.95);
+            --border-color: rgba(255, 255, 255, 0.12);
+            --border-glow: rgba(255, 255, 255, 0.3);
+            --accent: #e11d48;
+            --accent-gradient: linear-gradient(135deg, #be123c, #fb7185);
+            --text-main: #f8fafc;
+            --text-secondary: #fb7185;
+            --text-muted: #94a3b8;
+            --header-bg: #050507;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; user-select: none; }
+        body { background-color: var(--bg-main); color: var(--text-main); height: 100vh; display: flex; flex-direction: column; overflow: hidden; transition: background 0.3s ease, color 0.3s ease; }
+
+        /* Barra de Título Customizada */
+        .top-bar { height: 38px; background-color: var(--header-bg); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; border-bottom: 1px solid var(--border-color); font-size: 12px; }
+        .logo-area { display: flex; align-items: center; gap: 10px; }
+        .logo-m { width: 24px; height: 24px; background: var(--accent-gradient); border-radius: 6px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 900; font-size: 14px; box-shadow: 0 0 10px var(--border-glow); }
+        .logo-texts h1 { font-size: 13px; font-weight: 800; letter-spacing: 1px; color: var(--text-main); }
+        .logo-texts span { font-size: 9px; color: var(--text-muted); letter-spacing: 0.5px; }
+        .window-actions { display: flex; align-items: center; gap: 18px; color: var(--text-secondary); cursor: pointer; }
+        .window-actions span:hover { color: var(--text-main); }
+
+        /* Conteúdo Principal */
+        .app-container { flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }
+
+        /* Grid dos 2 Cards Principais */
+        .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        
+        .card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; padding: 24px; position: relative; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.3); display: flex; flex-direction: column; justify-content: space-between; height: 240px; }
+        .card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 3px; background: var(--accent-gradient); }
+
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; }
+        .badge { display: flex; align-items: center; gap: 6px; font-size: 11px; padding: 4px 10px; border-radius: 20px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); }
+        .badge-dot { width: 7px; height: 7px; border-radius: 50%; }
+        .badge-available { color: #10b981; } .badge-available .badge-dot { background: #10b981; box-shadow: 0 0 6px #10b981; }
+        .badge-dev { color: #f59e0b; } .badge-dev .badge-dot { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
+
+        .card-icon-title { display: flex; align-items: center; gap: 16px; }
+        .card-icon { width: 56px; height: 56px; border-radius: 16px; background: rgba(0, 162, 255, 0.1); border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; font-size: 26px; color: var(--accent); }
+        .card-info h2 { font-size: 20px; font-weight: 800; letter-spacing: 0.5px; margin-bottom: 4px; }
+        .card-info p { font-size: 12px; color: var(--text-secondary); margin-bottom: 2px; }
+        .card-info span { font-size: 11px; color: var(--text-muted); }
+
+        .card-footer { display: flex; align-items: center; }
+        .btn-action { padding: 10px 18px; border-radius: 10px; background: rgba(0, 162, 255, 0.1); border: 1px solid var(--border-color); color: var(--text-main); font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s; }
+        .btn-action:hover { background: var(--accent); color: white; box-shadow: 0 0 15px var(--border-glow); }
+        .btn-disabled { opacity: 0.7; cursor: default; }
+        .btn-disabled:hover { background: rgba(0, 162, 255, 0.1); color: var(--text-main); box-shadow: none; }
+
+        /* Barra de Atalhos Secundários */
+        .shortcuts-bar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 14px; padding: 14px; align-items: center; }
+        .shortcut-item { display: flex; align-items: center; gap: 12px; padding: 6px; border-radius: 10px; cursor: pointer; transition: background 0.2s; }
+        .shortcut-item:hover { background: rgba(255,255,255,0.04); }
+        .shortcut-icon { width: 36px; height: 36px; border-radius: 10px; background: rgba(0, 162, 255, 0.08); border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; color: var(--accent); font-size: 16px; }
+        .shortcut-texts h4 { font-size: 12px; font-weight: 700; margin-bottom: 2px; }
+        .shortcut-texts p { font-size: 10px; color: var(--text-muted); }
+
+        /* Painel de Configurações */
+        .settings-panel { background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+        .settings-header { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--accent); }
+        
+        .settings-grid { display: grid; grid-template-columns: 2.2fr 1.2fr 1.3fr 1.3fr; gap: 20px; align-items: center; }
+        .setting-group label { display: block; font-size: 11px; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        /* Seletor de Temas (3 Opções) */
+        .theme-options { display: flex; gap: 10px; }
+        .theme-card { flex: 1; height: 48px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--bg-card); display: flex; align-items: center; padding: 0 10px; gap: 8px; cursor: pointer; transition: all 0.2s; }
+        .theme-card:hover { border-color: var(--accent); }
+        .theme-card.active { border: 2px solid var(--accent); background: rgba(0, 162, 255, 0.08); box-shadow: 0 0 10px var(--border-glow); }
+        .theme-color-box { width: 16px; height: 16px; border-radius: 4px; }
+        .theme-info span { display: block; font-size: 11px; font-weight: 700; }
+        .theme-info p { font-size: 9px; color: var(--text-muted); }
+
+        /* Select e Inputs Estilizados */
+        .custom-select, .custom-input { width: 100%; height: 48px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 0 12px; color: var(--text-main); font-size: 12px; outline: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
+        
+        /* Toggle Switch */
+        .toggle-switch { display: flex; align-items: center; justify-content: space-between; height: 48px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 0 14px; }
+        .switch { position: relative; display: inline-block; width: 40px; height: 22px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #334155; transition: .3s; border-radius: 20px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--accent); }
+        input:checked + .slider:before { transform: translateX(18px); }
+
+        /* Rodapé Interno */
+        .app-footer { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--text-muted); padding: 0 4px; }
+        .system-status { display: flex; align-items: center; gap: 6px; }
+        .status-dot-green { width: 7px; height: 7px; background: #10b981; border-radius: 50%; box-shadow: 0 0 6px #10b981; }
+    </style>
+</head>
+<body>
+
+    <!-- Barra de Título Superior -->
+    <div class="top-bar">
+        <div class="logo-area">
+            <div class="logo-m">M</div>
+            <div class="logo-texts">
+                <h1>MASTER HUB</h1>
+                <span>SEU SISTEMA, NO SEU CONTROLE</span>
+            </div>
+        </div>
+        <div class="window-actions">
+            <span>🔔</span>
+            <span>⚙️</span>
+            <span>🗕</span>
+            <span>🗖</span>
+            <span style="color: #ef4444;">✕</span>
+        </div>
+    </div>
+
+    <!-- Conteúdo do Aplicativo -->
+    <div class="app-container">
+
+        <!-- Cards Principais -->
+        <div class="main-grid">
+            <!-- Card Master RGB -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon-title">
+                        <div class="card-icon">⚡</div>
+                        <div class="card-info">
+                            <h2>MASTER RGB</h2>
+                            <p>Iluminação e dispositivos</p>
+                            <span>Controle RGB, dispositivos, cores e perfis.</span>
+                        </div>
+                    </div>
+                    <div class="badge badge-available">
+                        <span class="badge-dot"></span> Disponível
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn-action">Abrir aplicativo ➔</button>
+                </div>
+            </div>
+
+            <!-- Card Master Mic -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon-title">
+                        <div class="card-icon" style="color: #a855f7; background: rgba(168, 85, 247, 0.1);">🎙️</div>
+                        <div class="card-info">
+                            <h2>MASTER MIC</h2>
+                            <p>Áudio e microfones</p>
+                            <span>Configuração de microfones e processamento de áudio.</span>
+                        </div>
+                    </div>
+                    <div class="badge badge-dev">
+                        <span class="badge-dot"></span> Em desenvolvimento
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn-action btn-disabled">⏳ Em breve</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Barra de Atalhos -->
+        <div class="shortcuts-bar">
+            <div class="shortcut-item">
+                <div class="shortcut-icon">📊</div>
+                <div class="shortcut-texts">
+                    <h4>Desempenho</h4>
+                    <p>Otimize seu sistema</p>
+                </div>
+            </div>
+            <div class="shortcut-item">
+                <div class="shortcut-icon">🛡️</div>
+                <div class="shortcut-texts">
+                    <h4>Segurança</h4>
+                    <p>Proteja seu PC</p>
+                </div>
+            </div>
+            <div class="shortcut-item">
+                <div class="shortcut-icon">🌐</div>
+                <div class="shortcut-texts">
+                    <h4>Rede</h4>
+                    <p>Conexão e internet</p>
+                </div>
+            </div>
+            <div class="shortcut-item">
+                <div class="shortcut-icon">🔄</div>
+                <div class="shortcut-texts">
+                    <h4>Atualizações</h4>
+                    <p>Mantenha tudo em dia</p>
+                </div>
+            </div>
+            <div class="shortcut-item">
+                <div class="shortcut-icon">🎧</div>
+                <div class="shortcut-texts">
+                    <h4>Suporte</h4>
+                    <p>Ajuda e documentação</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Painel de Configurações -->
+        <div class="settings-panel">
+            <div class="settings-header">
+                <span>⚙️</span> Configurações
+            </div>
+            <div class="settings-grid">
+                
+                <!-- Seletor de Tema (3 Opções) -->
+                <div class="setting-group">
+                    <label>Tema</label>
+                    <div class="theme-options">
+                        <div class="theme-card active" onclick="setTheme('azul', this)">
+                            <div class="theme-color-box" style="background: #00a2ff;"></div>
+                            <div class="theme-info">
+                                <span>Azul</span>
+                                <p>(Padrão)</p>
+                            </div>
+                        </div>
+                        <div class="theme-card" onclick="setTheme('claro', this)">
+                            <div class="theme-color-box" style="background: #e2e8f0; border: 1px solid #cbd5e1;"></div>
+                            <div class="theme-info">
+                                <span>Claro</span>
+                                <p>Clean</p>
+                            </div>
+                        </div>
+                        <div class="theme-card" onclick="setTheme('escuro', this)">
+                            <div class="theme-color-box" style="background: #18181b;"></div>
+                            <div class="theme-info">
+                                <span>Escuro</span>
+                                <p>Minimal</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Idioma -->
+                <div class="setting-group">
+                    <label>Idioma</label>
+                    <div class="custom-select">
+                        <span>🌐 Português (Brasil)</span>
+                        <span>▼</span>
+                    </div>
+                </div>
+
+                <!-- Inicializar com o Windows -->
+                <div class="setting-group">
+                    <label>Inicializar com o Windows</label>
+                    <div class="toggle-switch">
+                        <span style="font-size: 12px; font-weight: 500;">Ativar</span>
+                        <label class="switch">
+                            <input type="checkbox" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Ao fechar o app -->
+                <div class="setting-group">
+                    <label>Ao fechar o app ⓘ</label>
+                    <div class="custom-select">
+                        <span>💾 Minimizar para a bandeira</span>
+                        <span>▼</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Rodapé -->
+        <div class="app-footer">
+            <div class="system-status">
+                <span class="status-dot-green"></span> Sistema pronto
+            </div>
+            <div style="font-weight: 600; letter-spacing: 0.5px;">
+                MASTER HUB <span style="color: var(--text-muted); font-weight: 400;">v0.9.4</span>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Script de Troca de Temas -->
+    <script>
+        function setTheme(themeName, element) {
+            // Altera o atributo data-theme no HTML raiz
+            document.documentElement.setAttribute('data-theme', themeName);
+            
+            // Remove a classe 'active' de todos os cards de tema e aplica no clicado
+            document.querySelectorAll('.theme-card').forEach(card => {
+                card.classList.remove('active');
+            });
+            element.classList.add('active');
+        }
+    </script>
+</body>
+</html>
