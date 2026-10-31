@@ -66,9 +66,9 @@ jobs:
         continue-on-error: true
 
       - name: Pack installer and update packages
-        run: vpk pack --packId masterhub04.master-rgb --packVersion ${{ env.VERSION }} --packDir publish/app --mainExe "MASTER RGB.exe" --packTitle "MASTER RGB" --outputDir publish/releases
+        run: vpk pack --packId masterhub04.master-rgb --packVersion ${{ env.VERSION }} --packDir publish/app --mainExe "MASTER HUB.exe" --packTitle "MASTER HUB" --outputDir publish/releases
 
       - name: Publish GitHub Release
-        run: vpk upload github --repoUrl https://github.com/${{ github.repository }} --token ${{ secrets.GITHUB_TOKEN }} --outputDir publish/releases --publish --releaseName "MASTER RGB ${{ env.VERSION }}" --tag v${{ env.VERSION }}
+        run: vpk upload github --repoUrl https://github.com/${{ github.repository }} --token ${{ secrets.GITHUB_TOKEN }} --outputDir publish/releases --publish --releaseName "MASTER HUB ${{ env.VERSION }}" --tag v${{ env.VERSION }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
