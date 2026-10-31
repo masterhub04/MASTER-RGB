@@ -19,3 +19,5 @@ artifacts/
 # Temporary files
 *.tmp
 *.log
+screenshots/
+diagnostics/
