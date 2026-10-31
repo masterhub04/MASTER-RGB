@@ -10,6 +10,8 @@ using System.Text.Json;
 using Microsoft.Win32;
 using MasterRgb.Services;
 using MasterRgb.Controls;
+using Velopack;
+using Velopack.Sources;
 using Forms = System.Windows.Forms;
 using Application = System.Windows.Application;
 using Button = System.Windows.Controls.Button;
@@ -107,6 +109,44 @@ public partial class MainWindow : Window
     private void NavigateDevices_Click(object sender, RoutedEventArgs e) => ShowPage(DevicesPage, DevicesNavButton);
     private void NavigateProfiles_Click(object sender, RoutedEventArgs e) => ShowPage(ProfilesPage, ProfilesNavButton);
     private void NavigateSettings_Click(object sender, RoutedEventArgs e) => ShowPage(SettingsPage, SettingsNavButton);
+    private async void CheckUpdates_Click(object sender, RoutedEventArgs e)
+    {
+        if (CheckUpdatesButton.IsEnabled == false) return;
+
+        try
+        {
+            CheckUpdatesButton.IsEnabled = false;
+            UpdateStatusText.Text = "Verificando a versão mais recente...";
+            var source = new GithubSource("https://github.com/masterhub04/MASTER-RGB", null, false);
+            var manager = new UpdateManager(source);
+            if (!manager.IsInstalled)
+            {
+                UpdateStatusText.Text = "A atualização automática está disponível apenas na versão instalada pelo instalador do MASTER HUB.";
+                return;
+            }
+
+            var update = await manager.CheckForUpdatesAsync();
+            if (update is null)
+            {
+                UpdateStatusText.Text = "Você já está usando a versão mais recente.";
+                return;
+            }
+
+            UpdateStatusText.Text = $"Baixando a versão {update.TargetFullRelease.Version}...";
+            await manager.DownloadUpdatesAsync(update);
+            UpdateStatusText.Text = "Download concluído. Reiniciando para aplicar a atualização...";
+            manager.ApplyUpdatesAndRestart(update);
+        }
+        catch (Exception ex)
+        {
+            UpdateStatusText.Text = "Não foi possível atualizar o MASTER HUB: " + ex.Message;
+        }
+        finally
+        {
+            CheckUpdatesButton.IsEnabled = true;
+        }
+    }
+
 
     private void ShowPage(FrameworkElement page, Button activeButton)
     {
