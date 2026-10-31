@@ -8,9 +8,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>MASTER HUB</AssemblyName>
     <RootNamespace>MasterRgb</RootNamespace>
-    <Version>0.9.9</Version>
+    <Version>0.9.10</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <ApplicationIcon>Assets\master-rgb.ico</ApplicationIcon>
+    <ApplicationIcon>Assets\\master-rgb.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="HidSharp" Version="2.6.4" />
@@ -20,6 +20,6 @@
     <PackageReference Include="Velopack" Version="1.2.161" />
   </ItemGroup>
   <ItemGroup>
-    <Resource Include="Assets\master-rgb.ico" />
+    <Resource Include="Assets\\master-rgb.ico" />
   </ItemGroup>
 </Project>
