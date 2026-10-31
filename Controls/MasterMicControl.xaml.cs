@@ -14,7 +14,7 @@ using RNNoise.NET;
 
 namespace MasterRgb.Controls;
 
-public partial class MasterMicControl : UserControl
+public partial class MasterMicControl : System.Windows.Controls.UserControl
 {
     private readonly ObservableCollection<DeviceInfo> _devices = new();
     private readonly List<AudioDeviceItem> _audioDevices = new();
