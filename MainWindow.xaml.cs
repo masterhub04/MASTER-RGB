@@ -169,7 +169,7 @@ public partial class MainWindow : Window
     {
         if (MaximizeButton is null) return;
         bool maximized = WindowState == WindowState.Maximized;
-        MaximizeButton.Content = maximized ? "\\uE923" : "\\uE922";
+        MaximizeButton.Content = maximized ? "\uE923" : "\uE922";
         MaximizeButton.ToolTip = maximized ? "Restaurar" : "Maximizar";
     }
 
