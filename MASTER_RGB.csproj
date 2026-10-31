@@ -17,7 +17,6 @@
     <PackageReference Include="System.Management" Version="8.0.0" />
     <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="YellowDogMan.RRNoise.NET" Version="0.1.9" />
-    <PackageReference Include="Velopack" Version="1.2.161" />
   </ItemGroup>
   <ItemGroup>
     <Resource Include="Assets\\master-rgb.ico" />
