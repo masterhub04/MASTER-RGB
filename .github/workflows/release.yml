@@ -36,7 +36,7 @@ jobs:
       - name: Publish Windows x64
         run: dotnet publish MASTER_RGB.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:Version=${{ env.VERSION }} -p:DebugType=None -p:DebugSymbols=false -o publish/app
 
-      - name: Bundle OpenRGB 1.1 portable engine
+      - name: Bundle OpenRGB 1.1 SDK server runtime (background, no GUI)
         shell: pwsh
         run: |
           $archive = "OpenRGB_1.1_Windows_64_8e16de2.zip"
@@ -51,7 +51,7 @@ jobs:
           Copy-Item -Path (Join-Path $exe.Directory.FullName "*") -Destination publish/app/OpenRGB -Recurse -Force
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/CalcProgrammer1/OpenRGB/release_1.1/LICENSE" -OutFile publish/app/OpenRGB/COPYING.txt
           @(
-            "OpenRGB 1.1 is bundled as a separate executable and launched in background by MASTER RGB.",
+            "OpenRGB 1.1 is bundled as a separate runtime and launched with --server in the background by MASTER RGB; the OpenRGB graphical interface is not required.",
             "Project: https://gitlab.com/CalcProgrammer1/OpenRGB",
             "Source code (release_1.1): https://github.com/CalcProgrammer1/OpenRGB/tree/release_1.1",
             "License: GNU General Public License version 2 or (at your option) any later version.",
