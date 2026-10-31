@@ -8,13 +8,63 @@
         Background="{StaticResource BgBrush}"
         Foreground="{StaticResource TextBrush}">
     <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="0"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
+        <!-- Barra superior personalizada do MASTER HUB -->
+        <Border Grid.Row="0" Grid.ColumnSpan="2"
+                Background="#080B12" BorderBrush="#202A3A" BorderThickness="0,0,0,1"
+                Padding="18,8" Height="62"
+                MouseLeftButtonDown="HeaderBar_MouseLeftButtonDown">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Width="36" Height="36" CornerRadius="10" Background="#101A2A"
+                            BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1">
+                        <TextBlock Text="M" FontSize="22" FontWeight="Black" Foreground="#FFFFFF"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <StackPanel Margin="11,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="MASTER HUB" FontSize="17" FontWeight="Bold" Foreground="#F4F7FF"/>
+                        <TextBlock Text="SEU SISTEMA, NO SEU CONTROLE" FontSize="8"
+                                   Foreground="#8792A8" FontWeight="SemiBold" Margin="1,2,0,0"/>
+                    </StackPanel>
+                </StackPanel>
+                <TextBlock Grid.Column="1" Text="CENTRAL DE CONTROLE" VerticalAlignment="Center"
+                           Margin="28,0,0,0" FontSize="10" FontWeight="SemiBold"
+                           Foreground="#71839A"/>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="NotificationsButton" Content="&#xE7F4;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                            ToolTip="Notificações" Width="38" Height="36" Margin="0,0,7,0"
+                            Background="#111A28" BorderBrush="#28384B" Click="Notifications_Click"/>
+                    <Button Content="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                            ToolTip="Configurações" Width="38" Height="36" Margin="0,0,15,0"
+                            Background="#111A28" BorderBrush="#28384B" Click="NavigateSettings_Click"/>
+                    <Button Content="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="14"
+                            ToolTip="Minimizar" Width="38" Height="36" Margin="0,0,6,0"
+                            Background="#111A28" BorderBrush="#28384B" Click="MinimizeWindow_Click"/>
+                    <Button x:Name="MaximizeButton" Content="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="13"
+                            ToolTip="Maximizar" Width="38" Height="36" Margin="0,0,6,0"
+                            Background="#111A28" BorderBrush="#28384B" Click="MaximizeWindow_Click"/>
+                    <Button Content="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                            ToolTip="Fechar" Width="38" Height="36" Margin="0"
+                            Background="#281722" BorderBrush="#63304A" Foreground="#FFB4CB" Click="CloseWindow_Click"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
         <!-- Sidebar -->
-        <Border x:Name="AppSidebar" Grid.Column="0" Background="#0D1723" Visibility="Collapsed" BorderBrush="#203448" BorderThickness="0,0,1,0">
+        <Border x:Name="AppSidebar" Grid.Row="1" Grid.Column="0" Background="#0D1723" Visibility="Collapsed" BorderBrush="#203448" BorderThickness="0,0,1,0">
             <DockPanel Margin="18">
                 <StackPanel DockPanel.Dock="Top">
                     <StackPanel Orientation="Horizontal" Margin="2,8,0,28">
@@ -47,13 +97,9 @@
         </Border>
 
         <!-- Main content -->
-        <Grid x:Name="MainContentHost" Grid.Column="0" Grid.ColumnSpan="2">
+        <Grid x:Name="MainContentHost" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2">
             <Grid x:Name="DashboardPage" Grid.Column="0" Grid.ColumnSpan="2" Visibility="Visible" Background="{StaticResource BgBrush}">
-    <Grid.RowDefinitions>
-        <RowDefinition Height="Auto"/>
-        <RowDefinition Height="*"/>
-    </Grid.RowDefinitions>
-    <Border Grid.Row="0" Background="#080D19" BorderBrush="#252B55" BorderThickness="0,0,0,1" Padding="34,18" MouseLeftButtonDown="HeaderBar_MouseLeftButtonDown">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <Grid>
             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -83,8 +129,7 @@
                         Background="#2A1422" BorderBrush="#63304A" Foreground="#FFB4CB" Click="CloseWindow_Click"/>
             </StackPanel>
         </Grid>
-    </Border>
-    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="42,34,42,38">
             <Grid Margin="0,0,0,20">
                 <StackPanel>
