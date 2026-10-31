@@ -405,7 +405,7 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                        <TextBlock x:Name="EmptyDevicesText" Text="Clique em Conectar ao OpenRGB para ler os dispositivos reais." Foreground="{StaticResource MutedBrush}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                        <TextBlock x:Name="EmptyDevicesText" Text="Clique em Detectar dispositivos RGB para ler os dispositivos reais." Foreground="{StaticResource MutedBrush}" Margin="0,8,0,0" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
 
