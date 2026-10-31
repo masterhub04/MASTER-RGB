@@ -9,8 +9,7 @@ using System.IO;
 using System.Text.Json;
 using Microsoft.Win32;
 using MasterRgb.Services;
-using MasterRgb.Services.DirectHardware;
-using MasterRgb.Services.DirectHardware.Drivers;
+using MasterRgb.Controls;
 using Velopack;
 using Velopack.Sources;
 using Forms = System.Windows.Forms;
@@ -28,6 +27,8 @@ namespace MasterRgb;
 
 public partial class MainWindow : Window
 {
+    private FrameworkElement? _previousPage;
+    private FrameworkElement? _currentPage;
     private readonly OpenRgbSdkClient _openRgb = new();
     private readonly OpenRgbEngineHost _openRgbEngine = new();
     private UpdateManager? _updateManager;
@@ -53,6 +54,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        _currentPage = DashboardPage;
         DeviceList.ItemsSource = _displayDevices;
         DeviceSelector.ItemsSource = _selectableDevices;
         MultiDeviceList.ItemsSource = _devices;
@@ -65,34 +67,41 @@ public partial class MainWindow : Window
         MinimizeToTrayCheckBox.IsChecked = _minimizeToTray;
         ApplyTheme(_currentTheme, false);
         ConfigureTrayIcon();
-        RefreshDirectHardwareDisplay();
         Loaded += MainWindow_Loaded;
         Closing += MainWindow_Closing;
-        Closed += (_, _) => { _trayIcon?.Dispose(); _openRgbEngine.Dispose(); };
+        Closed += (_, _) => { MasterMicView.Shutdown(); _trayIcon?.Dispose(); _openRgbEngine.Dispose(); };
     }
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
         if (Environment.GetCommandLineArgs().Any(a => a.Equals("--minimized", StringComparison.OrdinalIgnoreCase)))
             WindowState = WindowState.Minimized;
-        try
-        {
-            await _openRgbEngine.EnsureStartedAsync();
-            EngineStatusText.Text = "Mecanismo RGB integrado • inicializado";
-            EngineStatusText.Foreground = Brushes.LightGreen;
-        }
-        catch (Exception ex)
-        {
-            EngineStatusText.Text = "Mecanismo RGB indisponível";
-            EngineStatusText.Foreground = Brushes.Orange;
-            StatusText.Text = "Não foi possível iniciar a compatibilidade RGB integrada: " + ex.Message;
-        }
+
+        // O mecanismo OpenRGB é iniciado em segundo plano pelo próprio MASTER RGB.
+        // A detecção dos controladores pelo SDK acontece automaticamente na abertura.
+        await DetectOpenRgbDevicesAsync();
         await CheckForUpdatesAsync();
     }
 
     private void NavigateDashboard_Click(object sender, RoutedEventArgs e)
     {
         ShowPage(DashboardPage, DashboardNavButton);
+    }
+
+    private void EnterMasterMic_Click(object sender, RoutedEventArgs e)
+    {
+        ShowPage(MasterMicPage, DashboardNavButton);
+    }
+
+    private void Back_Click(object sender, RoutedEventArgs e)
+    {
+        FrameworkElement target = _previousPage ?? DashboardPage;
+        Button active = target == LightingPage ? LightingNavButton
+            : target == DevicesPage ? DevicesNavButton
+            : target == ProfilesPage ? ProfilesNavButton
+            : target == SettingsPage ? SettingsNavButton
+            : DashboardNavButton;
+        ShowPage(target, active);
     }
 
     private void EnterMasterRgb_Click(object sender, RoutedEventArgs e)
@@ -106,6 +115,10 @@ public partial class MainWindow : Window
 
     private void ShowPage(FrameworkElement page, Button activeButton)
     {
+        if (_currentPage is not null && !ReferenceEquals(_currentPage, page))
+            _previousPage = _currentPage;
+        _currentPage = page;
+
         bool showRgbSidebar = page == LightingPage || page == DevicesPage || page == ProfilesPage;
         AppSidebar.Visibility = showRgbSidebar ? Visibility.Visible : Visibility.Collapsed;
         Grid.SetColumn(MainContentHost, showRgbSidebar ? 1 : 0);
@@ -117,11 +130,13 @@ public partial class MainWindow : Window
         DevicesPage.Visibility = Visibility.Collapsed;
         ProfilesPage.Visibility = Visibility.Collapsed;
         SettingsPage.Visibility = Visibility.Collapsed;
+        MasterMicPage.Visibility = Visibility.Collapsed;
         DashboardPage.Visibility = ReferenceEquals(page, DashboardPage) ? Visibility.Visible : Visibility.Collapsed;
         LightingPage.Visibility = ReferenceEquals(page, LightingPage) ? Visibility.Visible : Visibility.Collapsed;
         DevicesPage.Visibility = ReferenceEquals(page, DevicesPage) ? Visibility.Visible : Visibility.Collapsed;
         ProfilesPage.Visibility = ReferenceEquals(page, ProfilesPage) ? Visibility.Visible : Visibility.Collapsed;
         SettingsPage.Visibility = ReferenceEquals(page, SettingsPage) ? Visibility.Visible : Visibility.Collapsed;
+        MasterMicPage.Visibility = ReferenceEquals(page, MasterMicPage) ? Visibility.Visible : Visibility.Collapsed;
         foreach (var button in new[] { DashboardNavButton, LightingNavButton, DevicesNavButton, ProfilesNavButton, SettingsNavButton })
         {
             button.Background = ReferenceEquals(button, activeButton) ? new SolidColorBrush(Color.FromRgb(23, 54, 77)) : Brushes.Transparent;
@@ -227,118 +242,6 @@ public partial class MainWindow : Window
         runKey.SetValue(appValueName, $"\"{executable}\"{(minimized ? " --minimized" : string.Empty)}");
     }
 
-    private void RefreshDirectHardwareDisplay()
-    {
-        // A enumeração HID é somente leitura: não abre o mouse e não envia comandos RGB.
-        // A entrada é acrescentada à lista visual separada para não interferir nos
-        // seletores/grupos que operam exclusivamente sobre controladores OpenRGB.
-        try
-        {
-            // Identificação independente da placa MSI pelo inventário PnP do Windows.
-            // Esta consulta lê somente metadados do Registro; não abre HID nem envia comandos.
-            var pnpDevices = new WindowsHardwareInventory().Collect();
-            var msiBoard = pnpDevices.FirstOrDefault(d =>
-                (d.Source is "HID" or "USB") &&
-                (d.HardwareIds.Contains("VID_1462&PID_7C56", StringComparison.OrdinalIgnoreCase) ||
-                 d.CompatibleIds.Contains("VID_1462&PID_7C56", StringComparison.OrdinalIgnoreCase)));
-
-            var previousBoard = _displayDevices.FirstOrDefault(d => d.Name == "MSI MPG B550 Gaming Plus (MS-7C56)");
-            if (previousBoard is not null) _displayDevices.Remove(previousBoard);
-            var previousMsiGroup = _devices.FirstOrDefault(d => d.Index == -2);
-            if (previousMsiGroup is not null) _devices.Remove(previousMsiGroup);
-            var previousMsiSelectable = _selectableDevices.FirstOrDefault(d => d.Index == -2);
-            if (previousMsiSelectable is not null) _selectableDevices.Remove(previousMsiSelectable);
-            var previousMsiDisplay = _displayDevices.FirstOrDefault(d => d.Name == "MSI MPG B550 Gaming Plus (MS-7C56)");
-            if (previousMsiDisplay is not null) _displayDevices.Remove(previousMsiDisplay);
-            if (msiBoard is not null)
-            {
-                const string msiName = "MSI MPG B550 Gaming Plus (MS-7C56)";
-                _displayDevices.Add(new DeviceDisplayRow(
-                    msiName,
-                    "MSI • Windows PnP • VID_1462 / PID_7C56 • Identificação independente; controle nativo ainda bloqueado.",
-                    "Zonas de referência: JRGB1 • JRAINBOW1 • JRAINBOW2 • ONBOARD",
-                    "DETECTADO"));
-                var msiZones = new[]
-                {
-                    new OpenRgbZone("JRGB1 • RGB 12V", 1),
-                    new OpenRgbZone("JRAINBOW1 • ARGB 5V", 8),
-                    new OpenRgbZone("JRAINBOW2 • ARGB 5V", 8),
-                    new OpenRgbZone("ONBOARD", 6)
-                };
-                _selectableDevices.Add(new DeviceRow(-2, msiName,
-                    "MSI Mystic Light • HID 185 bytes • somente seleção/inspeção",
-                    "Controlador RGB da placa-mãe (controle nativo em validação)",
-                    msiZones, false, true));
-                _devices.Add(new DeviceRow(-2, msiName,
-                    "MSI • seleção em grupo disponível; aplicação RGB aguardando validação do protocolo",
-                    "Zonas de referência MSI",
-                    msiZones, false, true));
-            }
-
-            // Identifica a GPU NVIDIA pelo inventário PCI do Windows.
-            // A GPU aparece na lista como hardware detectado, mas não é tratada
-            // como controlador RGB sem uma interface de iluminação confirmada.
-            const string gpuName = "Gainward GeForce RTX 3060 Ghost 12GB";
-            var previousGpu = _displayDevices.FirstOrDefault(d => d.Name == gpuName);
-            if (previousGpu is not null) _displayDevices.Remove(previousGpu);
-            var previousGpuSelectable = _selectableDevices.FirstOrDefault(d => d.Index == -3);
-            if (previousGpuSelectable is not null) _selectableDevices.Remove(previousGpuSelectable);
-            var previousGpuGroup = _devices.FirstOrDefault(d => d.Index == -3);
-            if (previousGpuGroup is not null) _devices.Remove(previousGpuGroup);
-
-            var gpu = pnpDevices.FirstOrDefault(d =>
-                d.Source == "PCI" &&
-                (d.HardwareIds.Contains("VEN_10DE", StringComparison.OrdinalIgnoreCase) ||
-                 d.CompatibleIds.Contains("VEN_10DE", StringComparison.OrdinalIgnoreCase)) &&
-                (d.HardwareIds.Contains("CC_0300", StringComparison.OrdinalIgnoreCase) ||
-                 d.CompatibleIds.Contains("CC_0300", StringComparison.OrdinalIgnoreCase) ||
-                 d.CompatibleIds.Contains("CC_0302", StringComparison.OrdinalIgnoreCase) ||
-                 d.HardwareIds.Contains("CC_0302", StringComparison.OrdinalIgnoreCase)));
-
-            if (gpu is not null)
-            {
-                string detectedGpuName = string.IsNullOrWhiteSpace(gpu.FriendlyName) ? gpuName : gpu.FriendlyName;
-                string gpuDetails = $"NVIDIA • PCI • {gpu.RedactedInstanceId} • Identificação somente leitura";
-                _displayDevices.Add(new DeviceDisplayRow(detectedGpuName, gpuDetails,
-                    "GPU detectada • controlador RGB ainda não identificado", "DETECTADO"));
-
-                var gpuRow = new DeviceRow(-3, detectedGpuName, gpuDetails,
-                    "GPU detectada • sem zonas RGB confirmadas",
-                    new[] { new OpenRgbZone("RGB não identificado", 0) }, false, true);
-                _selectableDevices.Add(gpuRow);
-                _devices.Add(gpuRow);
-            }
-
-            var detection = new LogitechG203HidDriver().DetectConnectedDevice();
-            var previous = _displayDevices.FirstOrDefault(d => d.Name == "Logitech G203 Prodigy");
-            if (previous is not null) _displayDevices.Remove(previous);
-            var previousSelectable = _selectableDevices.FirstOrDefault(d => d.IsNative);
-            if (previousSelectable is not null) _selectableDevices.Remove(previousSelectable);
-            if (detection.Found)
-            {
-                const string name = "Logitech G203 Prodigy";
-                _displayDevices.Add(new DeviceDisplayRow(
-                    name,
-                    "Logitech • USB HID • 046D:C084 • Controle direto",
-                    detection.Details,
-                    "NATIVO"));
-                _selectableDevices.Add(new DeviceRow(-1, name,
-                    "Logitech • USB HID • Controle direto",
-                    "Iluminação RGB do mouse (1 zona)",
-                    new[] { new OpenRgbZone("Iluminação RGB", 1) }, true));
-                var mouseRow = _selectableDevices.Last();
-                _devices.Add(mouseRow);
-            }
-            DeviceCountText.Text = $"{_displayDevices.Count} dispositivo(s)";
-            EmptyDevicesText.Visibility = _displayDevices.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-            if (_displayDevices.Count > 0) EmptyDevicesText.Text = string.Empty;
-        }
-        catch (Exception ex)
-        {
-            StatusText.Text = "Não foi possível atualizar a detecção HID do G203: " + ex.Message;
-        }
-    }
-
     private bool TryReadSelectedColor(out byte red, out byte green, out byte blue)
     {
         red = green = blue = 0;
@@ -350,75 +253,95 @@ public partial class MainWindow : Window
 
     private async void ConnectOpenRgb_Click(object sender, RoutedEventArgs e)
     {
+        await DetectOpenRgbDevicesAsync();
+    }
+
+    private async Task DetectOpenRgbDevicesAsync()
+    {
         ConnectButtonState(true);
-        EngineStatusText.Text = "Lendo dispositivos...";
+        EngineStatusText.Text = "Iniciando mecanismo OpenRGB SDK...";
         EngineStatusText.Foreground = Brushes.LightSkyBlue;
-        StatusText.Text = "Conectando ao SDK e solicitando a lista real de controladores...";
+        StatusText.Text = "Detectando controladores RGB pelo SDK integrado...";
         _devices.Clear();
         _selectableDevices.Clear();
         _displayDevices.Clear();
         ZoneSelector.ItemsSource = null;
         EmptyDevicesText.Visibility = Visibility.Visible;
-        DeviceCountText.Text = "Lendo...";
+        EmptyDevicesText.Text = "Procurando controladores RGB compatíveis...";
+        DeviceCountText.Text = "Detectando...";
+
         try
         {
             await _openRgbEngine.EnsureStartedAsync();
             var devices = await _openRgb.ReadDevicesAsync();
+
             foreach (var device in devices)
             {
                 string vendor = string.IsNullOrWhiteSpace(device.Vendor) ? "Fabricante não informado" : device.Vendor;
                 string details = $"{vendor} • {device.LedCount} LED(s) • {device.ZoneCount} zona(s)";
-                string zones = device.Zones.Count == 0 ? "Sem zonas informadas" : "Zonas: " + string.Join(" • ", device.Zones.Select(z => $"{z.Name} ({z.LedCount})"));
+                string zones = device.Zones.Count == 0
+                    ? "Sem zonas informadas"
+                    : "Zonas: " + string.Join(" • ", device.Zones.Select(z => $"{z.Name} ({z.LedCount})"));
+
                 var row = new DeviceRow(device.Index, device.Name, details, zones, device.Zones);
                 _devices.Add(row);
                 _selectableDevices.Add(row);
                 _displayDevices.Add(new DeviceDisplayRow(device.Name, details, zones, "OPENRGB"));
             }
-            RefreshDirectHardwareDisplay();
-            EmptyDevicesText.Visibility = _displayDevices.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-            EmptyDevicesText.Text = _displayDevices.Count == 0 ? "Nenhum dispositivo RGB compatível foi encontrado." : string.Empty;
-            DeviceCountText.Text = $"{_displayDevices.Count} dispositivo(s)";
+
+            EmptyDevicesText.Visibility = devices.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            EmptyDevicesText.Text = devices.Count == 0
+                ? "Nenhum dispositivo RGB compatível foi encontrado pelo OpenRGB SDK."
+                : string.Empty;
+            DeviceCountText.Text = $"{devices.Count} dispositivo(s)";
             MultiSelectInfo.Text = $"{devices.Count} dispositivo(s) disponível(is) para seleção em grupo.";
             EngineStatusText.Text = "SDK conectado • pronto para controlar";
             EngineStatusText.Foreground = Brushes.LightGreen;
-            if (_selectableDevices.Count > 0) DeviceSelector.SelectedIndex = 0;
+
+            if (_selectableDevices.Count > 0)
+                DeviceSelector.SelectedIndex = 0;
+
             StatusText.Text = devices.Count == 0
-                ? "Conexão estabelecida. Nenhum controlador foi retornado pelo OpenRGB."
-                : $"Leitura concluída: {devices.Count} dispositivo(s). Selecione uma zona no Lighting Studio para aplicar uma cor estática.";
+                ? "O mecanismo iniciou e a conexão SDK foi estabelecida, mas nenhum controlador foi retornado."
+                : $"Detecção concluída: {devices.Count} dispositivo(s) encontrado(s) pelo OpenRGB SDK.";
         }
         catch (Exception ex)
         {
-            EngineStatusText.Text = "Falha na leitura SDK";
+            _devices.Clear();
+            _selectableDevices.Clear();
+            _displayDevices.Clear();
+            DeviceCountText.Text = "0 dispositivo(s)";
+            EmptyDevicesText.Visibility = Visibility.Visible;
+            EmptyDevicesText.Text = "Não foi possível detectar os dispositivos RGB pelo mecanismo integrado.";
+            EngineStatusText.Text = "Mecanismo RGB indisponível";
             EngineStatusText.Foreground = Brushes.Orange;
-            RefreshDirectHardwareDisplay();
-            DeviceCountText.Text = $"{_displayDevices.Count} dispositivo(s) • OpenRGB indisponível";
-            EmptyDevicesText.Visibility = _displayDevices.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-            EmptyDevicesText.Text = _displayDevices.Count == 0 ? "Não foi possível ler a lista pelo mecanismo RGB integrado. Verifique se o Windows bloqueou o componente ou se faltam permissões de driver." : string.Empty;
-            StatusText.Text = $"Erro ao consultar o mecanismo RGB integrado: {ex.Message}";
+            StatusText.Text = "Falha ao iniciar ou consultar o OpenRGB SDK: " + ex.Message;
         }
-        finally { ConnectButtonState(false); }
+        finally
+        {
+            ConnectButtonState(false);
+        }
     }
 
     private async void RunDiagnostic_Click(object sender, RoutedEventArgs e)
     {
         RunDiagnosticButton.IsEnabled = false;
-        ConnectOpenRgbButton.IsEnabled = false;
-        StatusText.Text = "Executando diagnóstico do OpenRGB + inventário PnP do Windows (somente leitura)...";
+        ConnectButtonState(true);
+        StatusText.Text = "Executando diagnóstico exclusivamente pelo OpenRGB SDK (somente leitura)...";
         EngineStatusText.Text = "Diagnóstico em andamento";
         EngineStatusText.Foreground = Brushes.LightSkyBlue;
         try
         {
+            await _openRgbEngine.EnsureStartedAsync();
             var devices = await _openRgb.ReadDevicesAsync();
-            var pnpDevices = new WindowsHardwareInventory().Collect();
-            var msiHidProbe = new MsiHidReadOnlyProbe().Collect();
             var report = new
             {
                 Report = new
                 {
                     Application = "MASTER RGB",
-                    ApplicationVersion = "0.9.1",
+                    ApplicationVersion = "0.9.7",
                     GeneratedAtLocal = DateTimeOffset.Now,
-                    DiagnosticMode = "Read-only; no lighting mode or LED color commands are sent",
+                    DiagnosticMode = "Read-only OpenRGB SDK metadata; no lighting mode or LED color commands are sent",
                     Computer = Environment.MachineName,
                     OperatingSystem = Environment.OSVersion.ToString(),
                     Framework = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,
@@ -435,23 +358,11 @@ public partial class MainWindow : Window
                     },
                     KnownLightingWritePackets = new[]
                     {
-                        new { Id = 1100, Name = "SetCustomMode", Note = "Known from the normal color-control path; not sent by this diagnostic" },
-                        new { Id = 1051, Name = "UpdateZoneLEDs", Note = "Known from the normal color-control path; not sent by this diagnostic" }
+                        new { Id = 1100, Name = "SetCustomMode", Note = "Not sent by this diagnostic" },
+                        new { Id = 1051, Name = "UpdateZoneLEDs", Note = "Not sent by this diagnostic" }
                     },
-                    ImportantLimit = "The SDK exposes controller metadata and logical zones. It does not necessarily reveal the USB/HID/SMBus transactions or internal driver implementation performed inside OpenRGB.",
-                    DirectDiscovery = "Read-only Windows Plug and Play inventory plus HID descriptor enumeration and source-backed MSI Mystic Light protocol correlation. No device handles are opened and no USB/HID/SMBus commands are sent.",
-                    DirectControlStatus = "Logitech G203 uses its validated native HID Output Report driver. MSI protocol is mapped, but native writes remain disabled pending board-specific mode and recovery validation; OpenRGB remains the motherboard/GPU control path."
-                },
-                MotherboardAnalysis = BuildMotherboardAnalysis(pnpDevices, devices),
-                MsiHidReadOnlyProbe = msiHidProbe,
-                MsiProtocolResearch = new MsiOpenRgbProtocolEvidence().Build(pnpDevices, devices),
-                GpuAnalysis = BuildGpuAnalysis(pnpDevices, devices),
-                WindowsPnPInventory = new
-                {
-                    ReadOnly = true,
-                    Sources = new[] { @"HKLM\SYSTEM\CurrentControlSet\Enum\USB", @"HKLM\SYSTEM\CurrentControlSet\Enum\HID", @"HKLM\SYSTEM\CurrentControlSet\Enum\PCI" },
-                    MatchingDeviceCount = pnpDevices.Count,
-                    Devices = pnpDevices
+                    DiscoveryMethod = "OpenRGB SDK only. No Windows PnP, direct HID, USB, PCI, SMBus or I2C discovery is performed.",
+                    ImportantLimit = "The SDK exposes controller metadata and logical zones. It does not necessarily reveal the USB/HID/SMBus transactions or internal driver implementation performed inside OpenRGB."
                 },
                 DeviceCount = devices.Count,
                 Devices = devices.Select(d => new
@@ -489,245 +400,28 @@ public partial class MainWindow : Window
             await File.WriteAllTextAsync(dialog.FileName, JsonSerializer.Serialize(report, options));
             EngineStatusText.Text = "Diagnóstico concluído";
             EngineStatusText.Foreground = Brushes.LightGreen;
-            StatusText.Text = $"Relatório salvo em: {dialog.FileName}\n{devices.Count} dispositivo(s) analisado(s). Envie esse JSON aqui para avaliarmos os dados.";
+            StatusText.Text = $"Relatório salvo em: {dialog.FileName}\n{devices.Count} dispositivo(s) analisado(s) pelo SDK.";
         }
         catch (Exception ex)
         {
             EngineStatusText.Text = "Falha no diagnóstico";
             EngineStatusText.Foreground = Brushes.Orange;
-            StatusText.Text = "Não foi possível gerar o diagnóstico. Confirme se o OpenRGB está aberto e se o SDK Server está ativo na porta 6742. Erro: " + ex.Message;
+            StatusText.Text = "Não foi possível gerar o diagnóstico pelo mecanismo OpenRGB integrado: " + ex.Message;
         }
         finally
         {
             RunDiagnosticButton.IsEnabled = true;
-            ConnectOpenRgbButton.IsEnabled = true;
+            ConnectButtonState(false);
         }
-    }
-
-    private static object BuildMotherboardAnalysis(
-        IReadOnlyList<PnpDeviceRecord> pnpDevices,
-        IReadOnlyList<OpenRgbDevice> openRgbDevices)
-    {
-        // SMBIOS/BIOS metadata is read from the Windows registry; no hardware bus is accessed.
-        string ReadBiosValue(string name)
-        {
-            try
-            {
-                using var key = Registry.LocalMachine.OpenSubKey(
-                    @"HARDWARE\DESCRIPTION\System\BIOS", false);
-                return key?.GetValue(name)?.ToString()?.Trim() ?? string.Empty;
-            }
-            catch { return string.Empty; }
-        }
-
-        var board = new
-        {
-            Manufacturer = ReadBiosValue("BaseBoardManufacturer"),
-            Product = ReadBiosValue("BaseBoardProduct"),
-            Version = ReadBiosValue("BaseBoardVersion"),
-            BiosVendor = ReadBiosValue("BIOSVendor"),
-            BiosVersion = ReadBiosValue("BIOSVersion")
-        };
-
-        var candidates = pnpDevices
-            .Where(d => d.DeviceFamily.Contains("MSI", StringComparison.OrdinalIgnoreCase)
-                || d.DeviceFamily.Contains("SMBus", StringComparison.OrdinalIgnoreCase)
-                || d.FriendlyName.Contains("SMBus", StringComparison.OrdinalIgnoreCase)
-                || d.HardwareIds.Contains("VEN_1462", StringComparison.OrdinalIgnoreCase)
-                || d.HardwareIds.Contains("VEN_1022", StringComparison.OrdinalIgnoreCase))
-            .Select(d => new
-            {
-                d.Source,
-                d.FriendlyName,
-                d.Manufacturer,
-                d.Service,
-                d.HardwareIds,
-                d.CompatibleIds,
-                d.RedactedInstanceId,
-                d.DeviceFamily,
-                d.RgbRelevance,
-                d.RecommendedNextStep
-            }).ToArray();
-
-        var controllers = openRgbDevices
-            .Where(d => d.Name.Contains("MSI", StringComparison.OrdinalIgnoreCase)
-                || d.Vendor.Contains("MSI", StringComparison.OrdinalIgnoreCase)
-                || d.Description.Contains("Mystic", StringComparison.OrdinalIgnoreCase)
-                || d.Name.Contains("Mystic", StringComparison.OrdinalIgnoreCase))
-            .Select(d => new
-            {
-                d.Index,
-                d.Name,
-                d.Vendor,
-                d.Description,
-                d.DeviceType,
-                d.ProtocolVersion,
-                d.ZoneCount,
-                d.LedCount,
-                Zones = d.Zones.Select(z => new { z.Name, z.LedCount }).ToArray(),
-                RawControllerPacketHex = d.RawDataHex
-            }).ToArray();
-
-        return new
-        {
-            ReadOnly = true,
-            Method = "SMBIOS registry metadata + Windows PnP inventory + OpenRGB SDK controller metadata",
-            Motherboard = board,
-            PnpCandidateCount = candidates.Length,
-            PnpCandidates = candidates,
-            AmdSmbusControllers = pnpDevices
-                .Where(d => d.Source == "PCI" &&
-                    d.HardwareIds.Contains("VEN_1022", StringComparison.OrdinalIgnoreCase) &&
-                    (d.HardwareIds.Contains("CC_0C05", StringComparison.OrdinalIgnoreCase) ||
-                     d.FriendlyName.Contains("SMBus", StringComparison.OrdinalIgnoreCase) ||
-                     d.Service.Contains("SMBus", StringComparison.OrdinalIgnoreCase)))
-                .Select(d => new
-                {
-                    d.FriendlyName, d.Manufacturer, d.Service,
-                    d.HardwareIds, d.CompatibleIds, d.RedactedInstanceId,
-                    Classification = d.HardwareIds.Contains("CC_0C05", StringComparison.OrdinalIgnoreCase)
-                        ? "Controlador SMBus confirmado pela classe PCI 0C05"
-                        : "Dispositivo AMD relacionado; classe SMBus não confirmada"
-                }).ToArray(),
-            OpenRgbMysticLightControllerCount = controllers.Length,
-            OpenRgbMysticLightControllers = controllers,
-            Safety = "No direct USB/HID/PCI/SMBus/I2C commands were sent. No RGB modes or colors were changed.",
-            NextStep = "Use the exact motherboard model, PnP candidates, SMBus controller IDs and OpenRGB controller metadata to study the matching open-source driver before implementing any direct write operation."
-        };
-    }
-
-
-    private static object BuildGpuAnalysis(
-        IReadOnlyList<PnpDeviceRecord> pnpDevices,
-        IReadOnlyList<OpenRgbDevice> openRgbDevices)
-    {
-        // Separa o adaptador gráfico NVIDIA do dispositivo de áudio HDMI da mesma GPU.
-        // A identificação permanece somente leitura.
-        var nvidiaPnp = pnpDevices
-            .Where(d => d.Source == "PCI" &&
-                (d.HardwareIds.Contains("VEN_10DE", StringComparison.OrdinalIgnoreCase) ||
-                 d.CompatibleIds.Contains("VEN_10DE", StringComparison.OrdinalIgnoreCase)))
-            .ToArray();
-
-        var graphicsAdapters = nvidiaPnp
-            .Where(d => ContainsId(d.HardwareIds + " " + d.CompatibleIds, "CC_0300") ||
-                        ContainsId(d.HardwareIds + " " + d.CompatibleIds, "CC_0302"))
-            .ToArray();
-
-        var audioFunctions = nvidiaPnp
-            .Where(d => ContainsId(d.HardwareIds + " " + d.CompatibleIds, "CC_0403"))
-            .ToArray();
-
-        var lightingControllers = openRgbDevices
-            .Where(d => ContainsGpuMarker(d.Name) || ContainsGpuMarker(d.Vendor) ||
-                        ContainsGpuMarker(d.Description))
-            .Select(d => new
-            {
-                d.Index, d.Name, d.Vendor, d.Description, d.Version,
-                d.DeviceType, d.ProtocolVersion, d.ZoneCount, d.LedCount,
-                Zones = d.Zones.Select((z, index) => new { Index = index, z.Name, z.LedCount }).ToArray(),
-                RawControllerPacketHex = d.RawDataHex
-            }).ToArray();
-
-        static string ExtractIdValue(string ids, string marker)
-        {
-            var match = System.Text.RegularExpressions.Regex.Match(
-                ids, marker + @"([0-9A-F]{4})", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-            return match.Success ? match.Groups[1].Value.ToUpperInvariant() : string.Empty;
-        }
-
-        var pnpIdentity = graphicsAdapters.Select(d =>
-        {
-            var ids = d.HardwareIds + " " + d.CompatibleIds;
-            return new
-            {
-                d.FriendlyName,
-                d.Manufacturer,
-                HardwareIds = d.HardwareIds,
-                d.RedactedInstanceId,
-                VendorId = ExtractIdValue(ids, @"VEN_"),
-                DeviceId = ExtractIdValue(ids, @"DEV_"),
-                SubsystemDeviceId = ExtractIdValue(ids, @"SUBSYS_"),
-                SubsystemVendorId = ExtractIdValue(
-                    System.Text.RegularExpressions.Regex.Match(ids, @"SUBSYS_([0-9A-F]{8})",
-                        System.Text.RegularExpressions.RegexOptions.IgnoreCase).Groups[1].Value,
-                    @"(?<=^)(?:.{4})")
-            };
-        }).ToArray();
-
-        bool hasPalitController = lightingControllers.Any(d =>
-            (d.Name + " " + d.Vendor + " " + d.Description).Contains("Palit", StringComparison.OrdinalIgnoreCase));
-        bool hasGainwardController = lightingControllers.Any(d =>
-            (d.Name + " " + d.Vendor + " " + d.Description).Contains("Gainward", StringComparison.OrdinalIgnoreCase));
-        bool hasGainwardPnpText = graphicsAdapters.Any(d =>
-            (d.Manufacturer + " " + d.FriendlyName).Contains("Gainward", StringComparison.OrdinalIgnoreCase));
-
-        // Nome Palit no OpenRGB não é prova de que a placa física seja Palit.
-        // Se o PnP não confirma Gainward e o controlador é nomeado Palit, marcar como não verificado.
-        bool identityUnverified = hasPalitController && !hasGainwardController;
-        bool possibleNameMismatch = identityUnverified &&
-            (graphicsAdapters.Length > 0 || hasGainwardPnpText);
-
-        return new
-        {
-            ReadOnly = true,
-            Method = "Windows PCI Plug and Play inventory (separando classe gráfica e áudio) + OpenRGB SDK controller metadata",
-            ExpectedUserHardware = new
-            {
-                Manufacturer = "Gainward",
-                Model = "GeForce RTX 3060 Ghost 12GB",
-                KnownPciId = "PCI\\VEN_10DE&DEV_2504&SUBSYS_250410DE",
-                Note = "Identificador esperado informado pelo usuário; o PnP em tempo real é a fonte de identificação observada."
-            },
-            NvidiaPnpDeviceCount = nvidiaPnp.Length,
-            GraphicsAdapterCount = graphicsAdapters.Length,
-            GraphicsAdapters = pnpIdentity,
-            NvidiaAudioFunctionCount = audioFunctions.Length,
-            NvidiaAudioFunctions = audioFunctions.Select(d => new
-            {
-                d.FriendlyName, d.Manufacturer, d.HardwareIds, d.RedactedInstanceId
-            }).ToArray(),
-            OpenRgbLightingControllerCount = lightingControllers.Length,
-            OpenRgbLightingControllers = lightingControllers,
-            ManufacturerCorrelation = new
-            {
-                GainwardFoundInPnp = hasGainwardPnpText,
-                GainwardFoundInOpenRgb = hasGainwardController,
-                PalitFoundInOpenRgb = hasPalitController,
-                ControllerIdentityVerified = !identityUnverified,
-                PossibleNameMismatch = possibleNameMismatch,
-                Assessment = identityUnverified
-                    ? "O OpenRGB apresenta um nome Palit, mas o nome do controlador não comprova o fabricante físico. A associação permanece não verificada."
-                    : "Não foi detectada divergência nominal que possa ser avaliada com os metadados disponíveis.",
-                Warning = identityUnverified
-                    ? "Não associar este controlador à GPU física nem enviar comandos NVAPI até confirmar o fabricante, SUBSYS e a correspondência do controlador."
-                    : "A identificação por nome ainda não substitui a confirmação física do modelo e do subsistema PCI."
-            },
-            Safety = "Somente leitura. Nenhum comando NVAPI, PCI, HID, I2C ou SMBus foi enviado; nenhum efeito ou cor foi alterado.",
-            NextStep = "Confirmar o fabricante físico e a correspondência do controlador RGB antes de implementar controle nativo."
-        };
-
-        static bool ContainsId(string ids, string marker) =>
-            ids.Contains(marker, StringComparison.OrdinalIgnoreCase);
-
-        static bool ContainsGpuMarker(string value) =>
-            value.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase) ||
-            value.Contains("GeForce", StringComparison.OrdinalIgnoreCase) ||
-            value.Contains("RTX 3060", StringComparison.OrdinalIgnoreCase) ||
-            value.Contains("Gainward", StringComparison.OrdinalIgnoreCase) ||
-            value.Contains("Palit", StringComparison.OrdinalIgnoreCase);
     }
 
     private void MultiDeviceCheckChanged(object sender, RoutedEventArgs e)
     {
         if (MultiSelectInfo is null) return;
         int count = _devices.Count(d => d.IsSelected);
-        int pending = _devices.Count(d => d.IsSelected && d.IsReadOnlyOnly);
         MultiSelectInfo.Text = count == 0
             ? "Nenhum dispositivo selecionado para aplicação em grupo."
-            : pending > 0
-                ? $"{count} selecionado(s). {pending} aguardando controle nativo validado; os demais recebem a cor."
-                : $"{count} dispositivo(s) selecionado(s). A aplicação em grupo alcança todas as zonas controláveis.";
+            : $"{count} dispositivo(s) selecionado(s). A aplicação em grupo alcança todas as zonas controláveis.";
     }
 
     private void SelectAllDevices_Click(object sender, RoutedEventArgs e)
@@ -829,13 +523,6 @@ public partial class MainWindow : Window
             StatusText.Text = "Marque pelo menos um dispositivo na seção Aplicação em grupo.";
             return;
         }
-        var writableSelected = selected.Where(d => !d.IsReadOnlyOnly).ToList();
-        int readOnlySelected = selected.Count - writableSelected.Count;
-        if (writableSelected.Count == 0)
-        {
-            StatusText.Text = "A MSI está marcada, mas o controle RGB nativo ainda está bloqueado até validar o protocolo da placa. Nenhum comando foi enviado.";
-            return;
-        }
         string hex = HexColorBox.Text.Trim().TrimStart('#');
         if (hex.Length != 6 || !uint.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint rgb))
         {
@@ -846,7 +533,7 @@ public partial class MainWindow : Window
         byte red = (byte)Math.Round(((rgb >> 16) & 0xFF) * brightness);
         byte green = (byte)Math.Round(((rgb >> 8) & 0xFF) * brightness);
         byte blue = (byte)Math.Round((rgb & 0xFF) * brightness);
-        var targets = writableSelected.SelectMany(d => d.Zones.Select(z => (Device: d, Zone: z)))
+        var targets = selected.SelectMany(d => d.Zones.Select(z => (Device: d, Zone: z)))
             .Where(t => t.Zone.LedCount > 0).ToList();
         if (targets.Count == 0)
         {
@@ -885,8 +572,7 @@ public partial class MainWindow : Window
             await Task.WhenAll(updateTasks);
             EngineStatusText.Text = failures.IsEmpty ? "Aplicação em grupo concluída" : "Aplicação em grupo parcial";
             EngineStatusText.Foreground = failures.IsEmpty ? Brushes.LightGreen : Brushes.Orange;
-            StatusText.Text = $"Aplicação em grupo: {succeeded}/{targets.Count} zona(s) atualizada(s) em {writableSelected.Count} dispositivo(s), cor #{hex.ToUpperInvariant()}, brilho {(int)Math.Round(BrightnessSlider.Value)}%.";
-            if (readOnlySelected > 0) StatusText.Text += $" {readOnlySelected} dispositivo(s) selecionado(s) ignorado(s): controle nativo ainda não validado.";
+            StatusText.Text = $"Aplicação em grupo: {succeeded}/{targets.Count} zona(s) atualizada(s) em {selected.Count} dispositivo(s), cor #{hex.ToUpperInvariant()}, brilho {(int)Math.Round(BrightnessSlider.Value)}%.";
             StatusText.Text += " Envio otimizado por dispositivo e em paralelo.";
             if (!failures.IsEmpty) StatusText.Text += " Falhas: " + string.Join(" | ", failures.Take(3));
         }
@@ -904,10 +590,7 @@ public partial class MainWindow : Window
         }
         ZoneSelector.ItemsSource = device.Zones.Select((zone, index) => new ZoneRow(index, zone.Name, zone.LedCount)).ToList();
         if (ZoneSelector.Items.Count > 0) ZoneSelector.SelectedIndex = 0;
-        if (device.IsReadOnlyOnly)
-            ZoneLedCountInfo.Text = "MSI detectada • seleção informativa • envio RGB desativado até validar o protocolo";
-        else if (device.IsNative)
-            ZoneLedCountInfo.Text = "Controle direto do Logitech G203 • zona única • sem OpenRGB";
+        ZoneLedCountInfo.Text = "Quantidade detectada pelo OpenRGB";
     }
 
     private void ZoneSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -921,11 +604,7 @@ public partial class MainWindow : Window
         string key = GetZoneKey(device, zone);
         int configured = _zoneLedOverrides.TryGetValue(key, out int value) ? value : zone.LedCount;
         ZoneLedCountBox.Text = configured.ToString(CultureInfo.InvariantCulture);
-        ZoneLedCountInfo.Text = device.IsReadOnlyOnly
-            ? "Quantidade de referência; ainda não lida diretamente do controlador MSI"
-            : device.IsNative
-                ? "Controle direto do Logitech G203 • zona única • quantidade fixa"
-                : $"Detectados pelo OpenRGB: {zone.LedCount} • Ajuste conforme a quantidade física";
+        ZoneLedCountInfo.Text = $"Detectados pelo OpenRGB: {zone.LedCount} • Ajuste conforme a quantidade física";
     }
 
     private async void ApplyColor_Click(object sender, RoutedEventArgs e) => await ApplySelectedColorAsync();
@@ -995,13 +674,6 @@ public partial class MainWindow : Window
             StatusText.Text = "Selecione um dispositivo e uma zona antes de aplicar a cor.";
             return;
         }
-        if (device.IsReadOnlyOnly)
-        {
-            EngineStatusText.Text = "MSI detectada • controle bloqueado";
-            EngineStatusText.Foreground = Brushes.Orange;
-            StatusText.Text = "A placa-mãe MSI já pode ser selecionada e inspecionada. O envio de comandos RGB permanece bloqueado até concluir a validação específica do protocolo MS-7C56.";
-            return;
-        }
         string hex = HexColorBox.Text.Trim();
         if (hex.StartsWith('#')) hex = hex[1..];
         if (hex.Length != 6 || !uint.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint rgb))
@@ -1029,20 +701,10 @@ public partial class MainWindow : Window
             byte red = (byte)Math.Round(((rgb >> 16) & 0xFF) * brightness);
             byte green = (byte)Math.Round(((rgb >> 8) & 0xFF) * brightness);
             byte blue = (byte)Math.Round((rgb & 0xFF) * brightness);
-            if (device.IsNative)
-            {
-                var result = await Task.Run(() => new LogitechG203HidDriver().ApplyStaticColor(red, green, blue));
-                EngineStatusText.Text = result.Success ? "G203 • cor enviada pelo controle direto" : "Falha no controle direto do G203";
-                EngineStatusText.Foreground = result.Success ? Brushes.LightGreen : Brushes.Orange;
-                StatusText.Text = result.Message + (result.Success ? $" Cor #{hex.ToUpperInvariant()} • brilho {(int)Math.Round(BrightnessSlider.Value)}%." : " Feche Logitech G HUB/OpenRGB se estiverem disputando o mouse.");
-            }
-            else
-            {
-                await _openRgb.ApplyZoneColorAsync(device.Index, zone.Index, configuredLedCount, red, green, blue);
-                EngineStatusText.Text = "Cor enviada ao OpenRGB";
-                EngineStatusText.Foreground = Brushes.LightGreen;
-                StatusText.Text = $"Comando enviado: {device.Name} → {zone.Name} • {configuredLedCount}/{zone.LedCount} LED(s) • #{hex.ToUpperInvariant()} • brilho {(int)Math.Round(BrightnessSlider.Value)}%. Confira o resultado físico do dispositivo.";
-            }
+            await _openRgb.ApplyZoneColorAsync(device.Index, zone.Index, configuredLedCount, red, green, blue);
+            EngineStatusText.Text = "Cor enviada ao OpenRGB";
+            EngineStatusText.Foreground = Brushes.LightGreen;
+            StatusText.Text = $"Comando enviado: {device.Name} → {zone.Name} • {configuredLedCount}/{zone.LedCount} LED(s) • #{hex.ToUpperInvariant()} • brilho {(int)Math.Round(BrightnessSlider.Value)}%. Confira o resultado físico do dispositivo.";
         }
         catch (Exception ex)
         {
@@ -1192,8 +854,9 @@ public partial class MainWindow : Window
 
     private void ConnectButtonState(bool busy)
     {
+        // O rótulo permanece fixo; apenas bloqueia cliques durante a leitura.
         ConnectOpenRgbButton.IsEnabled = !busy;
-        ConnectOpenRgbButton.Content = busy ? "Lendo dispositivos..." : "Conectar ao OpenRGB";
+        ConnectOpenRgbButton.Content = "Detectar dispositivos RGB";
     }
 
     private bool _checkingUpdates;
@@ -1290,11 +953,9 @@ public partial class MainWindow : Window
     }
 
     private sealed record DeviceDisplayRow(string Name, string Details, string ZonesText, string Status);
-    private sealed class DeviceRow(int index, string name, string details, string zonesText, IReadOnlyList<OpenRgbZone> sourceZones, bool isNative = false, bool isReadOnlyOnly = false)
+    private sealed class DeviceRow(int index, string name, string details, string zonesText, IReadOnlyList<OpenRgbZone> sourceZones)
     {
         public int Index { get; } = index;
-        public bool IsNative { get; } = isNative;
-        public bool IsReadOnlyOnly { get; } = isReadOnlyOnly;
         public string Name { get; } = name;
         public string Details { get; } = details;
         public string ZonesText { get; } = zonesText;

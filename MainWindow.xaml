@@ -1,6 +1,7 @@
 <Window x:Class="MasterRgb.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:MasterRgb.Controls"
         Title="MASTER HUB" Icon="Assets/master-rgb.ico" Height="900" Width="1460"
         MinHeight="760" MinWidth="1180"
         WindowStartupLocation="CenterScreen"
@@ -150,8 +151,8 @@
                                     <TextBlock Text="ÁUDIO E MICROFONES" FontSize="9" Foreground="#A99AC8" Margin="0,3,0,0"/>
                                 </StackPanel>
                             </StackPanel>
-                            <Border HorizontalAlignment="Right" VerticalAlignment="Top" Background="#241A36" BorderBrush="#59417A" BorderThickness="1" CornerRadius="6" Padding="8,4">
-                                <TextBlock Text="EM DESENVOLVIMENTO" FontSize="8" Foreground="#C5A4FF" FontWeight="Bold"/>
+                            <Border HorizontalAlignment="Right" VerticalAlignment="Top" Background="#10291F" BorderBrush="#1B6845" BorderThickness="1" CornerRadius="6" Padding="8,4">
+                                <TextBlock Text="DISPONÍVEL" FontSize="8" Foreground="#61E5A4" FontWeight="Bold"/>
                             </Border>
                         </Grid>
                         <Grid Grid.Row="1" Margin="0,13,0,12" MinHeight="126">
@@ -171,7 +172,7 @@
                                 </Grid>
                             </Viewbox>
                         </Grid>
-                        <Button Grid.Row="2" Content="EM BREVE" IsEnabled="False" HorizontalAlignment="Left" MinWidth="190" Padding="17,10" Background="#29213B" BorderBrush="#4A3C66" Foreground="#B5A4D0" FontWeight="Bold"/>
+                        <Button Grid.Row="2" Content="ABRIR APLICATIVO   →" Click="EnterMasterMic_Click" HorizontalAlignment="Left" MinWidth="210" Padding="20,13" Background="#302052" BorderBrush="#A47CEB" Foreground="White" FontWeight="Bold"/>
                     </Grid>
                 </Border>
             </Grid>
@@ -404,7 +405,7 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                        <TextBlock x:Name="EmptyDevicesText" Text="Clique em Conectar ao OpenRGB para ler os dispositivos reais." Foreground="{StaticResource MutedBrush}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                        <TextBlock x:Name="EmptyDevicesText" Text="Clique em Detectar dispositivos RGB para ler os dispositivos reais." Foreground="{StaticResource MutedBrush}" Margin="0,8,0,0" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
 
@@ -428,8 +429,9 @@
                 </ScrollViewer>
             </Grid>
             <Grid x:Name="SettingsPage" Visibility="Collapsed" Background="{StaticResource BgBrush}">
+                <Button x:Name="BackFromSettingsButton" Content="←  VOLTAR" Click="Back_Click" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="24,16,0,0" Panel.ZIndex="10" Background="#17364D" BorderBrush="#35C8FF" Padding="14,8"/>
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="54,42,54,42">
+                    <StackPanel Margin="54,76,54,42">
                 <TextBlock Text="CONFIGURAÇÕES" FontSize="24" Foreground="{StaticResource TextBrush}" FontWeight="Bold" Margin="0,0,0,8"/>
                 <Border x:Name="SettingsSection" Background="{StaticResource PanelBrush}" CornerRadius="12" Padding="18" Margin="0,0,0,22">
                     <StackPanel>
@@ -454,6 +456,10 @@
 
                     </StackPanel>
                 </ScrollViewer>
+            </Grid>
+            <Grid x:Name="MasterMicPage" Visibility="Collapsed" Background="{StaticResource BgBrush}">
+                <Button Content="←  VOLTAR" Click="Back_Click" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="24,16,0,0" Panel.ZIndex="10" Background="#302052" BorderBrush="#A47CEB" Padding="14,8"/>
+                <controls:MasterMicControl x:Name="MasterMicView" Margin="0,54,0,0"/>
             </Grid>
         </Grid>
     </Grid>
