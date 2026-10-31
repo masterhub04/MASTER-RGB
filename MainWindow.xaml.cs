@@ -13,12 +13,23 @@ using MasterRgb.Services.DirectHardware;
 using MasterRgb.Services.DirectHardware.Drivers;
 using Velopack;
 using Velopack.Sources;
+using Forms = System.Windows.Forms;
+using Application = System.Windows.Application;
+using Button = System.Windows.Controls.Button;
+using Brush = System.Windows.Media.Brush;
+using Color = System.Windows.Media.Color;
+using Brushes = System.Windows.Media.Brushes;
+using CheckBox = System.Windows.Controls.CheckBox;
+using ColorConverter = System.Windows.Media.ColorConverter;
+using Point = System.Windows.Point;
+using SaveFileDialog = Microsoft.Win32.SaveFileDialog;
 
 namespace MasterRgb;
 
 public partial class MainWindow : Window
 {
     private readonly OpenRgbSdkClient _openRgb = new();
+    private readonly OpenRgbEngineHost _openRgbEngine = new();
     private UpdateManager? _updateManager;
     private UpdateInfo? _pendingUpdate;
     private readonly ObservableCollection<DeviceRow> _devices = new();
@@ -28,6 +39,13 @@ public partial class MainWindow : Window
     private Ellipse? _hueMarker;
     private bool _hueArcDrawn;
     private string _currentTheme = "Blue";
+    private string _uiAccentColor = "#0000FF";
+    private bool _startWithWindows;
+    private bool _startMinimized;
+    private bool _minimizeToTray;
+    private bool _allowExit;
+    private Forms.NotifyIcon? _trayIcon;
+    private readonly List<string> _notifications = new();
     private readonly ObservableCollection<FavoriteColorRow> _favoriteColors = new();
     private readonly Dictionary<string, int> _zoneLedOverrides = new(StringComparer.OrdinalIgnoreCase);
     private readonly string _userSettingsPath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MASTER RGB", "user-settings.json");
@@ -42,14 +60,171 @@ public partial class MainWindow : Window
         MultiDeviceList.AddHandler(CheckBox.UncheckedEvent, new RoutedEventHandler(MultiDeviceCheckChanged));
         FavoriteColorsList.ItemsSource = _favoriteColors;
         LoadUserSettings();
+        StartWithWindowsCheckBox.IsChecked = _startWithWindows;
+        StartMinimizedCheckBox.IsChecked = _startMinimized;
+        MinimizeToTrayCheckBox.IsChecked = _minimizeToTray;
         ApplyTheme(_currentTheme, false);
+        ConfigureTrayIcon();
         RefreshDirectHardwareDisplay();
         Loaded += MainWindow_Loaded;
+        Closing += MainWindow_Closing;
+        Closed += (_, _) => { _trayIcon?.Dispose(); _openRgbEngine.Dispose(); };
     }
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
+        if (Environment.GetCommandLineArgs().Any(a => a.Equals("--minimized", StringComparison.OrdinalIgnoreCase)))
+            WindowState = WindowState.Minimized;
+        try
+        {
+            await _openRgbEngine.EnsureStartedAsync();
+            EngineStatusText.Text = "Mecanismo RGB integrado • inicializado";
+            EngineStatusText.Foreground = Brushes.LightGreen;
+        }
+        catch (Exception ex)
+        {
+            EngineStatusText.Text = "Mecanismo RGB indisponível";
+            EngineStatusText.Foreground = Brushes.Orange;
+            StatusText.Text = "Não foi possível iniciar a compatibilidade RGB integrada: " + ex.Message;
+        }
         await CheckForUpdatesAsync();
+    }
+
+    private void NavigateDashboard_Click(object sender, RoutedEventArgs e)
+    {
+        ShowPage(DashboardPage, DashboardNavButton);
+    }
+
+    private void EnterMasterRgb_Click(object sender, RoutedEventArgs e)
+    {
+        ShowPage(LightingPage, LightingNavButton);
+    }
+    private void NavigateLighting_Click(object sender, RoutedEventArgs e) => ShowPage(LightingPage, LightingNavButton);
+    private void NavigateDevices_Click(object sender, RoutedEventArgs e) => ShowPage(DevicesPage, DevicesNavButton);
+    private void NavigateProfiles_Click(object sender, RoutedEventArgs e) => ShowPage(ProfilesPage, ProfilesNavButton);
+    private void NavigateSettings_Click(object sender, RoutedEventArgs e) => ShowPage(SettingsPage, SettingsNavButton);
+
+    private void ShowPage(FrameworkElement page, Button activeButton)
+    {
+        bool showRgbSidebar = page == LightingPage || page == DevicesPage || page == ProfilesPage;
+        AppSidebar.Visibility = showRgbSidebar ? Visibility.Visible : Visibility.Collapsed;
+        Grid.SetColumn(MainContentHost, showRgbSidebar ? 1 : 0);
+        Grid.SetColumnSpan(MainContentHost, showRgbSidebar ? 1 : 2);
+        if (AppSidebar.Parent is Grid root)
+            root.ColumnDefinitions[0].Width = showRgbSidebar ? new GridLength(245) : new GridLength(0);
+        DashboardPage.Visibility = Visibility.Collapsed;
+        LightingPage.Visibility = Visibility.Collapsed;
+        DevicesPage.Visibility = Visibility.Collapsed;
+        ProfilesPage.Visibility = Visibility.Collapsed;
+        SettingsPage.Visibility = Visibility.Collapsed;
+        DashboardPage.Visibility = ReferenceEquals(page, DashboardPage) ? Visibility.Visible : Visibility.Collapsed;
+        LightingPage.Visibility = ReferenceEquals(page, LightingPage) ? Visibility.Visible : Visibility.Collapsed;
+        DevicesPage.Visibility = ReferenceEquals(page, DevicesPage) ? Visibility.Visible : Visibility.Collapsed;
+        ProfilesPage.Visibility = ReferenceEquals(page, ProfilesPage) ? Visibility.Visible : Visibility.Collapsed;
+        SettingsPage.Visibility = ReferenceEquals(page, SettingsPage) ? Visibility.Visible : Visibility.Collapsed;
+        foreach (var button in new[] { DashboardNavButton, LightingNavButton, DevicesNavButton, ProfilesNavButton, SettingsNavButton })
+        {
+            button.Background = ReferenceEquals(button, activeButton) ? new SolidColorBrush(Color.FromRgb(23, 54, 77)) : Brushes.Transparent;
+            button.BorderBrush = ReferenceEquals(button, activeButton) ? new SolidColorBrush(Color.FromRgb(35, 74, 104)) : Brushes.Transparent;
+        }
+    }
+
+    private void MinimizeWindow_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+
+    private void CloseWindow_Click(object sender, RoutedEventArgs e) => Close();
+
+    private void TrayOption_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded || MinimizeToTrayCheckBox is null) return;
+        _minimizeToTray = MinimizeToTrayCheckBox.IsChecked == true;
+        ConfigureTrayIcon();
+        SaveUserSettings();
+    }
+
+    private void ConfigureTrayIcon()
+    {
+        if (!_minimizeToTray)
+        {
+            if (_trayIcon is not null) _trayIcon.Visible = false;
+            return;
+        }
+
+        _trayIcon ??= new Forms.NotifyIcon
+        {
+            Icon = System.Drawing.SystemIcons.Application,
+            Text = "MASTER HUB",
+            Visible = true
+        };
+        _trayIcon.Visible = true;
+        _trayIcon.DoubleClick -= TrayIcon_DoubleClick;
+        _trayIcon.DoubleClick += TrayIcon_DoubleClick;
+        var menu = new Forms.ContextMenuStrip();
+        menu.Items.Add("Abrir MASTER HUB", null, (_, _) => RestoreFromTray());
+        menu.Items.Add(new Forms.ToolStripSeparator());
+        menu.Items.Add("Encerrar", null, (_, _) => { _allowExit = true; _trayIcon!.Visible = false; Close(); });
+        _trayIcon.ContextMenuStrip?.Dispose();
+        _trayIcon.ContextMenuStrip = menu;
+    }
+
+    private void TrayIcon_DoubleClick(object? sender, EventArgs e) => RestoreFromTray();
+
+    private void RestoreFromTray()
+    {
+        Show();
+        WindowState = WindowState.Normal;
+        Activate();
+    }
+
+    private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        if (_allowExit || !_minimizeToTray) return;
+        e.Cancel = true;
+        Hide();
+        ConfigureTrayIcon();
+        _trayIcon?.ShowBalloonTip(1800, "MASTER HUB", "O aplicativo continua em execução na bandeja.", Forms.ToolTipIcon.Info);
+    }
+
+    private void Notifications_Click(object sender, RoutedEventArgs e)
+    {
+        var menu = new Forms.ContextMenuStrip();
+        if (_notifications.Count == 0)
+            menu.Items.Add("Nenhuma notificação no momento");
+        else
+            foreach (string message in _notifications.TakeLast(8).Reverse())
+                menu.Items.Add(message);
+        menu.Items.Add(new Forms.ToolStripSeparator());
+        menu.Items.Add("Verificar atualizações", null, async (_, _) => await CheckForUpdatesAsync());
+        menu.Show(System.Windows.Forms.Cursor.Position.X, System.Windows.Forms.Cursor.Position.Y);
+    }
+
+    private void StartupOption_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        _startWithWindows = StartWithWindowsCheckBox.IsChecked == true;
+        _startMinimized = StartMinimizedCheckBox.IsChecked == true;
+        try
+        {
+            ConfigureWindowsStartup(_startWithWindows, _startMinimized);
+            SaveUserSettings();
+        }
+        catch (Exception ex) { StatusText.Text = "Não foi possível atualizar a inicialização do Windows: " + ex.Message; }
+    }
+
+    private static void ConfigureWindowsStartup(bool enabled, bool minimized)
+    {
+        const string runKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
+        const string appValueName = "MASTER RGB";
+        using var runKey = Registry.CurrentUser.OpenSubKey(runKeyPath, writable: true)
+            ?? Registry.CurrentUser.CreateSubKey(runKeyPath, writable: true);
+        if (!enabled)
+        {
+            runKey.DeleteValue(appValueName, throwOnMissingValue: false);
+            return;
+        }
+        string? executable = Environment.ProcessPath;
+        if (string.IsNullOrWhiteSpace(executable))
+            throw new InvalidOperationException("Não foi possível localizar o executável do MASTER RGB.");
+        runKey.SetValue(appValueName, $"\"{executable}\"{(minimized ? " --minimized" : string.Empty)}");
     }
 
     private void RefreshDirectHardwareDisplay()
@@ -100,6 +275,40 @@ public partial class MainWindow : Window
                     msiZones, false, true));
             }
 
+            // Identifica a GPU NVIDIA pelo inventário PCI do Windows.
+            // A GPU aparece na lista como hardware detectado, mas não é tratada
+            // como controlador RGB sem uma interface de iluminação confirmada.
+            const string gpuName = "Gainward GeForce RTX 3060 Ghost 12GB";
+            var previousGpu = _displayDevices.FirstOrDefault(d => d.Name == gpuName);
+            if (previousGpu is not null) _displayDevices.Remove(previousGpu);
+            var previousGpuSelectable = _selectableDevices.FirstOrDefault(d => d.Index == -3);
+            if (previousGpuSelectable is not null) _selectableDevices.Remove(previousGpuSelectable);
+            var previousGpuGroup = _devices.FirstOrDefault(d => d.Index == -3);
+            if (previousGpuGroup is not null) _devices.Remove(previousGpuGroup);
+
+            var gpu = pnpDevices.FirstOrDefault(d =>
+                d.Source == "PCI" &&
+                (d.HardwareIds.Contains("VEN_10DE", StringComparison.OrdinalIgnoreCase) ||
+                 d.CompatibleIds.Contains("VEN_10DE", StringComparison.OrdinalIgnoreCase)) &&
+                (d.HardwareIds.Contains("CC_0300", StringComparison.OrdinalIgnoreCase) ||
+                 d.CompatibleIds.Contains("CC_0300", StringComparison.OrdinalIgnoreCase) ||
+                 d.CompatibleIds.Contains("CC_0302", StringComparison.OrdinalIgnoreCase) ||
+                 d.HardwareIds.Contains("CC_0302", StringComparison.OrdinalIgnoreCase)));
+
+            if (gpu is not null)
+            {
+                string detectedGpuName = string.IsNullOrWhiteSpace(gpu.FriendlyName) ? gpuName : gpu.FriendlyName;
+                string gpuDetails = $"NVIDIA • PCI • {gpu.RedactedInstanceId} • Identificação somente leitura";
+                _displayDevices.Add(new DeviceDisplayRow(detectedGpuName, gpuDetails,
+                    "GPU detectada • controlador RGB ainda não identificado", "DETECTADO"));
+
+                var gpuRow = new DeviceRow(-3, detectedGpuName, gpuDetails,
+                    "GPU detectada • sem zonas RGB confirmadas",
+                    new[] { new OpenRgbZone("RGB não identificado", 0) }, false, true);
+                _selectableDevices.Add(gpuRow);
+                _devices.Add(gpuRow);
+            }
+
             var detection = new LogitechG203HidDriver().DetectConnectedDevice();
             var previous = _displayDevices.FirstOrDefault(d => d.Name == "Logitech G203 Prodigy");
             if (previous is not null) _displayDevices.Remove(previous);
@@ -117,6 +326,8 @@ public partial class MainWindow : Window
                     "Logitech • USB HID • Controle direto",
                     "Iluminação RGB do mouse (1 zona)",
                     new[] { new OpenRgbZone("Iluminação RGB", 1) }, true));
+                var mouseRow = _selectableDevices.Last();
+                _devices.Add(mouseRow);
             }
             DeviceCountText.Text = $"{_displayDevices.Count} dispositivo(s)";
             EmptyDevicesText.Visibility = _displayDevices.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -151,6 +362,7 @@ public partial class MainWindow : Window
         DeviceCountText.Text = "Lendo...";
         try
         {
+            await _openRgbEngine.EnsureStartedAsync();
             var devices = await _openRgb.ReadDevicesAsync();
             foreach (var device in devices)
             {
@@ -181,8 +393,8 @@ public partial class MainWindow : Window
             RefreshDirectHardwareDisplay();
             DeviceCountText.Text = $"{_displayDevices.Count} dispositivo(s) • OpenRGB indisponível";
             EmptyDevicesText.Visibility = _displayDevices.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-            EmptyDevicesText.Text = _displayDevices.Count == 0 ? "Não foi possível ler a lista. Abra o OpenRGB, ative o SDK Server e tente novamente." : string.Empty;
-            StatusText.Text = $"Erro ao consultar o OpenRGB: {ex.Message}";
+            EmptyDevicesText.Text = _displayDevices.Count == 0 ? "Não foi possível ler a lista pelo mecanismo RGB integrado. Verifique se o Windows bloqueou o componente ou se faltam permissões de driver." : string.Empty;
+            StatusText.Text = $"Erro ao consultar o mecanismo RGB integrado: {ex.Message}";
         }
         finally { ConnectButtonState(false); }
     }
@@ -204,7 +416,7 @@ public partial class MainWindow : Window
                 Report = new
                 {
                     Application = "MASTER RGB",
-                    ApplicationVersion = "0.8.3",
+                    ApplicationVersion = "0.9.1",
                     GeneratedAtLocal = DateTimeOffset.Now,
                     DiagnosticMode = "Read-only; no lighting mode or LED color commands are sent",
                     Computer = Environment.MachineName,
@@ -541,17 +753,18 @@ public partial class MainWindow : Window
     private void DrawHueArc()
     {
         HueArcCanvas.Children.Clear();
-        const double cx = 180, cy = 166, radius = 140, thickness = 27;
-        // Draw a smooth, 180-degree spectrum from red through the full hue wheel back to red.
-        for (int i = 0; i < 180; i++)
+        const double cx = 130, cy = 130, radius = 105, thickness = 25;
+
+        // Roda completa de 360 graus, com transição contínua entre as tonalidades.
+        for (int i = 0; i < 360; i++)
         {
-            double a1 = Math.PI - (i * Math.PI / 180.0);
-            double a2 = Math.PI - ((i + 1.15) * Math.PI / 180.0);
-            var p1 = new Point(cx + radius * Math.Cos(a1), cy - radius * Math.Sin(a1));
-            var p2 = new Point(cx + radius * Math.Cos(a2), cy - radius * Math.Sin(a2));
+            double a1 = i * Math.PI / 180.0;
+            double a2 = (i + 1.2) * Math.PI / 180.0;
+            var p1 = new Point(cx + radius * Math.Cos(a1), cy + radius * Math.Sin(a1));
+            var p2 = new Point(cx + radius * Math.Cos(a2), cy + radius * Math.Sin(a2));
             var path = new System.Windows.Shapes.Path
             {
-                Stroke = new SolidColorBrush(HsvColor(i * 2.0, 1, 1)),
+                Stroke = new SolidColorBrush(HsvColor(i, 1, 1)),
                 StrokeThickness = thickness,
                 StrokeStartLineCap = PenLineCap.Round,
                 StrokeEndLineCap = PenLineCap.Round,
@@ -560,6 +773,7 @@ public partial class MainWindow : Window
             };
             HueArcCanvas.Children.Add(path);
         }
+
         _hueMarker = new Ellipse { Width = 19, Height = 19, Fill = Brushes.White, Stroke = new SolidColorBrush(Color.FromRgb(20, 35, 48)), StrokeThickness = 4, IsHitTestVisible = false };
         HueArcCanvas.Children.Add(_hueMarker);
         _hueArcDrawn = true;
@@ -569,14 +783,15 @@ public partial class MainWindow : Window
     private void HueArcCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         Point point = e.GetPosition(HueArcCanvas);
-        const double cx = 180, cy = 166;
+        const double cx = 130, cy = 130;
         double dx = point.X - cx;
-        double dy = cy - point.Y;
-        if (dy < -8) return;
-        double angle = Math.Atan2(dy, dx);
-        if (angle < 0 || angle > Math.PI) return;
-        double hue = (1.0 - angle / Math.PI) * 360.0;
-        if (hue >= 360) hue = 0;
+        double dy = point.Y - cy;
+        double distance = Math.Sqrt(dx * dx + dy * dy);
+
+        // Aceita cliques próximos ao anel colorido, sem exigir precisão milimétrica.
+        if (distance < 65 || distance > 145) return;
+
+        double hue = (Math.Atan2(dy, dx) * 180.0 / Math.PI + 360.0) % 360.0;
         Color color = HsvColor(hue, 1, 1);
         HexColorBox.Text = $"#{color.R:X2}{color.G:X2}{color.B:X2}";
         UpdateHueMarker(hue);
@@ -586,10 +801,10 @@ public partial class MainWindow : Window
     private void UpdateHueMarker(double hue)
     {
         if (_hueMarker is null) return;
-        const double cx = 180, cy = 166, radius = 140;
-        double angle = (1.0 - (hue % 360.0) / 360.0) * Math.PI;
+        const double cx = 130, cy = 130, radius = 105;
+        double angle = (hue % 360.0) * Math.PI / 180.0;
         Canvas.SetLeft(_hueMarker, cx + radius * Math.Cos(angle) - _hueMarker.Width / 2);
-        Canvas.SetTop(_hueMarker, cy - radius * Math.Sin(angle) - _hueMarker.Height / 2);
+        Canvas.SetTop(_hueMarker, cy + radius * Math.Sin(angle) - _hueMarker.Height / 2);
     }
 
     private static Color HsvColor(double hue, double saturation, double value)
@@ -736,6 +951,7 @@ public partial class MainWindow : Window
             try
             {
                 ColorPreview.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(value));
+                ApplyUiAccentColor(value);
                 _updatingColorText = true;
                 RedSlider.Value = (rgb >> 16) & 0xFF;
                 GreenSlider.Value = (rgb >> 8) & 0xFF;
@@ -761,6 +977,7 @@ public partial class MainWindow : Window
         string hex = $"#{r:X2}{g:X2}{b:X2}";
         _updatingColorText = true;
         HexColorBox.Text = hex;
+        ApplyUiAccentColor(hex);
         ColorPreview.Background = new SolidColorBrush(Color.FromRgb((byte)r, (byte)g, (byte)b));
         _updatingColorText = false;
     }
@@ -891,7 +1108,7 @@ public partial class MainWindow : Window
         Application.Current.Resources["CardBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(card));
         Application.Current.Resources["TextBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(text));
         Application.Current.Resources["MutedBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(muted));
-        Application.Current.Resources["AccentBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(accent));
+        Application.Current.Resources["AccentBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(_uiAccentColor));
 
         Background = (Brush)Application.Current.Resources["BgBrush"];
         Foreground = (Brush)Application.Current.Resources["TextBrush"];
@@ -923,6 +1140,10 @@ public partial class MainWindow : Window
                 if (pair.Value > 0 && pair.Value <= ushort.MaxValue) _zoneLedOverrides[pair.Key] = pair.Value;
             BrightnessSlider.Value = Math.Clamp(settings.Brightness, 0, 100);
             _currentTheme = settings.Theme ?? "Blue";
+            _uiAccentColor = NormalizeHexColor(settings.UiAccentColor) ?? "#0000FF";
+            _startWithWindows = settings.StartWithWindows;
+            _startMinimized = settings.StartMinimized;
+            _minimizeToTray = settings.MinimizeToTray;
         }
         catch (Exception ex)
         {
@@ -936,7 +1157,7 @@ public partial class MainWindow : Window
         {
             string? directory = System.IO.Path.GetDirectoryName(_userSettingsPath);
             if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
-            var settings = new UserSettings(_favoriteColors.Select(c => c.Hex).ToList(), _zoneLedOverrides, BrightnessSlider.Value, _currentTheme);
+            var settings = new UserSettings(_favoriteColors.Select(c => c.Hex).ToList(), _zoneLedOverrides, BrightnessSlider.Value, _currentTheme, _startWithWindows, _startMinimized, _uiAccentColor, _minimizeToTray);
             File.WriteAllText(_userSettingsPath, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
         }
         catch (Exception ex)
@@ -1017,6 +1238,8 @@ public partial class MainWindow : Window
             {
                 UpdatesButton.Content = "⬇   Atualizar";
                 UpdateText.Text = $"Nova versão {update.TargetFullRelease.Version} disponível. Clique em Atualizar para baixar e instalar.";
+                string notification = $"Nova atualização disponível: versão {update.TargetFullRelease.Version}.";
+                if (!_notifications.Contains(notification)) _notifications.Add(notification);
             }
             else
             {
@@ -1087,5 +1310,22 @@ public partial class MainWindow : Window
     {
         public Brush Brush => new SolidColorBrush((Color)ColorConverter.ConvertFromString(Hex));
     }
-    private sealed record UserSettings(List<string>? FavoriteColors, Dictionary<string, int>? ZoneLedOverrides, double Brightness = 100, string? Theme = "Blue");
+    private static string? NormalizeHexColor(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        string normalized = value.Trim().ToUpperInvariant();
+        if (!normalized.StartsWith('#')) normalized = "#" + normalized;
+        return normalized.Length == 7 && uint.TryParse(normalized[1..], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out _) ? normalized : null;
+    }
+
+    private void ApplyUiAccentColor(string hex, bool save = true)
+    {
+        string? normalized = NormalizeHexColor(hex);
+        if (normalized is null) return;
+        _uiAccentColor = normalized;
+        Application.Current.Resources["AccentBrush"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(_uiAccentColor));
+        if (save) SaveUserSettings();
+    }
+
+    private sealed record UserSettings(List<string>? FavoriteColors, Dictionary<string, int>? ZoneLedOverrides, double Brightness = 100, string? Theme = "Blue", bool StartWithWindows = false, bool StartMinimized = false, string? UiAccentColor = "#0000FF", bool MinimizeToTray = false);
 }

@@ -3,11 +3,12 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>MASTER RGB</AssemblyName>
     <RootNamespace>MasterRgb</RootNamespace>
-    <Version>0.8.6</Version>
+    <Version>0.9.6</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\master-rgb.ico</ApplicationIcon>
   </PropertyGroup>
