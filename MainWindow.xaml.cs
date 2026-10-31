@@ -10,8 +10,6 @@ using System.Text.Json;
 using Microsoft.Win32;
 using MasterRgb.Services;
 using MasterRgb.Controls;
-using Velopack;
-using Velopack.Sources;
 using Forms = System.Windows.Forms;
 using Application = System.Windows.Application;
 using Button = System.Windows.Controls.Button;
@@ -31,8 +29,6 @@ public partial class MainWindow : Window
     private FrameworkElement? _currentPage;
     private readonly OpenRgbSdkClient _openRgb = new();
     private readonly OpenRgbEngineHost _openRgbEngine = new();
-    private UpdateManager? _updateManager;
-    private UpdateInfo? _pendingUpdate;
     private readonly ObservableCollection<DeviceRow> _devices = new();
     private readonly ObservableCollection<DeviceRow> _selectableDevices = new();
     private readonly ObservableCollection<DeviceDisplayRow> _displayDevices = new();
@@ -46,7 +42,7 @@ public partial class MainWindow : Window
     private bool _minimizeToTray;
     private bool _allowExit;
     private Forms.NotifyIcon? _trayIcon;
-    private readonly List<string> _notifications = new();
+    private readonly ObservableCollection<string> _notifications = new();
     private readonly ObservableCollection<FavoriteColorRow> _favoriteColors = new();
     private readonly Dictionary<string, int> _zoneLedOverrides = new(StringComparer.OrdinalIgnoreCase);
     private readonly string _userSettingsPath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MASTER RGB", "user-settings.json");
@@ -54,8 +50,6 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        StateChanged += (_, _) => UpdateMaximizeButton();
-        UpdateMaximizeButton();
         _currentPage = DashboardPage;
         DeviceList.ItemsSource = _displayDevices;
         DeviceSelector.ItemsSource = _selectableDevices;
@@ -82,7 +76,6 @@ public partial class MainWindow : Window
         // O mecanismo OpenRGB é iniciado em segundo plano pelo próprio MASTER RGB.
         // A detecção dos controladores pelo SDK acontece automaticamente na abertura.
         await DetectOpenRgbDevicesAsync();
-        await CheckForUpdatesAsync();
     }
 
     private void NavigateDashboard_Click(object sender, RoutedEventArgs e)
@@ -170,20 +163,10 @@ public partial class MainWindow : Window
         return null;
     }
 
-    private void MaximizeWindow_Click(object sender, RoutedEventArgs e) => ToggleWindowState();
-
     private void ToggleWindowState()
     {
         WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
         UpdateMaximizeButton();
-    }
-
-    private void UpdateMaximizeButton()
-    {
-        if (MaximizeButton is null) return;
-        bool maximized = WindowState == WindowState.Maximized;
-        MaximizeButton.Content = maximized ? "\uE923" : "\uE922";
-        MaximizeButton.ToolTip = maximized ? "Restaurar" : "Maximizar";
     }
 
     private void MinimizeWindow_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
@@ -243,15 +226,12 @@ public partial class MainWindow : Window
 
     private void Notifications_Click(object sender, RoutedEventArgs e)
     {
-        var menu = new Forms.ContextMenuStrip();
-        if (_notifications.Count == 0)
-            menu.Items.Add("Nenhuma notificação no momento");
-        else
-            foreach (string message in _notifications.TakeLast(8).Reverse())
-                menu.Items.Add(message);
-        menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add("Verificar atualizações", null, async (_, _) => await CheckForUpdatesAsync());
-        menu.Show(System.Windows.Forms.Cursor.Position.X, System.Windows.Forms.Cursor.Position.Y);
+        NotificationList.ItemsSource = _notifications;
+        EmptyNotificationsText.Visibility = _notifications.Count == 0
+            ? Visibility.Visible : Visibility.Collapsed;
+        NotificationList.Visibility = _notifications.Count == 0
+            ? Visibility.Collapsed : Visibility.Visible;
+        NotificationsPopup.IsOpen = !NotificationsPopup.IsOpen;
     }
 
     private void StartupOption_Changed(object sender, RoutedEventArgs e)
@@ -899,99 +879,6 @@ public partial class MainWindow : Window
         // O rótulo permanece fixo; apenas bloqueia cliques durante a leitura.
         ConnectOpenRgbButton.IsEnabled = !busy;
         ConnectOpenRgbButton.Content = "Detectar dispositivos RGB";
-    }
-
-    private bool _checkingUpdates;
-    private bool _updatesAvailable;
-
-    private async void CheckUpdates_Click(object sender, RoutedEventArgs e)
-    {
-        if (_checkingUpdates) return;
-        if (_pendingUpdate is not null)
-        {
-            await DownloadAndApplyUpdateAsync();
-            return;
-        }
-        await CheckForUpdatesAsync();
-    }
-
-    private async Task CheckForUpdatesAsync()
-    {
-        if (_checkingUpdates) return;
-        _checkingUpdates = true;
-        UpdatesButton.IsEnabled = false;
-        UpdatesButton.Content = "↻   Verificando...";
-        UpdateText.Text = "Consultando atualizações oficiais...";
-        try
-        {
-            _updateManager ??= new UpdateManager(
-                new GithubSource("https://github.com/masterhub04/MASTER-RGB", null, false));
-
-            if (!_updateManager.IsInstalled)
-            {
-                _updatesAvailable = false;
-                UpdatesButton.Content = "↻   Verificar atualização";
-                UpdateText.Text = "Atualizações automáticas disponíveis após instalar o MASTER RGB pelo instalador oficial.";
-                return;
-            }
-
-            var update = await _updateManager.CheckForUpdatesAsync();
-            _pendingUpdate = update;
-            _updatesAvailable = update is not null;
-
-            if (update is not null)
-            {
-                UpdatesButton.Content = "⬇   Atualizar";
-                UpdateText.Text = $"Nova versão {update.TargetFullRelease.Version} disponível. Clique em Atualizar para baixar e instalar.";
-                string notification = $"Nova atualização disponível: versão {update.TargetFullRelease.Version}.";
-                if (!_notifications.Contains(notification)) _notifications.Add(notification);
-            }
-            else
-            {
-                UpdatesButton.Content = "↻   Verificar atualização";
-                UpdateText.Text = $"MASTER RGB atualizado. Versão instalada: {_updateManager.CurrentVersion}.";
-            }
-        }
-        catch (Exception ex)
-        {
-            _pendingUpdate = null;
-            _updatesAvailable = false;
-            UpdatesButton.Content = "↻   Verificar atualização";
-            UpdateText.Text = "Não foi possível verificar atualizações: " + ex.Message;
-        }
-        finally
-        {
-            UpdatesButton.IsEnabled = true;
-            _checkingUpdates = false;
-        }
-    }
-
-    private async Task DownloadAndApplyUpdateAsync()
-    {
-        if (_pendingUpdate is null || _updateManager is null || _checkingUpdates) return;
-
-        _checkingUpdates = true;
-        UpdatesButton.IsEnabled = false;
-        UpdatesButton.Content = "⬇   Baixando...";
-        try
-        {
-            UpdateText.Text = "Baixando a atualização. Não feche o programa...";
-            await _updateManager.DownloadUpdatesAsync(_pendingUpdate, progress =>
-                Dispatcher.Invoke(() => UpdateText.Text = $"Baixando atualização... {progress}%"));
-
-            UpdateText.Text = "Download concluído. O MASTER RGB será reiniciado para concluir a instalação...";
-            await Task.Delay(700);
-            _updateManager.ApplyUpdatesAndRestart(_pendingUpdate);
-        }
-        catch (Exception ex)
-        {
-            UpdatesButton.Content = "↻   Verificar atualização";
-            UpdatesButton.IsEnabled = true;
-            _pendingUpdate = null;
-            _updatesAvailable = false;
-            UpdateText.Text = "Falha ao baixar/aplicar a atualização: " + ex.Message;
-            _checkingUpdates = false;
-        }
     }
 
     private sealed record DeviceDisplayRow(string Name, string Details, string ZonesText, string Status);
