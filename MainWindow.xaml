@@ -6,9 +6,14 @@
         Title="MASTER HUB" Icon="Assets/master-rgb.ico" Height="900" Width="1460"
         MinHeight="760" MinWidth="1180" WindowStyle="None" ResizeMode="CanResize"
         WindowStartupLocation="CenterScreen"
-        shell:WindowChrome.WindowChrome="{shell:WindowChrome CaptionHeight=0, ResizeBorderThickness=6, GlassFrameThickness=0, UseAeroCaptionButtons=False}"
         Background="{StaticResource BgBrush}"
         Foreground="{StaticResource TextBrush}">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="0"
+                            ResizeBorderThickness="6"
+                            GlassFrameThickness="0"
+                            UseAeroCaptionButtons="False"/>
+    </shell:WindowChrome.WindowChrome>
     <Grid Background="#080B12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
