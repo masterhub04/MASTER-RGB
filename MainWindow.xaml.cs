@@ -54,6 +54,8 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        StateChanged += (_, _) => UpdateMaximizeButton();
+        UpdateMaximizeButton();
         _currentPage = DashboardPage;
         DeviceList.ItemsSource = _displayDevices;
         DeviceSelector.ItemsSource = _selectableDevices;
@@ -142,6 +144,33 @@ public partial class MainWindow : Window
             button.Background = ReferenceEquals(button, activeButton) ? new SolidColorBrush(Color.FromRgb(23, 54, 77)) : Brushes.Transparent;
             button.BorderBrush = ReferenceEquals(button, activeButton) ? new SolidColorBrush(Color.FromRgb(35, 74, 104)) : Brushes.Transparent;
         }
+    }
+
+    private void HeaderBar_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != System.Windows.Input.MouseButton.Left) return;
+        if (e.ClickCount == 2)
+        {
+            ToggleWindowState();
+            return;
+        }
+        if (e.ButtonState == System.Windows.Input.MouseButtonState.Pressed) DragMove();
+    }
+
+    private void MaximizeWindow_Click(object sender, RoutedEventArgs e) => ToggleWindowState();
+
+    private void ToggleWindowState()
+    {
+        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+        UpdateMaximizeButton();
+    }
+
+    private void UpdateMaximizeButton()
+    {
+        if (MaximizeButton is null) return;
+        bool maximized = WindowState == WindowState.Maximized;
+        MaximizeButton.Content = maximized ? "\\uE923" : "\\uE922";
+        MaximizeButton.ToolTip = maximized ? "Restaurar" : "Maximizar";
     }
 
     private void MinimizeWindow_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
