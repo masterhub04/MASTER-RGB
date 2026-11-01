@@ -129,7 +129,7 @@ public partial class MainWindow : Window
                     try { DragMove(); } catch (InvalidOperationException) { }
                     break;
                 case "check-updates":
-                    _ = CheckUpdatesFromHtmlAsync();
+                    CheckUpdatesFromHtml();
                     break;
             }
         }
@@ -139,16 +139,10 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task CheckUpdatesFromHtmlAsync()
+    private void CheckUpdatesFromHtml()
     {
-        await Dispatcher.InvokeAsync(async () =>
-        {
-            await CheckForUpdatesAsync();
-            string status = UpdateStatusText.Text;
-            string safeStatus = System.Text.Json.JsonSerializer.Serialize(status);
-            await HtmlInterface.ExecuteScriptAsync(
-                $"document.getElementById('updateStatusText').textContent = {safeStatus};");
-        }).Task.Unwrap();
+        // Reutiliza o verificador nativo já existente no aplicativo.
+        CheckUpdates_Click(this, new RoutedEventArgs());
     }
 
     private void NavigateDashboard_Click(object sender, RoutedEventArgs e)
