@@ -48,7 +48,7 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<string> _notifications = new();
     private readonly ObservableCollection<FavoriteColorRow> _favoriteColors = new();
     private readonly Dictionary<string, int> _zoneLedOverrides = new(StringComparer.OrdinalIgnoreCase);
-    private readonly string _userSettingsPath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MASTER RGB", "user-settings.json");
+    private readonly string _userSettingsPath = System.IO.System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MASTER RGB", "user-settings.json");
 
     public MainWindow()
     {
@@ -91,10 +91,10 @@ public partial class MainWindow : Window
             HtmlInterface.CoreWebView2.Settings.IsZoomControlEnabled = false;
             HtmlInterface.CoreWebView2.WebMessageReceived += HtmlInterface_WebMessageReceived;
 
-            string htmlPath = Path.Combine(AppContext.BaseDirectory, "HTML", "index.html");
+            string htmlPath = System.IO.Path.Combine(AppContext.BaseDirectory, "HTML", "index.html");
             if (!File.Exists(htmlPath))
             {
-                MessageBox.Show($"A interface HTML não foi encontrada:\n{htmlPath}", "MASTER HUB",
+                System.Windows.MessageBox.Show($"A interface HTML não foi encontrada:\n{htmlPath}", "MASTER HUB",
                     MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
@@ -103,7 +103,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show("Não foi possível iniciar a interface WebView2. Verifique se o WebView2 Runtime está instalado.\n\n" + ex.Message,
+            System.Windows.MessageBox.Show("Não foi possível iniciar a interface WebView2. Verifique se o WebView2 Runtime está instalado.\n\n" + ex.Message,
                 "MASTER HUB", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
@@ -943,7 +943,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            string? directory = System.IO.Path.GetDirectoryName(_userSettingsPath);
+            string? directory = System.IO.System.IO.Path.GetDirectoryName(_userSettingsPath);
             if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
             var settings = new UserSettings(_favoriteColors.Select(c => c.Hex).ToList(), _zoneLedOverrides, BrightnessSlider.Value, _currentTheme, _startWithWindows, _startMinimized, _uiAccentColor, _minimizeToTray);
             File.WriteAllText(_userSettingsPath, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
