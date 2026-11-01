@@ -48,7 +48,7 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<string> _notifications = new();
     private readonly ObservableCollection<FavoriteColorRow> _favoriteColors = new();
     private readonly Dictionary<string, int> _zoneLedOverrides = new(StringComparer.OrdinalIgnoreCase);
-    private readonly string _userSettingsPath = System.IO.System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MASTER RGB", "user-settings.json");
+    private readonly string _userSettingsPath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MASTER RGB", "user-settings.json");
 
     public MainWindow()
     {
@@ -943,7 +943,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            string? directory = System.IO.System.IO.Path.GetDirectoryName(_userSettingsPath);
+            string? directory = System.IO.Path.GetDirectoryName(_userSettingsPath);
             if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
             var settings = new UserSettings(_favoriteColors.Select(c => c.Hex).ToList(), _zoneLedOverrides, BrightnessSlider.Value, _currentTheme, _startWithWindows, _startMinimized, _uiAccentColor, _minimizeToTray);
             File.WriteAllText(_userSettingsPath, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
