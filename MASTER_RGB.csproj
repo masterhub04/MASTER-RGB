@@ -18,8 +18,10 @@
     <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="YellowDogMan.RRNoise.NET" Version="0.1.9" />
     <PackageReference Include="Velopack" Version="1.2.161" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
   </ItemGroup>
   <ItemGroup>
     <Resource Include="Assets\\master-rgb.ico" />
+    <Content Include="HTML\\index.html" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
