@@ -12,6 +12,7 @@ using MasterRgb.Services;
 using MasterRgb.Controls;
 using Velopack;
 using Velopack.Sources;
+using Microsoft.Web.WebView2.Core;
 using Forms = System.Windows.Forms;
 using Application = System.Windows.Application;
 using Button = System.Windows.Controls.Button;
@@ -75,9 +76,79 @@ public partial class MainWindow : Window
         if (Environment.GetCommandLineArgs().Any(a => a.Equals("--minimized", StringComparison.OrdinalIgnoreCase)))
             WindowState = WindowState.Minimized;
 
-        // O mecanismo OpenRGB é iniciado em segundo plano pelo próprio MASTER RGB.
-        // A detecção dos controladores pelo SDK acontece automaticamente na abertura.
+        await InitializeHtmlInterfaceAsync();
+
+        // O mecanismo OpenRGB continua sendo iniciado pelo código nativo.
         await DetectOpenRgbDevicesAsync();
+    }
+
+    private async Task InitializeHtmlInterfaceAsync()
+    {
+        try
+        {
+            await HtmlInterface.EnsureCoreWebView2Async();
+            HtmlInterface.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
+            HtmlInterface.CoreWebView2.Settings.IsZoomControlEnabled = false;
+            HtmlInterface.CoreWebView2.WebMessageReceived += HtmlInterface_WebMessageReceived;
+
+            string htmlPath = Path.Combine(AppContext.BaseDirectory, "HTML", "index.html");
+            if (!File.Exists(htmlPath))
+            {
+                MessageBox.Show($"A interface HTML não foi encontrada:\n{htmlPath}", "MASTER HUB",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            HtmlInterface.Source = new Uri(htmlPath);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("Não foi possível iniciar a interface WebView2. Verifique se o WebView2 Runtime está instalado.\n\n" + ex.Message,
+                "MASTER HUB", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void HtmlInterface_WebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
+    {
+        try
+        {
+            using var message = JsonDocument.Parse(e.WebMessageAsJson);
+            string? action = message.RootElement.TryGetProperty("action", out var value)
+                ? value.GetString()
+                : null;
+
+            switch (action)
+            {
+                case "window-minimize":
+                    WindowState = WindowState.Minimized;
+                    break;
+                case "window-close":
+                    CloseWindow_Click(this, new RoutedEventArgs());
+                    break;
+                case "window-drag":
+                    try { DragMove(); } catch (InvalidOperationException) { }
+                    break;
+                case "check-updates":
+                    _ = CheckUpdatesFromHtmlAsync();
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine("WebView2 message error: " + ex.Message);
+        }
+    }
+
+    private async Task CheckUpdatesFromHtmlAsync()
+    {
+        await Dispatcher.InvokeAsync(async () =>
+        {
+            await CheckForUpdatesAsync();
+            string status = UpdateStatusText.Text;
+            string safeStatus = System.Text.Json.JsonSerializer.Serialize(status);
+            await HtmlInterface.ExecuteScriptAsync(
+                $"document.getElementById('updateStatusText').textContent = {safeStatus};");
+        }).Task.Unwrap();
     }
 
     private void NavigateDashboard_Click(object sender, RoutedEventArgs e)
