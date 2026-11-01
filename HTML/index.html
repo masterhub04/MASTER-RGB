@@ -856,29 +856,20 @@
         function checkAppUpdate() {
             if (isCheckingUpdate) return;
             isCheckingUpdate = true;
-            
             const btn = document.getElementById('updateBtn');
             const statusText = document.getElementById('updateStatusText');
-            
-            btn.style.opacity = "0.4";
+            btn.style.opacity = "0.55";
             btn.style.pointerEvents = "none";
             btn.innerText = "Verificando...";
-            statusText.innerText = "Verificando novos servidores...";
-
-            setTimeout(() => {
-                isCheckingUpdate = false;
+            statusText.innerText = "Solicitando verificação ao MASTER HUB...";
+            if (window.chrome && window.chrome.webview) {
+                window.chrome.webview.postMessage({ action: "check-updates" });
+            } else {
+                statusText.innerText = "A atualização nativa estará disponível quando executada pelo MASTER HUB.";
                 btn.style.opacity = "1";
                 btn.style.pointerEvents = "auto";
-                
-                const hasUpdate = Math.random() > 0.5;
-                if(hasUpdate) {
-                    btn.innerText = "Atualizar";
-                    statusText.innerText = "Nova versão v1.0.5 disponível!";
-                } else {
-                    btn.innerText = "Verificar atualização";
-                    statusText.innerText = "Você já está na versão mais recente (v1.0.4)";
-                }
-            }, 2500);
+                isCheckingUpdate = false;
+            }
         }
 
         function setTheme(themeName, element) {
