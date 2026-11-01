@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="azul" data-led-color="cyan" data-led-effect="static">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MASTER HUB - Cyber Gamer Edition</title>
+    <style>
+        /* Variáveis de Tema (Azul, Claro, Escuro) */
+        :root {
+            --bg-deep: #05070c;
+            --bg-card: rgba(10, 14, 24, 0.85);
+            --bg-sidebar: rgba(8, 12, 20, 0.95);
+            --border-dark: rgba(255, 255, 255, 0.08);
+            --text-bright: #ffffff;
+            --text-dim: #94a3b8;
+            --topbar-bg: rgba(5, 7, 12, 0.95);
+        }
+
+        [data-theme="claro"] {
+            --bg-deep: #f0f4f8;
+            --bg-card: rgba(255, 255, 255, 0.92);
+            --bg-sidebar: rgba(238, 242, 246, 0.95);
+            --border-dark: rgba(0, 0, 0, 0.1);
+            --text-bright: #1e293b;
+            --text-dim: #64748b;
+            --topbar-bg: rgba(226, 232, 240, 0.95);
+        }
+
+        [data-theme="escuro"] {
+            --bg-deep: #0a0a0c;
+            --bg-card: rgba(14, 14, 18, 0.95);
+            --bg-sidebar: rgba(10, 10, 14, 0.95);
+            --border-dark: rgba(255, 255, 255, 0.12);
+            --text-bright: #f8fafc;
+            --text-dim: #94a3b8;
+            --topbar-bg: rgba(5, 5, 7, 0.95);
+        }
+
+        /* Variáveis de LED / Acento */
+        :root {
+            --led-cyan: #00f0ff; --led-cyan-glow: rgba(0, 240, 255, 0.4);
+            --led-magenta: #ff007f; --led-magenta-glow: rgba(255, 0, 127, 0.4);
+            --led-green: #00ff66; --led-green-glow: rgba(0, 255, 102, 0.4);
+            --led-orange: #ff6600; --led-orange-glow: rgba(255, 102, 0, 0.4);
+
+            --led-active: var(--led-cyan);
+            --led-glow: var(--led-cyan-glow);
+        }
+
+        [data-led-color="cyan"] { --led-active: var(--led-cyan); --led-glow: var(--led-cyan-glow); }
+        [data-led-color="magenta"] { --led-active: var(--led-magenta); --led-glow: var(--led-magenta-glow); }
+        [data-led-color="green"] { --led-active: var(--led-green); --led-glow: var(--led-green-glow); }
+        [data-led-color="orange"] { --led-active: var(--led-orange); --led-glow: var(--led-orange-glow); }
+
+        @keyframes led-pulse {
+            0%, 100% { opacity: 1; filter: drop-shadow(0 0 12px var(--led-active)); }
+            50% { opacity: 0.4; filter: drop-shadow(0 0 4px var(--led-active)); }
+        }
+
+        @keyframes led-rainbow {
+            0% { filter: hue-rotate(0deg) drop-shadow(0 0 10px #00f0ff); }
+            100% { filter: hue-rotate(360deg) drop-shadow(0 0 10px #00f0ff); }
+        }
+
+        [data-led-effect="pulse"] .led-element { animation: led-pulse 2s infinite ease-in-out; }
+        [data-led-effect="rainbow"] .led-element { animation: led-rainbow 5s infinite linear; }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; user-select: none; }
+        body { background: var(--bg-deep); color: var(--text-bright); height: 100vh; display: flex; flex-direction: column; overflow: hidden; transition: background 0.3s ease, color 0.3s ease; }
+
+        body::before {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(var(--border-dark) 1px, transparent 1px),
+                        linear-gradient(90deg, var(--border-dark) 1px, transparent 1px);
+            background-size: 35px 35px; opacity: 0.4; pointer-events: none; z-index: 0;
+        }
+
+        /* Top Bar & Logo Gamer */
+        .top-bar { height: 48px; background: var(--topbar-bg); border-bottom: 1px solid var(--border-dark); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 100; backdrop-filter: blur(10px); }
+        .logo-box { display: flex; align-items: center; gap: 12px; cursor: pointer; }
+        
+        .gamer-logo-text { display: flex; flex-direction: column; }
+        .gamer-logo-text .title-line { font-size: 15px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; }
+        .gamer-logo-text .title-line .master-word { color: var(--led-active); text-shadow: 0 0 10px var(--led-glow); }
+        .gamer-logo-text .title-line .hub-word { color: #ffffff; margin-left: 4px; }
+        .gamer-logo-text .subtitle { font-size: 8px; color: var(--text-dim); letter-spacing: 2px; text-transform: uppercase; font-weight: 700; margin-top: -1px; }
+
+        .top-center-title { font-size: 11px; font-weight: 600; color: var(--text-dim); letter-spacing: 1px; text-transform: uppercase; }
+
+        /* Botões Superiores Minimalistas com Ícones SVG Finos */
+        .window-ctrls { display: flex; gap: 8px; align-items: center; position: relative; }
+        .top-btn {
+            width: 32px; height: 32px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-dark);
+            border-radius: 8px; display: flex; align-items: center; justify-content: center;
+            color: var(--text-dim); cursor: pointer; transition: all 0.2s;
+        }
+        .top-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        .top-btn:hover { background: rgba(255,255,255,0.08); border-color: var(--led-active); color: var(--text-bright); }
+        .top-btn.close-btn:hover { background: rgba(255, 0, 85, 0.15); border-color: #ff0055; color: #ff0055; }
+
+        /* Caixa de Notificação Flutuante */
+        .notification-dropdown {
+            position: absolute; top: 44px; right: 80px; width: 300px;
+            background: var(--bg-card); border: 1px solid var(--border-dark); border-radius: 14px;
+            padding: 16px; box-shadow: 0 15px 35px rgba(0,0,0,0.5); backdrop-filter: blur(15px);
+            display: none; flex-direction: column; gap: 10px; z-index: 1000;
+        }
+        .notification-dropdown.active { display: flex; }
+        .notification-header { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-bright); }
+        .notification-content { font-size: 12px; color: var(--text-dim); line-height: 1.4; }
+
+        /* Views */
+        .view-container { flex: 1; display: none; overflow-y: auto; z-index: 1; }
+        .view-container.active { display: flex; flex-direction: column; }
+
+        /* --- TELA 1: MASTER HUB --- */
+        .hub-body { padding: 22px; display: flex; flex-direction: column; gap: 16px; flex: 1; }
+        .hero-title { display: flex; justify-content: space-between; align-items: flex-end; }
+        .hero-title h2 { font-size: 22px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; }
+        .hero-title p { font-size: 12px; color: var(--text-dim); }
+
+        .grid-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .gamer-card {
+            background: var(--bg-card); border: 1px solid var(--border-dark); border-radius: 16px;
+            padding: 22px; position: relative; overflow: hidden; backdrop-filter: blur(12px);
+            display: flex; flex-direction: column; justify-content: space-between; height: 230px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3); transition: all 0.3s ease;
+        }
+        .gamer-card::after {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+            background: var(--led-active); box-shadow: 0 0 12px var(--led-active);
+        }
+        .gamer-card:hover { border-color: var(--led-active); box-shadow: 0 0 25px var(--led-glow); transform: translateY(-2px); }
+
+        .card-top { display: flex; justify-content: space-between; align-items: flex-start; }
+        .card-title-area { display: flex; gap: 16px; }
+        .card-icon-frame {
+            width: 50px; height: 50px; border-radius: 12px; background: rgba(0,0,0,0.4);
+            border: 1px solid var(--border-dark); display: flex; align-items: center; justify-content: center;
+            color: var(--text-dim); box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        }
+        .card-icon-frame svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        .card-meta h3 { font-size: 18px; font-weight: 800; letter-spacing: 1px; }
+        .card-meta p { font-size: 11px; color: var(--text-dim); font-weight: 600; margin-top: 2px; }
+        .card-meta span { font-size: 11px; color: var(--text-dim); display: block; margin-top: 6px; max-width: 280px; }
+
+        .status-badge {
+            font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 4px 10px;
+            border-radius: 20px; background: rgba(0, 255, 102, 0.1); border: 1px solid #00ff66; color: #00ff66;
+            display: flex; align-items: center; gap: 6px; box-shadow: 0 0 8px rgba(0, 255, 102, 0.3);
+        }
+        .status-dot { width: 6px; height: 6px; background: #00ff66; border-radius: 50%; box-shadow: 0 0 6px #00ff66; }
+
+        .btn-glow {
+            width: fit-content; padding: 10px 20px; border-radius: 10px;
+            background: rgba(0,0,0,0.5); border: 1.5px solid var(--led-active);
+            color: var(--text-bright); font-size: 11px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 1px; cursor: pointer; transition: all 0.2s;
+            box-shadow: 0 0 10px var(--led-glow); display: flex; align-items: center; gap: 8px;
+        }
+        .btn-glow:hover { background: var(--led-active); color: #000; box-shadow: 0 0 20px var(--led-active); }
+
+        .shortcuts-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+        .shortcut-card {
+            background: var(--bg-card); border: 1px solid var(--border-dark); border-radius: 12px;
+            padding: 12px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: all 0.2s;
+        }
+        .shortcut-card:hover { border-color: var(--led-active); box-shadow: 0 0 15px var(--led-glow); transform: translateY(-2px); }
+        .shortcut-icon-box {
+            width: 36px; height: 36px; border-radius: 8px; background: rgba(0,0,0,0.4);
+            border: 1px solid var(--border-dark); display: flex; align-items: center; justify-content: center;
+            color: var(--text-dim);
+        }
+        .shortcut-icon-box svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        .shortcut-info h4 { font-size: 12px; font-weight: 700; }
+        .shortcut-info p { font-size: 10px; color: var(--text-dim); }
+
+
+        /* --- TELA MASTER RGB --- */
+        .app-layout { display: flex; flex: 1; height: 100%; overflow: hidden; }
+        .app-sidebar {
+            width: 240px; background: var(--bg-sidebar); border-right: 1px solid var(--border-dark);
+            display: flex; flex-direction: column; justify-content: space-between; padding: 16px;
+        }
+        .rgb-product-header { display: flex; gap: 12px; align-items: center; margin-bottom: 24px; }
+        .rgb-product-icon {
+            width: 40px; height: 40px; border-radius: 10px; background: rgba(0,0,0,0.5);
+            border: 1px solid var(--border-dark); display: flex; align-items: center; justify-content: center;
+            color: var(--text-dim); box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        }
+        .rgb-product-icon svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        .rgb-product-title h3 { font-size: 13px; font-weight: 800; letter-spacing: 0.5px; }
+        .rgb-product-title span { font-size: 9px; color: var(--text-dim); }
+
+        .nav-section-title { font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--text-dim); letter-spacing: 1px; margin-bottom: 8px; }
+        .nav-menu { display: flex; flex-direction: column; gap: 4px; }
+        .nav-item {
+            display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px;
+            font-size: 12px; font-weight: 600; color: var(--text-dim); cursor: pointer; transition: all 0.2s;
+        }
+        .nav-item svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        .nav-item:hover { background: rgba(255,255,255,0.03); color: var(--text-bright); }
+        .nav-item.active { background: var(--led-active); color: #000; box-shadow: 0 0 15px var(--led-glow); font-weight: 700; }
+        .nav-item.active svg { stroke: #000; }
+
+        .sdk-status-box {
+            background: rgba(0,0,0,0.4); border: 1px solid var(--border-dark); border-radius: 10px; padding: 12px;
+        }
+        .sdk-status-box h5 { font-size: 11px; font-weight: 700; color: #00ff66; margin-bottom: 2px; }
+        .sdk-status-box p { font-size: 9px; color: var(--text-dim); }
+
+        .rgb-content { flex: 1; padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
+        .rgb-panel {
+            background: var(--bg-card); border: 1px solid var(--border-dark); border-radius: 16px;
+            padding: 24px; backdrop-filter: blur(12px); box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .rgb-panel h2 { font-size: 18px; font-weight: 800; margin-bottom: 6px; }
+        .rgb-panel p { font-size: 12px; color: var(--text-dim); margin-bottom: 16px; }
+
+        .rgb-subview { display: none; flex-direction: column; gap: 20px; }
+        .rgb-subview.active { display: flex; }
+
+        .hardware-actions { display: flex; gap: 12px; margin-bottom: 20px; }
+        .device-card-item {
+            background: rgba(0,0,0,0.35); border: 1px solid var(--border-dark); border-radius: 12px;
+            padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
+        }
+        .device-info h4 { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+        .device-info p { font-size: 11px; color: var(--text-dim); margin-bottom: 2px; }
+        .device-info span { font-size: 10px; color: var(--led-active); }
+        .openrgb-pill { background: rgba(0,255,102,0.1); border: 1px solid #00ff66; color: #00ff66; font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 6px; }
+
+        .group-control-box {
+            background: rgba(0,0,0,0.3); border: 1px solid var(--border-dark); border-radius: 12px; padding: 16px; margin-bottom: 20px;
+        }
+        .group-control-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .group-control-header h4 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        .action-btns { display: flex; gap: 8px; }
+        .btn-outline {
+            padding: 6px 14px; border-radius: 8px; background: transparent; border: 1px solid var(--border-dark);
+            color: var(--text-bright); font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+        }
+        .btn-outline:hover { border-color: var(--led-active); color: var(--led-active); }
+
+        .devices-checkboxes { display: flex; gap: 20px; flex-wrap: wrap; font-size: 11px; align-items: center; }
+        .devices-checkboxes label { display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text-dim); }
+        .devices-checkboxes input { accent-color: var(--led-active); cursor: pointer; }
+
+        .rgb-form-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 20px; }
+        .select-box, .input-box {
+            width: 100%; height: 40px; background: rgba(0,0,0,0.4); border: 1px solid var(--border-dark);
+            border-radius: 8px; padding: 0 12px; color: var(--text-bright); font-size: 12px; outline: none;
+        }
+
+        .color-picker-row { display: flex; gap: 12px; align-items: center; }
+        .color-preview-box { width: 40px; height: 40px; border-radius: 8px; border: 1px solid var(--border-dark); box-shadow: 0 0 10px rgba(0,0,0,0.5); }
+        .color-hex-input { flex: 1; height: 40px; background: rgba(0,0,0,0.4); border: 1px solid var(--border-dark); border-radius: 8px; padding: 0 12px; color: var(--text-bright); font-size: 12px; font-family: monospace; outline: none; }
+
+        /* Sliders de Brilho e Controle */
+        .brightness-control-box {
+            background: rgba(0,0,0,0.3); border: 1px solid var(--border-dark); border-radius: 12px; padding: 16px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 10px;
+        }
+        .brightness-header { display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .brightness-val { font-family: monospace; color: var(--led-active); font-size: 14px; }
+        .range-slider {
+            -webkit-appearance: none; width: 100%; height: 6px; border-radius: 3px;
+            background: rgba(255,255,255,0.1); outline: none;
+        }
+        .range-slider::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%;
+            background: var(--led-active); cursor: pointer; box-shadow: 0 0 10px var(--led-active);
+        }
+
+        /* Círculo Cromático Sincronizado e Perfeito */
+        .color-wheel-container { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px; position: relative; }
+        .rgb-wheel {
+            width: 180px; height: 180px; border-radius: 50%; overflow: hidden;
+            background: radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 70%), conic-gradient(red, yellow, lime, cyan, blue, magenta, red);
+            box-shadow: 0 0 25px rgba(0,0,0,0.6); position: relative; cursor: crosshair;
+        }
+        .wheel-handle {
+            width: 16px; height: 16px; background: #fff; border: 2.5px solid #000; border-radius: 50%;
+            position: absolute; top: 90px; left: 90px; box-shadow: 0 0 8px rgba(0,0,0,0.9); cursor: grab;
+            transform: translate(-50%, -50%); z-index: 10;
+        }
+        .wheel-handle:active { cursor: grabbing; }
+
+
+        /* --- TELA MASTER MIC --- */
+        .mic-body { padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+        .mic-header-flex { display: flex; justify-content: space-between; align-items: flex-start; }
+        .mic-title-area h2 { font-size: 22px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 2px; }
+        .mic-title-area .sub-info { font-size: 11px; color: var(--led-active); font-weight: 700; letter-spacing: 0.5px; margin-bottom: 4px; }
+        .mic-title-area p { font-size: 12px; color: var(--text-dim); }
+
+        .mic-tabs { display: flex; gap: 8px; border-bottom: 1px solid var(--border-dark); padding-bottom: 12px; }
+        .mic-tab-btn {
+            padding: 8px 16px; border-radius: 8px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-dark);
+            color: var(--text-dim); font-size: 11px; font-weight: 700; text-transform: uppercase; cursor: pointer; transition: all 0.2s;
+        }
+        .mic-tab-btn:hover { border-color: var(--led-active); color: var(--text-bright); }
+        .mic-tab-btn.active { background: rgba(0,0,0,0.6); border-color: var(--led-active); color: var(--led-active); box-shadow: 0 0 10px var(--led-glow); }
+
+        .mic-subview { display: none; flex-direction: column; gap: 16px; }
+        .mic-subview.active { display: flex; }
+
+        .mic-card-box {
+            background: var(--bg-card); border: 1px solid var(--border-dark); border-radius: 16px;
+            padding: 20px 24px; backdrop-filter: blur(12px); box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            display: flex; flex-direction: column; gap: 14px;
+        }
+        .mic-card-title { font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--text-dim); letter-spacing: 1px; }
+
+        .mic-controls-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; align-items: center; }
+
+        .slider-container { display: flex; flex-direction: column; gap: 8px; }
+        .slider-val { font-size: 18px; font-weight: 900; color: var(--text-bright); }
+
+
+        /* --- TELA CONFIGURAÇÕES --- */
+        .config-body { padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+        .config-card-box {
+            background: var(--bg-card); border: 1px solid var(--border-dark); border-radius: 16px;
+            padding: 24px; backdrop-filter: blur(12px); box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .config-card-box h3 { font-size: 16px; font-weight: 800; margin-bottom: 4px; }
+        .config-card-box p { font-size: 12px; color: var(--text-dim); margin-bottom: 16px; }
+        .config-options-list { display: flex; flex-direction: column; gap: 12px; font-size: 13px; font-weight: 600; }
+        .config-options-list label { display: flex; align-items: center; gap: 10px; cursor: pointer; color: var(--text-bright); }
+        .config-options-list input { width: 16px; height: 16px; accent-color: var(--led-active); cursor: pointer; }
+
+        .settings-grid-main { display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 20px; margin-top: 10px; }
+        .setting-box label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px; letter-spacing: 0.5px; }
+
+        .theme-options { display: flex; gap: 8px; }
+        .theme-card {
+            flex: 1; height: 36px; border-radius: 8px; border: 1px solid var(--border-dark); background: rgba(0,0,0,0.3);
+            display: flex; align-items: center; padding: 0 8px; gap: 6px; cursor: pointer; transition: all 0.2s;
+        }
+        .theme-card:hover { border-color: var(--led-active); }
+        .theme-card.active { border: 2px solid var(--led-active); background: rgba(0,0,0,0.5); box-shadow: 0 0 10px var(--led-glow); }
+        .theme-color-box { width: 12px; height: 12px; border-radius: 3px; }
+        .theme-info span { display: block; font-size: 10px; font-weight: 700; }
+
+        .led-color-picker { display: flex; gap: 8px; align-items: center; }
+        .color-dot { width: 34px; height: 34px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: all 0.2s; position: relative; }
+        .color-dot:hover { transform: scale(1.1); }
+        .color-dot.active { border-color: #fff; box-shadow: 0 0 12px currentColor; }
+
+        /* Botão de Cor Personalizada com ícone de pincel/varinha compatível com o app */
+        .color-custom-btn {
+            width: 34px; height: 34px; border-radius: 50%; cursor: pointer;
+            background: rgba(0,0,0,0.4); border: 1px solid var(--border-dark);
+            display: flex; align-items: center; justify-content: center;
+            position: relative; overflow: hidden; transition: all 0.2s; color: var(--text-dim);
+        }
+        .color-custom-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; z-index: 2; }
+        .color-custom-btn:hover { border-color: var(--led-active); color: var(--text-bright); transform: scale(1.1); }
+        .color-custom-btn.active { border-color: #fff; color: var(--led-active); box-shadow: 0 0 14px var(--led-active); background: rgba(0,0,0,0.6); }
+        .color-custom-btn input[type="color"] { position: absolute; opacity: 0; width: 200%; height: 200%; cursor: pointer; top: -50%; left: -50%; z-index: 3; }
+
+        .effect-selector { display: flex; gap: 6px; }
+        .effect-btn {
+            flex: 1; padding: 8px; border-radius: 8px; background: rgba(0,0,0,0.4);
+            border: 1px solid var(--border-dark); color: var(--text-dim); font-size: 10px; font-weight: 700;
+            cursor: pointer; text-align: center; transition: all 0.2s;
+        }
+        .effect-btn:hover { border-color: var(--led-active); color: var(--text-bright); }
+        .effect-btn.active { background: rgba(0,0,0,0.7); border-color: var(--led-active); color: var(--led-active); box-shadow: 0 0 8px var(--led-glow); }
+    </style>
+</head>
+<body class="led-element">
+
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="logo-box" onclick="switchView('hub')">
+            <div class="gamer-logo-text">
+                <div class="title-line">
+                    <span class="master-word led-element">MASTER</span><span class="hub-word">HUB</span>
+                </div>
+                <div class="subtitle">Central de Controle</div>
+            </div>
+        </div>
+        <div class="top-center-title" id="topTitle">Visão geral</div>
+        
+        <div class="window-ctrls">
+            <!-- Botão Notificações -->
+            <div class="top-btn" onclick="toggleNotifications(event)" title="Notificações">
+                <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+            </div>
+            <div class="notification-dropdown" id="notificationBox">
+                <div class="notification-header">Notificações</div>
+                <div class="notification-content">Nenhuma nova notificação de atualização no momento.</div>
+            </div>
+
+            <!-- Botão Configurações -->
+            <div class="top-btn" onclick="switchView('config')" title="Configurações">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            </div>
+
+            <!-- Botão Minimizar -->
+            <div class="top-btn" title="Minimizar">
+                <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </div>
+
+            <!-- Botão Fechar -->
+            <div class="top-btn close-btn" title="Fechar">
+                <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ========================================== -->
+    <!-- TELA 1: MASTER HUB (Início)                -->
+    <!-- ========================================== -->
+    <div id="view-hub" class="view-container active">
+        <div class="hub-body">
+            <div class="hero-title">
+                <div>
+                    <h2>Seu Setup. Seu Universo.</h2>
+                    <p>Gerencie dispositivos, performance e o ecossistema de iluminação do seu computador.</p>
+                </div>
+                <div class="status-badge"><span class="status-dot"></span> SISTEMA PRONTO</div>
+            </div>
+
+            <div class="grid-cards">
+                <!-- Master RGB -->
+                <div class="gamer-card led-element">
+                    <div class="card-top">
+                        <div class="card-title-area">
+                            <div class="card-icon-frame">
+                                <svg viewBox="0 0 24 24"><path d="M9 18h6"></path><path d="M10 22h4"></path><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"></path></svg>
+                            </div>
+                            <div class="card-meta">
+                                <h3>MASTER RGB</h3>
+                                <p>ILUMINAÇÃO E PERFIS</p>
+                                <span>Controle os efeitos leds dos seus periféricos, gabinete e sincronize perfis em tempo real.</span>
+                            </div>
+                        </div>
+                        <div class="status-badge"><span class="status-dot"></span> DISPONÍVEL</div>
+                    </div>
+                    <button class="btn-glow led-element" onclick="switchView('rgb-studio')">Abrir Aplicativo ➔</button>
+                </div>
+
+                <!-- Master Mic -->
+                <div class="gamer-card led-element">
+                    <div class="card-top">
+                        <div class="card-title-area">
+                            <div class="card-icon-frame">
+                                <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v1a7 7 0 0 1-14 0v-1"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                            </div>
+                            <div class="card-meta">
+                                <h3>MASTER MIC</h3>
+                                <p>ÁUDIO E MICROFONES</p>
+                                <span>Configuração de microfones e processamento de áudio por IA.</span>
+                            </div>
+                        </div>
+                        <div class="status-badge" style="background: rgba(168,85,247,0.1); border-color: #a855f7; color: #a855f7;"><span class="status-dot" style="background: #a855f7; box-shadow: 0 0 6px #a855f7;"></span> ATIVO</div>
+                    </div>
+                    <button class="btn-glow led-element" onclick="switchView('mic')">Abrir Aplicativo ➔</button>
+                </div>
+            </div>
+
+            <!-- Atalhos Padronizados -->
+            <div class="shortcuts-grid">
+                <div class="shortcut-card led-element">
+                    <div class="shortcut-icon-box"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg></div>
+                    <div class="shortcut-info"><h4>Desempenho</h4><p>Overclock & RAM</p></div>
+                </div>
+                <div class="shortcut-card led-element">
+                    <div class="shortcut-icon-box"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></div>
+                    <div class="shortcut-info"><h4>Segurança</h4><p>Proteção Ativa</p></div>
+                </div>
+                <div class="shortcut-card led-element">
+                    <div class="shortcut-icon-box"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg></div>
+                    <div class="shortcut-info"><h4>Rede Cyber</h4><p>Baixa Latência</p></div>
+                </div>
+                <div class="shortcut-card led-element">
+                    <div class="shortcut-icon-box"><svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg></div>
+                    <div class="shortcut-info"><h4>Atualizações</h4><p>Drivers em Dia</p></div>
+                </div>
+                <div class="shortcut-card led-element">
+                    <div class="shortcut-icon-box"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></div>
+                    <div class="shortcut-info"><h4>Suporte VIP</h4><p>Atendimento 24/7</p></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ========================================== -->
+    <!-- TELA 2: MASTER RGB                         -->
+    <!-- ========================================== -->
+    <div id="view-rgb" class="view-container">
+        <div class="app-layout">
+            <div class="app-sidebar">
+                <div>
+                    <div class="rgb-product-header">
+                        <div class="rgb-product-icon">
+                            <svg viewBox="0 0 24 24"><path d="M9 18h6"></path><path d="M10 22h4"></path><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"></path></svg>
+                        </div>
+                        <div class="rgb-product-title">
+                            <h3>MASTER RGB</h3>
+                            <span>UNIVERSAL LIGHTING</span>
+                        </div>
+                    </div>
+
+                    <div class="nav-section-title">Workspace</div>
+                    <div class="nav-menu">
+                        <div class="nav-item" onclick="switchView('hub')">
+                            <svg viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg> Aplicativos
+                        </div>
+                        <div class="nav-item" id="nav-studio" onclick="switchRgbTab('studio')">
+                            <svg viewBox="0 0 24 24"><path d="M9 18h6"></path><path d="M10 22h4"></path><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"></path></svg> Lighting Studio
+                        </div>
+                        <div class="nav-item" id="nav-devices" onclick="switchRgbTab('devices')">
+                            <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg> Dispositivos
+                        </div>
+                        <div class="nav-item" id="nav-profiles" onclick="switchRgbTab('profiles')">
+                            <svg viewBox="0 0 24 24"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg> Perfis
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sdk-status-box">
+                    <h5>SDK conectado • pronto</h5>
+                    <p>OpenRGB SDK • localhost:6742</p>
+                </div>
+            </div>
+
+            <div class="rgb-content">
+                <!-- Lighting Studio -->
+                <div id="rgb-sub-studio" class="rgb-subview active">
+                    <div style="font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px;">Lighting Studio</div>
+                    <div class="rgb-panel">
+                        <h2>Controle de iluminação</h2>
+                        <p>Escolha um dispositivo e uma zona. A cor será aplicada somente à zona selecionada.</p>
+
+                        <div class="group-control-box">
+                            <div class="group-control-header">
+                                <h4>Aplicação em Grupo</h4>
+                                <div class="action-btns">
+                                    <button class="btn-outline">Selecionar todos</button>
+                                    <button class="btn-outline">Limpar</button>
+                                </div>
+                            </div>
+                            <div class="devices-checkboxes">
+                                <label><input type="checkbox" checked> Logitech G203 Prodigy</label>
+                                <label><input type="checkbox"> G203 Prodigy Gaming Mouse</label>
+                                <label><input type="checkbox"> MSI MPG B550 GAMING PLUS</label>
+                                <label><input type="checkbox"> Palit GeForce RTX 3060 LHR</label>
+                            </div>
+                        </div>
+
+                        <!-- Controle de Brilho dos LEDs -->
+                        <div class="brightness-control-box">
+                            <div class="brightness-header">
+                                <span>Intensidade de Brilho dos LEDs</span>
+                                <span class="brightness-val" id="brightnessValText">100%</span>
+                            </div>
+                            <input type="range" min="0" max="100" value="100" class="range-slider" id="brightnessRange" oninput="updateBrightness(this.value)">
+                        </div>
+
+                        <div class="rgb-form-grid">
+                            <div>
+                                <div style="margin-bottom: 16px;">
+                                    <label style="display:block; font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-dim); margin-bottom:6px;">Dispositivo</label>
+                                    <select class="select-box"><option>Logitech G203 Prodigy</option></select>
+                                </div>
+                                <div style="margin-bottom: 16px;">
+                                    <label style="display:block; font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-dim); margin-bottom:6px;">Zona</label>
+                                    <select class="select-box"><option>Logo • 1 LED(s)</option></select>
+                                </div>
+                                <div>
+                                    <label style="display:block; font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-dim); margin-bottom:6px;">Quantidade de LEDs da Zona</label>
+                                    <input type="text" class="input-box" value="1" readonly>
+                                    <span style="font-size: 10px; color: var(--text-dim); margin-top: 4px; display: block;">Quantidade detectada pelo OpenRGB</span>
+                                </div>
+                            </div>
+
+                            <!-- Círculo Cromático Sincronizado e Perfeito -->
+                            <div class="color-wheel-container">
+                                <div class="rgb-wheel" id="rgbWheel">
+                                    <div class="wheel-handle" id="wheelHandle"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 10px;">
+                            <label style="display:block; font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-dim); margin-bottom:6px;">Cor Personalizada</label>
+                            <div class="color-picker-row">
+                                <div class="color-preview-box led-element" id="colorPreview" style="background: var(--led-active);"></div>
+                                <input type="text" class="color-hex-input" id="hexInputVal" value="#00F0FF" readonly>
+                                <button class="btn-glow led-element" style="padding: 10px 24px;">Aplicar cor</button>
+                                <button class="btn-outline" style="padding: 10px 24px;">Aplicar aos selecionados</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dispositivos -->
+                <div id="rgb-sub-devices" class="rgb-subview">
+                    <div style="font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px;">Hardware</div>
+                    <div class="rgb-panel">
+                        <div class="hardware-actions">
+                            <button class="btn-glow led-element">Detectar dispositivos RGB</button>
+                            <button class="btn-outline">Executar diagnóstico</button>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <h4 style="font-size: 13px; font-weight: 800; text-transform: uppercase;">Dispositivos encontrados</h4>
+                            <span style="font-size: 11px; color: var(--text-dim);">4 dispositivo(s)</span>
+                        </div>
+                        <div class="device-card-item"><div class="device-info"><h4>Logitech G203 Prodigy</h4><p>Logitech • 1 LED(s)</p><span>Zonas: Logo (1)</span></div><div class="openrgb-pill">OPENRGB</div></div>
+                        <div class="device-card-item"><div class="device-info"><h4>MSI MPG B550 GAMING PLUS</h4><p>MSI • 47 LED(s)</p><span>Zonas: JRGB1 • JRAINBOW</span></div><div class="openrgb-pill">OPENRGB</div></div>
+                        <div class="device-card-item"><div class="device-info"><h4>Palit GeForce RTX 3060 LHR</h4><p>NVIDIA • 2 LED(s)</p><span>Zonas: RGBW</span></div><div class="openrgb-pill">OPENRGB</div></div>
+                    </div>
+                </div>
+
+                <!-- Perfis -->
+                <div id="rgb-sub-profiles" class="rgb-subview">
+                    <div style="font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px;">Perfis</div>
+                    <div class="rgb-panel">
+                        <h2>Perfis de iluminação</h2>
+                        <p>Aqui ficarão seus perfis e configurações de iluminação salvas.</p>
+                        <div style="padding: 30px; background: rgba(0,0,0,0.2); border-radius: 12px; border: 1px dashed var(--border-dark); text-align: center; color: var(--text-dim);">Em desenvolvimento</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ========================================== -->
+    <!-- TELA 3: MASTER MIC                         -->
+    <!-- ========================================== -->
+    <div id="view-mic" class="view-container">
+        <div class="mic-body">
+            <div class="mic-header-flex">
+                <div class="mic-title-area">
+                    <div class="sub-info">VOICE STUDIO & USB INSPECTOR • VERSION 0.4.0</div>
+                    <h2>MASTER MIC</h2>
+                    <p>Controle de áudio do Windows e investigação segura do FIFINE A8 Plus.</p>
+                </div>
+                <button class="btn-outline" onclick="switchView('hub')">← Voltar</button>
+            </div>
+
+            <div class="mic-tabs">
+                <button class="mic-tab-btn active" id="btn-mic-audio" onclick="switchMicTab('audio')">Controle de Áudio</button>
+                <button class="mic-tab-btn" id="btn-mic-diag" onclick="switchMicTab('diag')">Diagnóstico USB</button>
+            </div>
+
+            <div id="mic-sub-audio" class="mic-subview active">
+                <div class="mic-card-box">
+                    <span class="mic-card-title">Dispositivo de Captura</span>
+                    <div class="mic-controls-grid">
+                        <select class="select-box"><option>Microfone (fifine Microphone)</option></select>
+                        <button class="btn-outline" style="height: 40px;">Atualizar dispositivos</button>
+                    </div>
+                    <span style="font-size: 11px; color: var(--text-dim);">Dispositivo ativo: Microfone (fifine Microphone)</span>
+                </div>
+
+                <div class="mic-card-box">
+                    <span class="mic-card-title">Volume de Entrada do Windows</span>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div class="slider-val" id="volValText">100%</div>
+                        <button class="btn-outline" id="muteBtn" onclick="toggleMute()" style="border-color: #ef4444; color: #ef4444;">Mutar Microfone</button>
+                    </div>
+                    <div class="slider-container">
+                        <input type="range" min="0" max="100" value="100" class="range-slider" id="volRange" oninput="updateVolume(this.value)">
+                        <div class="slider-labels" style="display:flex; justify-content:space-between; font-size:10px; color:var(--text-dim);"><span>0%</span><span>100%</span></div>
+                    </div>
+                    <span style="font-size: 11px; color: var(--text-dim);" id="muteStatusText">Estado do mute: DESATIVADO</span>
+                </div>
+            </div>
+
+            <div id="mic-sub-diag" class="mic-subview">
+                <div class="mic-card-box">
+                    <span class="mic-card-title">Status do Hardware USB</span>
+                    <div style="display: flex; align-items: center; gap: 12px; margin-top: 4px;">
+                        <div class="status-badge"><span class="status-dot"></span> CONECTADO</div>
+                        <span style="font-size: 12px; font-weight: 600;">FIFINE A8 Plus USB Microphone</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ========================================== -->
+    <!-- TELA 4: CONFIGURAÇÕES                      -->
+    <!-- ========================================== -->
+    <div id="view-config" class="view-container">
+        <div class="config-body">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <h2 style="font-size: 20px; font-weight: 900; text-transform: uppercase;">Configurações do Sistema</h2>
+                <button class="btn-outline" onclick="switchView('hub')">← Voltar ao Hub</button>
+            </div>
+
+            <div class="config-card-box">
+                <h3>Inicialização do aplicativo</h3>
+                <p>Personalize o comportamento do Master Hub.</p>
+                <div class="config-options-list">
+                    <label><input type="checkbox" checked> Iniciar o aplicativo junto com o Windows</label>
+                    <label><input type="checkbox" checked> Iniciar minimizado</label>
+                    <label><input type="checkbox" checked> Ao fechar, minimizar para a bandeira do Windows</label>
+                </div>
+            </div>
+
+            <!-- Bloco: Atualização do Aplicativo -->
+            <div class="config-card-box">
+                <h3>Atualização do Aplicativo</h3>
+                <p>Verifique a integridade e busque por novas versões do Master Hub.</p>
+                <div style="display: flex; align-items: center; gap: 16px; margin-top: 12px;">
+                    <button class="btn-glow led-element" id="updateBtn" onclick="checkAppUpdate()">Verificar atualização</button>
+                    <div style="display: flex; flex-direction: column; gap: 2px;">
+                        <span style="font-size: 12px; font-weight: 700; color: var(--text-bright);" id="updateStatusText">Versão atual: v1.0.4</span>
+                        <span style="font-size: 10px; color: var(--text-dim);">Canal de atualização: Estável (Cyber Edition)</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="config-card-box">
+                <h3>Personalização Visual e LEDs</h3>
+                <p>Altere os temas da interface e customize a iluminação dos efeitos em tempo real.</p>
+                
+                <div class="settings-grid-main">
+                    <div class="setting-box">
+                        <label>Tema da Interface</label>
+                        <div class="theme-options">
+                            <div class="theme-card active" onclick="setTheme('azul', this)"><div class="theme-color-box" style="background: #00f0ff;"></div><div class="theme-info"><span>Azul</span></div></div>
+                            <div class="theme-card" onclick="setTheme('claro', this)"><div class="theme-color-box" style="background: #e2e8f0; border: 1px solid #cbd5e1;"></div><div class="theme-info"><span>Claro</span></div></div>
+                            <div class="theme-card" onclick="setTheme('escuro', this)"><div class="theme-color-box" style="background: #18181b;"></div><div class="theme-info"><span>Escuro</span></div></div>
+                        </div>
+                    </div>
+                    <div class="setting-box">
+                        <label>Cor do LED Gamer</label>
+                        <div class="led-color-picker">
+                            <div class="color-dot active" style="background: #00f0ff;" onclick="changeLedColor('cyan', this)"></div>
+                            <div class="color-dot" style="background: #ff007f;" onclick="changeLedColor('magenta', this)"></div>
+                            <div class="color-dot" style="background: #00ff66;" onclick="changeLedColor('green', this)"></div>
+                            <div class="color-dot" style="background: #ff6600;" onclick="changeLedColor('orange', this)"></div>
+                            <!-- Botão de Cor Personalizada com ícone de varinha/pincel minimalista -->
+                            <div class="color-custom-btn" id="customColorBtn" title="Escolher cor personalizada">
+                                <input type="color" id="rgbPicker" onchange="setCustomLedColor(this.value)">
+                                <svg viewBox="0 0 24 24"><path d="M12 2v4m0 12v4M2 12h4m12 0h4m-3.17-6.83l-2.83 2.83m-8 8l-2.83 2.83m0-13.66l2.83 2.83m8 8l2.83 2.83"></path></svg>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="setting-box">
+                        <label>Efeito Visual LED</label>
+                        <div class="effect-selector">
+                            <div class="effect-btn active" onclick="changeLedEffect('static', this)">Estático</div>
+                            <div class="effect-btn" onclick="changeLedEffect('pulse', this)">Pulso</div>
+                            <div class="effect-btn" onclick="changeLedEffect('rainbow', this)">Rainbow</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Script de Controle -->
+    <script>
+        function switchView(viewName) {
+            document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
+            if(viewName === 'hub') {
+                document.getElementById('view-hub').classList.add('active');
+                document.getElementById('topTitle').innerText = "Visão geral";
+            } else if(viewName === 'rgb-studio') {
+                document.getElementById('view-rgb').classList.add('active');
+                switchRgbTab('studio');
+            } else if(viewName === 'mic') {
+                document.getElementById('view-mic').classList.add('active');
+                document.getElementById('topTitle').innerText = "Voice Studio & USB Inspector";
+            } else if(viewName === 'config') {
+                document.getElementById('view-config').classList.add('active');
+                document.getElementById('topTitle').innerText = "Configurações do Sistema";
+            }
+        }
+
+        function switchRgbTab(tabName) {
+            document.querySelectorAll('.rgb-subview').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.app-sidebar .nav-item').forEach(i => i.classList.remove('active'));
+
+            if(tabName === 'studio') {
+                document.getElementById('rgb-sub-studio').classList.add('active');
+                document.getElementById('nav-studio').classList.add('active');
+                document.getElementById('topTitle').innerText = "Controle estático • aplicação por zona";
+            } else if(tabName === 'devices') {
+                document.getElementById('rgb-sub-devices').classList.add('active');
+                document.getElementById('nav-devices').classList.add('active');
+                document.getElementById('topTitle').innerText = "Dispositivos Hardware • OpenRGB";
+            } else if(tabName === 'profiles') {
+                document.getElementById('rgb-sub-profiles').classList.add('active');
+                document.getElementById('nav-profiles').classList.add('active');
+                document.getElementById('topTitle').innerText = "Perfis de Iluminação";
+            }
+        }
+
+        function switchMicTab(tab) {
+            document.querySelectorAll('.mic-subview').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.mic-tab-btn').forEach(b => b.classList.remove('active'));
+            if(tab === 'audio') {
+                document.getElementById('mic-sub-audio').classList.add('active');
+                document.getElementById('btn-mic-audio').classList.add('active');
+            } else if(tab === 'diag') {
+                document.getElementById('mic-sub-diag').classList.add('active');
+                document.getElementById('btn-mic-diag').classList.add('active');
+            }
+        }
+
+        function toggleNotifications(event) {
+            event.stopPropagation();
+            const box = document.getElementById('notificationBox');
+            box.classList.toggle('active');
+        }
+
+        window.addEventListener('click', () => {
+            const box = document.getElementById('notificationBox');
+            if(box) box.classList.remove('active');
+        });
+
+        let isMuted = false;
+        function toggleMute() {
+            isMuted = !isMuted;
+            const btn = document.getElementById('muteBtn');
+            const statusTxt = document.getElementById('muteStatusText');
+            if(isMuted) {
+                btn.style.background = "#ef4444";
+                btn.style.color = "#fff";
+                btn.innerText = "Desmutar Microfone";
+                statusTxt.innerText = "Estado do mute: ATIVADO";
+                statusTxt.style.color = "#ef4444";
+            } else {
+                btn.style.background = "transparent";
+                btn.style.color = "#ef4444";
+                btn.innerText = "Mutar Microfone";
+                statusTxt.innerText = "Estado do mute: DESATIVADO";
+                statusTxt.style.color = "var(--text-dim)";
+            }
+        }
+
+        function updateVolume(val) {
+            document.getElementById('volValText').innerText = val + "%";
+        }
+
+        function updateBrightness(val) {
+            document.getElementById('brightnessValText').innerText = val + "%";
+        }
+
+        /* Lógica do Botão de Atualização do App */
+        let isCheckingUpdate = false;
+        function checkAppUpdate() {
+            if (isCheckingUpdate) return;
+            isCheckingUpdate = true;
+            
+            const btn = document.getElementById('updateBtn');
+            const statusText = document.getElementById('updateStatusText');
+            
+            btn.style.opacity = "0.4";
+            btn.style.pointerEvents = "none";
+            btn.innerText = "Verificando...";
+            statusText.innerText = "Verificando novos servidores...";
+
+            setTimeout(() => {
+                isCheckingUpdate = false;
+                btn.style.opacity = "1";
+                btn.style.pointerEvents = "auto";
+                
+                const hasUpdate = Math.random() > 0.5;
+                if(hasUpdate) {
+                    btn.innerText = "Atualizar";
+                    statusText.innerText = "Nova versão v1.0.5 disponível!";
+                } else {
+                    btn.innerText = "Verificar atualização";
+                    statusText.innerText = "Você já está na versão mais recente (v1.0.4)";
+                }
+            }, 2500);
+        }
+
+        function setTheme(themeName, element) {
+            document.documentElement.setAttribute('data-theme', themeName);
+            document.querySelectorAll('.theme-card').forEach(card => card.classList.remove('active'));
+            element.classList.add('active');
+        }
+
+        function changeLedColor(color, element) {
+            document.documentElement.setAttribute('data-led-color', color);
+            document.querySelectorAll('.color-dot, .color-custom-btn').forEach(dot => dot.classList.remove('active'));
+            if (element) element.classList.add('active');
+        }
+
+        function setCustomLedColor(hexColor) {
+            document.documentElement.style.setProperty('--led-active', hexColor);
+            document.documentElement.style.setProperty('--led-glow', hexColor + '66');
+            document.documentElement.setAttribute('data-led-color', 'custom');
+            
+            document.querySelectorAll('.color-dot').forEach(dot => dot.classList.remove('active'));
+            const customBtn = document.getElementById('customColorBtn');
+            if(customBtn) customBtn.classList.add('active');
+            
+            const preview = document.getElementById('colorPreview');
+            const hexInput = document.getElementById('hexInputVal');
+            if(preview) preview.style.background = hexColor;
+            if(hexInput) hexInput.value = hexColor.toUpperCase();
+        }
+
+        function changeLedEffect(effect, element) {
+            document.documentElement.setAttribute('data-led-effect', effect);
+            document.querySelectorAll('.effect-btn').forEach(btn => btn.classList.remove('active'));
+            element.classList.add('active');
+        }
+
+        /* Lógica de Arraste na Roda Sincronizada */
+        const wheel = document.getElementById('rgbWheel');
+        const handle = document.getElementById('wheelHandle');
+        let isDragging = false;
+
+        function updateColorFromCoordinates(clientX, clientY) {
+            if(!wheel) return;
+            const rect = wheel.getBoundingClientRect();
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            const x = clientX - rect.left - centerX;
+            const y = clientY - rect.top - centerY;
+            
+            const maxRadius = centerX - 5;
+            let distance = Math.sqrt(x * x + y * y);
+            if (distance > maxRadius) distance = maxRadius;
+
+            let angle = Math.atan2(y, x) * (180 / Math.PI);
+            if (angle < 0) angle += 360;
+
+            const saturation = (distance / maxRadius) * 100;
+            const hexColor = hslToHex(angle, saturation, 50);
+
+            const rad = angle * (Math.PI / 180);
+            const handleX = centerX + distance * Math.cos(rad);
+            const handleY = centerY + distance * Math.sin(rad);
+            
+            if(handle) {
+                handle.style.left = `${handleX}px`;
+                handle.style.top = `${handleY}px`;
+            }
+
+            setCustomLedColor(hexColor);
+        }
+
+        if(wheel) {
+            wheel.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                updateColorFromCoordinates(e.clientX, e.clientY);
+            });
+        }
+
+        window.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                updateColorFromCoordinates(e.clientX, e.clientY);
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        function hslToHex(h, s, l) {
+            l /= 100;
+            const a = s * Math.min(l, 1 - l) / 100;
+            const f = n => {
+                const k = (n + h / 30) % 12;
+                const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+                return Math.round(255 * color).toString(16).padStart(2, '0');
+            };
+            return `#${f(0)}${f(8)}${f(4)}`.toUpperCase();
+        }
+    </script>
+</body>
+</html>
