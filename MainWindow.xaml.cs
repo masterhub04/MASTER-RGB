@@ -108,35 +108,94 @@ public partial class MainWindow : Window
         }
     }
 
-    private void HtmlInterface_WebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
+    private async void HtmlInterface_WebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
     {
         try
         {
             using var message = JsonDocument.Parse(e.WebMessageAsJson);
-            string? action = message.RootElement.TryGetProperty("action", out var value)
-                ? value.GetString()
-                : null;
+            var root = message.RootElement;
+            string? action = root.TryGetProperty("action", out var value) ? value.GetString() : null;
 
             switch (action)
             {
-                case "window-minimize":
-                    WindowState = WindowState.Minimized;
-                    break;
-                case "window-close":
-                    CloseWindow_Click(this, new RoutedEventArgs());
-                    break;
-                case "window-drag":
-                    try { DragMove(); } catch (InvalidOperationException) { }
-                    break;
-                case "check-updates":
-                    CheckUpdatesFromHtml();
-                    break;
+                case "window-minimize": WindowState = WindowState.Minimized; break;
+                case "window-close": CloseWindow_Click(this, new RoutedEventArgs()); break;
+                case "window-drag": try { DragMove(); } catch (InvalidOperationException) { } break;
+                case "check-updates": CheckUpdatesFromHtml(); break;
+                case "rgb-get-devices": await SendRgbDevicesToHtmlAsync(); break;
+                case "rgb-refresh-devices": await DetectOpenRgbDevicesAsync(); await SendRgbDevicesToHtmlAsync(); break;
+                case "rgb-apply-color": await ApplyHtmlRgbColorAsync(root); break;
+                case "rgb-apply-group": await ApplyHtmlRgbGroupAsync(root); break;
             }
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine("WebView2 message error: " + ex.Message);
+            SendHtmlMessage(new { action = "host-error", message = ex.Message });
+            System.Diagnostics.Debug.WriteLine("WebView2 message error: " + ex);
         }
+    }
+
+    private void SendHtmlMessage(object payload)
+    {
+        if (HtmlInterface.CoreWebView2 is null) return;
+        HtmlInterface.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(payload));
+    }
+
+    private async Task SendRgbDevicesToHtmlAsync()
+    {
+        try
+        {
+            if (_devices.Count == 0) await DetectOpenRgbDevicesAsync();
+            var devices = _devices.Select(d => new {
+                index = d.Index, name = d.Name,
+                zones = d.Zones.Select((z, i) => new { index = i, name = z.Name, ledCount = z.LedCount })
+            }).ToArray();
+            SendHtmlMessage(new { action = "rgb-devices", devices });
+        }
+        catch (Exception ex) { SendHtmlMessage(new { action = "host-error", message = ex.Message }); }
+    }
+
+    private async Task ApplyHtmlRgbColorAsync(JsonElement root)
+    {
+        int deviceIndex = root.GetProperty("deviceIndex").GetInt32();
+        int zoneIndex = root.GetProperty("zoneIndex").GetInt32();
+        int ledCount = root.GetProperty("ledCount").GetInt32();
+        string hex = root.GetProperty("hex").GetString()?.Trim().TrimStart('#') ?? "";
+        int brightness = root.TryGetProperty("brightness", out var b) ? Math.Clamp(b.GetInt32(), 0, 100) : 100;
+        if (hex.Length != 6 || !uint.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint rgb))
+            throw new InvalidOperationException("Cor inválida. Use #RRGGBB.");
+        var device = _devices.FirstOrDefault(d => d.Index == deviceIndex) ?? throw new InvalidOperationException("Dispositivo não encontrado. Atualize a lista.");
+        if (zoneIndex < 0 || zoneIndex >= device.Zones.Count) throw new InvalidOperationException("Zona não encontrada. Atualize a lista.");
+        var zone = device.Zones[zoneIndex];
+        if (ledCount < 1 || ledCount > ushort.MaxValue || zone.LedCount < 1) throw new InvalidOperationException("Quantidade de LEDs inválida para a zona.");
+        byte red = (byte)Math.Round(((rgb >> 16) & 0xFF) * brightness / 100.0);
+        byte green = (byte)Math.Round(((rgb >> 8) & 0xFF) * brightness / 100.0);
+        byte blue = (byte)Math.Round((rgb & 0xFF) * brightness / 100.0);
+        await _openRgb.ApplyZoneColorAsync(deviceIndex, zoneIndex, ledCount, red, green, blue);
+        SendHtmlMessage(new { action = "rgb-result", ok = true, message = $"Cor #{hex.ToUpperInvariant()} enviada para {device.Name} / {zone.Name}." });
+    }
+
+    private async Task ApplyHtmlRgbGroupAsync(JsonElement root)
+    {
+        string hex = root.GetProperty("hex").GetString()?.Trim().TrimStart('#') ?? "";
+        int brightness = root.TryGetProperty("brightness", out var b) ? Math.Clamp(b.GetInt32(), 0, 100) : 100;
+        if (hex.Length != 6 || !uint.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint rgb))
+            throw new InvalidOperationException("Cor inválida. Use #RRGGBB.");
+        var indices = root.GetProperty("deviceIndices").EnumerateArray().Select(x => x.GetInt32()).Distinct().ToHashSet();
+        var selected = _devices.Where(d => indices.Contains(d.Index)).ToList();
+        if (selected.Count == 0) throw new InvalidOperationException("Selecione pelo menos um dispositivo.");
+        byte red = (byte)Math.Round(((rgb >> 16) & 0xFF) * brightness / 100.0);
+        byte green = (byte)Math.Round(((rgb >> 8) & 0xFF) * brightness / 100.0);
+        byte blue = (byte)Math.Round((rgb & 0xFF) * brightness / 100.0);
+        int applied = 0;
+        foreach (var device in selected)
+        {
+            var zones = device.Zones.Select((z, i) => (ZoneIndex: i, LedCount: z.LedCount)).Where(z => z.LedCount > 0).ToList();
+            if (zones.Count == 0) continue;
+            await _openRgb.ApplyDeviceZonesColorAsync(device.Index, zones, red, green, blue);
+            applied += zones.Count;
+        }
+        SendHtmlMessage(new { action = "rgb-result", ok = true, message = $"Cor #{hex.ToUpperInvariant()} enviada para {applied} zona(s) em {selected.Count} dispositivo(s)." });
     }
 
     private void CheckUpdatesFromHtml()
