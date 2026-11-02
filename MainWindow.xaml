@@ -502,7 +502,7 @@
                 <controls:MasterMicControl x:Name="MasterMicView" Margin="0,54,0,0"/>
             </Grid>
         </Grid>
-        <wv2:WebView2 x:Name="HtmlInterface" Grid.Row="0" Grid.Column="0" Grid.RowSpan="2" Grid.ColumnSpan="2" Panel.ZIndex="1000" Visibility="Collapsed" />
+        <wv2:WebView2 x:Name="HtmlInterface" Grid.Row="0" Grid.Column="0" Grid.RowSpan="2" Grid.ColumnSpan="2" Panel.ZIndex="1000" Visibility="Visible" />
         <Popup x:Name="NotificationsPopup"
                PlacementTarget="{Binding ElementName=NotificationsButton}"
                Placement="Bottom" HorizontalOffset="-300" VerticalOffset="8"
