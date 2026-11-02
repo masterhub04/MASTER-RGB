@@ -1,0 +1,41 @@
+name: MASTER HUB - Build Check
+
+on:
+  push:
+    branches:
+      - feature/master-hub-mic-integration
+    paths:
+      - '**.cs'
+      - '**.xaml'
+      - '**.csproj'
+      - 'HTML/**'
+      - '.github/workflows/build-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore MASTER_RGB.csproj
+
+      - name: Build
+        run: dotnet build MASTER_RGB.csproj --configuration Release --no-restore
+
+      - name: Verify HTML interface
+        shell: pwsh
+        run: |
+          if (!(Test-Path 'HTML/index.html')) { throw 'HTML/index.html não foi encontrado.' }
+          $project = Get-Content 'MASTER_RGB.csproj' -Raw
+          if ($project -notmatch 'HTML\\index\.html') { throw 'HTML/index.html não está configurado para ser copiado para a saída.' }
