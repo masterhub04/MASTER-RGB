@@ -20,10 +20,18 @@ public sealed class OpenRgbEngineHost : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        if (await IsSdkPortAvailableAsync(cancellationToken))
-            return; // An already-running SDK server can be reused.
-
         string executable = Path.Combine(AppContext.BaseDirectory, "OpenRGB", "OpenRGB.exe");
+
+        if (await IsSdkPortAvailableAsync(cancellationToken))
+        {
+            if (IsExpectedOpenRgbProcess(executable))
+                return; // Reuse only the bundled OpenRGB executable.
+
+            throw new InvalidOperationException(
+                "A porta 6742 já está ocupada por um servidor que não foi identificado como o OpenRGB integrado. " +
+                "Feche o OpenRGB externo (ou outro aplicativo que use essa porta) e tente novamente. " +
+                "O MASTER HUB não vai enviar comandos RGB para um servidor desconhecido.");
+        }
         if (!File.Exists(executable))
             throw new FileNotFoundException(
                 "O mecanismo OpenRGB integrado não foi encontrado. Reinstale/atualize o MASTER RGB para incluir os componentes de compatibilidade.",
@@ -58,6 +66,30 @@ public sealed class OpenRgbEngineHost : IDisposable
 
         StopOwnedProcess();
         throw new TimeoutException("O mecanismo OpenRGB iniciou, mas não abriu o servidor SDK na porta 6742 dentro do tempo esperado.");
+    }
+
+    private static bool IsExpectedOpenRgbProcess(string executable)
+    {
+        string expectedPath = Path.GetFullPath(executable);
+        foreach (var process in Process.GetProcessesByName("OpenRGB"))
+        {
+            try
+            {
+                string? actualPath = process.MainModule?.FileName;
+                if (!string.IsNullOrWhiteSpace(actualPath) &&
+                    string.Equals(Path.GetFullPath(actualPath), expectedPath, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            catch
+            {
+                // An inaccessible process is not proof that it owns the expected SDK server.
+            }
+            finally
+            {
+                process.Dispose();
+            }
+        }
+        return false;
     }
 
     private static async Task<bool> IsSdkPortAvailableAsync(CancellationToken cancellationToken)
