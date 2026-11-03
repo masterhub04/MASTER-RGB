@@ -176,7 +176,7 @@
         .shortcut-info p { font-size: 10px; color: var(--text-dim); }
 
 
-        /* --- TELA MASTER RGB --- */
+        /* --- TELA RGB CONTROL --- */
         .app-layout { display: flex; flex: 1; height: 100%; overflow: hidden; }
         .app-sidebar {
             width: 240px; background: var(--bg-sidebar); border-right: 1px solid var(--border-dark);
@@ -287,7 +287,7 @@
         .wheel-handle:active { cursor: grabbing; }
 
 
-        /* --- TELA MASTER MIC --- */
+        /* --- TELA PERFECT AUDIO --- */
         .mic-body { padding: 24px; display: flex; flex-direction: column; gap: 20px; }
         .mic-header-flex { display: flex; justify-content: space-between; align-items: flex-start; }
         .mic-title-area h2 { font-size: 22px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 2px; }
@@ -434,7 +434,7 @@
                                 <svg viewBox="0 0 24 24"><path d="M9 18h6"></path><path d="M10 22h4"></path><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"></path></svg>
                             </div>
                             <div class="card-meta">
-                                <h3>MASTER RGB</h3>
+                                <h3>RGB CONTROL</h3>
                                 <p>ILUMINAÇÃO E PERFIS</p>
                                 <span>Controle os efeitos leds dos seus periféricos, gabinete e sincronize perfis em tempo real.</span>
                             </div>
@@ -452,9 +452,9 @@
                                 <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v1a7 7 0 0 1-14 0v-1"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
                             </div>
                             <div class="card-meta">
-                                <h3>MASTER MIC</h3>
-                                <p>ÁUDIO E MICROFONES</p>
-                                <span>Configuração de microfones e processamento de áudio por IA.</span>
+                                <h3>PERFECT AUDIO</h3>
+                                <p>ÁUDIO E DISPOSITIVOS</p>
+                                <span>Controle de áudio, microfones, headsets e processamento por IA.</span>
                             </div>
                         </div>
                         <div class="status-badge" style="background: rgba(168,85,247,0.1); border-color: #a855f7; color: #a855f7;"><span class="status-dot" style="background: #a855f7; box-shadow: 0 0 6px #a855f7;"></span> ATIVO</div>
@@ -491,7 +491,7 @@
 
 
     <!-- ========================================== -->
-    <!-- TELA 2: MASTER RGB                         -->
+    <!-- TELA 2: RGB CONTROL                         -->
     <!-- ========================================== -->
     <div id="view-rgb" class="view-container">
         <div class="app-layout">
@@ -502,7 +502,7 @@
                             <svg viewBox="0 0 24 24"><path d="M9 18h6"></path><path d="M10 22h4"></path><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"></path></svg>
                         </div>
                         <div class="rgb-product-title">
-                            <h3>MASTER RGB</h3>
+                            <h3>RGB CONTROL</h3>
                             <span>UNIVERSAL LIGHTING</span>
                         </div>
                     </div>
@@ -629,15 +629,15 @@
 
 
     <!-- ========================================== -->
-    <!-- TELA 3: MASTER MIC                         -->
+    <!-- TELA 3: PERFECT AUDIO                         -->
     <!-- ========================================== -->
     <div id="view-mic" class="view-container">
         <div class="mic-body">
             <div class="mic-header-flex">
                 <div class="mic-title-area">
                     <div class="sub-info">VOICE STUDIO & USB INSPECTOR • VERSION 0.4.0</div>
-                    <h2>MASTER MIC</h2>
-                    <p>Controle de áudio do Windows, processamento de voz e diagnóstico USB.</p>
+                    <h2>PERFECT AUDIO</h2>
+                    <p>Controle de áudio do Windows, microfones, headsets, processamento de voz e diagnóstico USB.</p>
                 </div>
                 <button class="btn-outline" onclick="switchView('hub')">← Voltar</button>
             </div>
@@ -676,7 +676,7 @@
                         <div class="mic-param"><div><span>Proporção do Compressor</span><b id="micCompValue">3:1</b></div><input type="range" min="1" max="6" step="0.5" value="3" class="range-slider" id="micCompRange" oninput="micParameter('compressorRatio',this.value,'micCompValue',':1')"></div>
                         <div class="mic-param"><div><span>Voice Clarity — Presença da voz</span><b id="micPresenceValue">+0 dB</b></div><input type="range" min="0" max="6" step="0.5" value="0" class="range-slider" id="micPresenceRange" oninput="micParameter('presence',this.value,'micPresenceValue',' dB','+')"></div>
                     </div>
-                    <p style="font-size:10px;color:var(--text-dim);margin-top:14px">Os efeitos são aplicados ao monitoramento do MASTER MIC nesta versão.</p>
+                    <p style="font-size:10px;color:var(--text-dim);margin-top:14px">Os efeitos são aplicados ao processamento e monitoramento de áudio nesta versão.</p>
                 </div>
                 <div class="mic-card-box">
                     <span class="mic-card-title">Monitoramento em Tempo Real</span>
