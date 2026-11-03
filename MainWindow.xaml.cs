@@ -347,17 +347,21 @@ public partial class MainWindow : Window
                 await _openRgb.ResizeZoneAsync(device.Index, zone.ZoneIndex, zone.LedCount);
         await _openRgb.ApplyDeviceZonesColorAsync(device.Index, zones);
 
-        _deviceCalibrations[device.Name] = calibration;
-        SaveUserSettings();
-        if (IsLogitechG203(device))
+        bool preview = root.TryGetProperty("preview", out var previewValue) && previewValue.GetBoolean();
+        if (!preview)
         {
-            _lastMouseColorHex = "#" + hex.ToUpperInvariant();
-            _lastMouseColorBrightness = brightness;
-            _hasSavedMouseColor = true;
+            _deviceCalibrations[device.Name] = calibration;
             SaveUserSettings();
+            if (IsLogitechG203(device))
+            {
+                _lastMouseColorHex = "#" + hex.ToUpperInvariant();
+                _lastMouseColorBrightness = brightness;
+                _hasSavedMouseColor = true;
+                SaveUserSettings();
+            }
         }
         SendHtmlMessage(new { action = "rgb-device-calibration-applied",
-            message = $"Calibração aplicada em {device.Name}." });
+            message = preview ? $"Prévia aplicada em {device.Name}." : $"Calibração aplicada em {device.Name}." });
     }
 
     private async Task ApplySavedMouseColorAsync()
