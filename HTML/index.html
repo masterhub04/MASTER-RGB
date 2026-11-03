@@ -1286,8 +1286,24 @@ function receive(e){const d=e.data||{};
  else if(d.action==="rgb-device-calibration-saved"||d.action==="rgb-device-calibration-applied"){document.getElementById("mouseCalibrationStatus").textContent=d.message||"Calibração atualizada.";}
 }window.updateMouseCalibrationLabels=()=>{["Red","Green","Blue"].forEach(ch=>{const v=document.getElementById("mouseCal"+ch).value;document.getElementById("mouseCal"+ch+"Value").textContent=v;});};
 const mouseCalibrationValues=()=>({red:Number(document.getElementById("mouseCalRed").value),green:Number(document.getElementById("mouseCalGreen").value),blue:Number(document.getElementById("mouseCalBlue").value)});
-let calibrationPreviewTimer=null;
-window.scheduleMouseCalibrationPreview=()=>{clearTimeout(calibrationPreviewTimer);calibrationPreviewTimer=setTimeout(()=>window.applyMouseCalibration(true),55);};
+let calibrationPreviewTimer=null, lastCalibrationPreviewAt=0;
+const calibrationPreviewInterval=120;
+window.scheduleMouseCalibrationPreview=()=>{
+ const now=Date.now(), elapsed=now-lastCalibrationPreviewAt;
+ if(elapsed>=calibrationPreviewInterval){
+  if(calibrationPreviewTimer){clearTimeout(calibrationPreviewTimer);calibrationPreviewTimer=null;}
+  lastCalibrationPreviewAt=now;
+  window.applyMouseCalibration(true);
+  return;
+ }
+ if(!calibrationPreviewTimer){
+  calibrationPreviewTimer=setTimeout(()=>{
+   calibrationPreviewTimer=null;
+   lastCalibrationPreviewAt=Date.now();
+   window.applyMouseCalibration(true);
+  },calibrationPreviewInterval-elapsed);
+ }
+};
 window.applyMouseCalibration=(preview=false)=>{const device=selectedDevice();if(!device){document.getElementById("mouseCalibrationStatus").textContent="Selecione um dispositivo RGB.";return;}const v=mouseCalibrationValues();post({action:"rgb-apply-device-calibration",deviceIndex:device.index,...v,hex:hex.value,brightness:Number(bright.value),preview});document.getElementById("mouseCalibrationStatus").textContent=(preview?"Atualizando prévia em ":"Aplicando calibração em ")+device.name+"...";};
 window.saveMouseCalibration=()=>{const device=selectedDevice();if(!device){document.getElementById("mouseCalibrationStatus").textContent="Selecione um dispositivo RGB.";return;}post({action:"rgb-save-device-calibration",deviceIndex:device.index,...mouseCalibrationValues()});document.getElementById("mouseCalibrationStatus").textContent="Salvando calibração de "+device.name+"...";};
 if(window.chrome&&window.chrome.webview)window.chrome.webview.addEventListener("message",receive);
