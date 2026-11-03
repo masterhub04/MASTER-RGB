@@ -131,6 +131,14 @@ public sealed class OpenRgbSdkClient
         await Task.Delay(150, timeout.Token);
     }
 
+    public Task ApplyDeviceZonesColorAsync(int deviceIndex, IReadOnlyList<(int ZoneIndex, int LedCount)> zones, byte red, byte green, byte blue, CancellationToken cancellationToken = default)
+    {
+        var coloredZones = zones
+            .Select(zone => (zone.ZoneIndex, zone.LedCount, Red: red, Green: green, Blue: blue))
+            .ToArray();
+        return ApplyDeviceZonesColorAsync(deviceIndex, coloredZones, cancellationToken);
+    }
+
     public async Task ApplyZoneColorAsync(int deviceIndex, int zoneIndex, int ledCount, byte red, byte green, byte blue, CancellationToken cancellationToken = default)
     {
         if (deviceIndex < 0 || zoneIndex < 0) throw new ArgumentOutOfRangeException("Índice de dispositivo ou zona inválido.");
