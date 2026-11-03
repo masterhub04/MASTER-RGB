@@ -209,7 +209,6 @@ public partial class MainWindow : Window
         byte green = (byte)Math.Round(((rgb >> 8) & 0xFF) * brightness / 100.0);
         byte blue = (byte)Math.Round((rgb & 0xFF) * brightness / 100.0);
         (red, green, blue) = ApplyControllerColorQuirks(device.Name, zone.Name, red, green, blue);
-        (red, green, blue) = ApplyDeviceCalibration(device, red, green, blue);
         if (ledCount != zone.LedCount)
             await _openRgb.ResizeZoneAsync(deviceIndex, zoneIndex, ledCount);
         await _openRgb.ApplyDeviceZonesColorAsync(deviceIndex, new[] { (ZoneIndex: zoneIndex, LedCount: ledCount, Red: red, Green: green, Blue: blue) });
@@ -234,7 +233,6 @@ public partial class MainWindow : Window
             var zones = device.Zones.Select((zone, zoneIndex) =>
             {
                 var adjusted = ApplyControllerColorQuirks(device.Name, zone.Name, red, green, blue);
-                adjusted = ApplyDeviceCalibration(device, adjusted.red, adjusted.green, adjusted.blue);
                 var zoneRow = new ZoneRow(zoneIndex, zone.Name, zone.LedCount);
                 return (ZoneIndex: zoneIndex, LedCount: GetConfiguredLedCount(device, zoneRow), Red: adjusted.red, Green: adjusted.green, Blue: adjusted.blue);
             }).Where(zone => zone.LedCount > 0).ToArray();
@@ -280,14 +278,6 @@ public partial class MainWindow : Window
         return new RgbCalibration(255, 255, 255);
     }
 
-    private (byte red, byte green, byte blue) ApplyDeviceCalibration(DeviceRow device, byte red, byte green, byte blue)
-    {
-        var calibration = GetDeviceCalibration(device);
-        return ((byte)Math.Clamp((int)Math.Round(red * calibration.Red / 255.0), 0, 255),
-            (byte)Math.Clamp((int)Math.Round(green * calibration.Green / 255.0), 0, 255),
-            (byte)Math.Clamp((int)Math.Round(blue * calibration.Blue / 255.0), 0, 255));
-    }
-
     private DeviceRow GetCalibrationTarget(JsonElement root)
     {
         int deviceIndex = root.GetProperty("deviceIndex").GetInt32();
@@ -322,20 +312,14 @@ public partial class MainWindow : Window
             Math.Clamp(root.GetProperty("red").GetInt32(), 0, 255),
             Math.Clamp(root.GetProperty("green").GetInt32(), 0, 255),
             Math.Clamp(root.GetProperty("blue").GetInt32(), 0, 255));
-        string hex = root.GetProperty("hex").GetString()?.Trim().TrimStart('#') ?? "";
         int brightness = root.TryGetProperty("brightness", out var value) ? Math.Clamp(value.GetInt32(), 0, 100) : 100;
-        if (hex.Length != 6 || !uint.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint rgb))
-            throw new InvalidOperationException("Escolha uma cor HEX válida.");
 
         var zones = device.Zones.Select((zone, index) =>
         {
-            byte red = (byte)Math.Round(((rgb >> 16) & 255) * brightness / 100.0);
-            byte green = (byte)Math.Round(((rgb >> 8) & 255) * brightness / 100.0);
-            byte blue = (byte)Math.Round((rgb & 255) * brightness / 100.0);
+            byte red = (byte)Math.Round(calibration.Red * brightness / 100.0);
+            byte green = (byte)Math.Round(calibration.Green * brightness / 100.0);
+            byte blue = (byte)Math.Round(calibration.Blue * brightness / 100.0);
             (red, green, blue) = ApplyControllerColorQuirks(device.Name, zone.Name, red, green, blue);
-            red = (byte)Math.Clamp((int)Math.Round(red * calibration.Red / 255.0), 0, 255);
-            green = (byte)Math.Clamp((int)Math.Round(green * calibration.Green / 255.0), 0, 255);
-            blue = (byte)Math.Clamp((int)Math.Round(blue * calibration.Blue / 255.0), 0, 255);
             return (ZoneIndex: index, LedCount: GetConfiguredLedCount(device, new ZoneRow(index, zone.Name, zone.LedCount)),
                 Red: red, Green: green, Blue: blue);
         }).Where(zone => zone.LedCount > 0).ToArray();
@@ -375,7 +359,6 @@ public partial class MainWindow : Window
             byte g = (byte)Math.Round(((rgb >> 8) & 255) * _lastMouseColorBrightness / 100.0);
             byte b = (byte)Math.Round((rgb & 255) * _lastMouseColorBrightness / 100.0);
             (r, g, b) = ApplyControllerColorQuirks(mouse.Name, z.Name, r, g, b);
-            (r, g, b) = ApplyDeviceCalibration(mouse, r, g, b);
             return (ZoneIndex: i, LedCount: GetConfiguredLedCount(mouse, new ZoneRow(i, z.Name, z.LedCount)), Red: r, Green: g, Blue: b);
         }).Where(z => z.LedCount > 0).ToArray();
         if (zones.Length == 0) return;
