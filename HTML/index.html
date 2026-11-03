@@ -65,6 +65,37 @@
         [data-led-effect="pulse"] .led-element { animation: led-pulse 2s infinite ease-in-out; }
         [data-led-effect="rainbow"] .led-element { animation: led-rainbow 5s infinite linear; }
 
+        /* MASTER HUB — Scrollbar global, fina e integrada ao tema */
+        html {
+            scrollbar-width: thin;
+            scrollbar-color: color-mix(in srgb, var(--led-active) 48%, #17212d) transparent;
+        }
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: color-mix(in srgb, var(--led-active) 48%, #17212d) transparent;
+        }
+        *::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        *::-webkit-scrollbar-track {
+            background: transparent;
+            border: 0;
+        }
+        *::-webkit-scrollbar-thumb {
+            background: color-mix(in srgb, var(--led-active) 42%, #17212d);
+            border: 1px solid rgba(5, 7, 12, 0.65);
+            border-radius: 10px;
+            transition: background 0.2s ease, box-shadow 0.2s ease;
+        }
+        *::-webkit-scrollbar-thumb:hover {
+            background: var(--led-active);
+            box-shadow: 0 0 8px var(--led-glow);
+        }
+        *::-webkit-scrollbar-corner {
+            background: transparent;
+        }
+
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; user-select: none; }
         body { background: var(--bg-deep); color: var(--text-bright); height: 100vh; display: flex; flex-direction: column; overflow: hidden; transition: background 0.3s ease, color 0.3s ease; }
 
