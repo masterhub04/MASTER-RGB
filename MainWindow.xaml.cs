@@ -87,6 +87,8 @@ public partial class MainWindow : Window
 
         // O mecanismo OpenRGB continua sendo iniciado pelo código nativo.
         await DetectOpenRgbDevicesAsync();
+        if (_startWithWindows) { try { ConfigureWindowsStartup(true, _startMinimized); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); } }
+        await ApplySavedMouseColorAsync();
     }
 
     private async Task InitializeHtmlInterfaceAsync()
@@ -146,6 +148,17 @@ public partial class MainWindow : Window
                 case "rgb-run-diagnostic": RunDiagnostic_Click(this, new RoutedEventArgs()); break;
                 case "rgb-apply-color": await ApplyHtmlRgbColorAsync(root); break;
                 case "rgb-apply-group": await ApplyHtmlRgbGroupAsync(root); break;
+                case "rgb-get-mouse-calibration":
+                    SendHtmlMessage(new { action = "rgb-mouse-calibration", red = _mouseRedGain, green = _mouseGreenGain, blue = _mouseBlueGain });
+                    break;
+                case "rgb-save-mouse-calibration":
+                    _mouseRedGain = Math.Clamp(root.GetProperty("red").GetInt32(), 0, 200);
+                    _mouseGreenGain = Math.Clamp(root.GetProperty("green").GetInt32(), 0, 200);
+                    _mouseBlueGain = Math.Clamp(root.GetProperty("blue").GetInt32(), 0, 200);
+                    SaveUserSettings();
+                    SendHtmlMessage(new { action = "rgb-mouse-calibration-saved", message = "Calibração do mouse salva." });
+                    break;
+                case "rgb-apply-mouse-calibration": await ApplyHtmlMouseCalibrationAsync(root); break;
                 case "boost-dashboard": SendHtmlMessage(new { action = "boost-dashboard", data = _boostGame.GetDashboard() }); break;
                 case "optimize-startup-list": SendHtmlMessage(new { action = "optimize-startup-list", items = _optimizeSystem.GetStartupItems() }); break;
                 case "optimize-services-list": SendHtmlMessage(new { action = "optimize-services-list", items = _optimizeSystem.GetOptionalServices() }); break;
@@ -203,9 +216,11 @@ public partial class MainWindow : Window
         byte green = (byte)Math.Round(((rgb >> 8) & 0xFF) * brightness / 100.0);
         byte blue = (byte)Math.Round((rgb & 0xFF) * brightness / 100.0);
         (red, green, blue) = ApplyControllerColorQuirks(device.Name, zone.Name, red, green, blue);
+        if (IsLogitechG203(device)) (red, green, blue) = ApplyMouseCalibration(red, green, blue);
         if (ledCount != zone.LedCount)
             await _openRgb.ResizeZoneAsync(deviceIndex, zoneIndex, ledCount);
         await _openRgb.ApplyDeviceZonesColorAsync(deviceIndex, new[] { (ZoneIndex: zoneIndex, LedCount: ledCount, Red: red, Green: green, Blue: blue) });
+        if (IsLogitechG203(device)) { _lastMouseColorHex = "#" + hex.ToUpperInvariant(); _lastMouseColorBrightness = brightness; _hasSavedMouseColor = true; SaveUserSettings(); }
         SendHtmlMessage(new { action = "rgb-result", ok = true, message = $"Cor #{hex.ToUpperInvariant()} enviada para {device.Name} / {zone.Name}." });
     }
 
@@ -226,6 +241,7 @@ public partial class MainWindow : Window
             var zones = device.Zones.Select((zone, zoneIndex) =>
             {
                 var adjusted = ApplyControllerColorQuirks(device.Name, zone.Name, red, green, blue);
+                if (IsLogitechG203(device)) adjusted = ApplyMouseCalibration(adjusted.red, adjusted.green, adjusted.blue);
                 var zoneRow = new ZoneRow(zoneIndex, zone.Name, zone.LedCount);
                 return (ZoneIndex: zoneIndex, LedCount: GetConfiguredLedCount(device, zoneRow), Red: adjusted.red, Green: adjusted.green, Blue: adjusted.blue);
             }).Where(zone => zone.LedCount > 0).ToArray();
@@ -245,6 +261,7 @@ public partial class MainWindow : Window
             await _openRgb.ApplyDeviceZonesColorAsync(batch.Device.Index, batch.Zones);
         }));
 
+        if (selected.Any(IsLogitechG203)) { _lastMouseColorHex = "#" + hex.ToUpperInvariant(); _lastMouseColorBrightness = brightness; _hasSavedMouseColor = true; SaveUserSettings(); }
         int applied = batches.Sum(batch => batch.Zones.Length);
         SendHtmlMessage(new { action = "rgb-result", ok = true, message = $"Cor #{hex.ToUpperInvariant()} enviada para {applied} zona(s) em {selected.Count} dispositivo(s)." });
     }
