@@ -637,53 +637,84 @@
                 <div class="mic-title-area">
                     <div class="sub-info">VOICE STUDIO & USB INSPECTOR • VERSION 0.4.0</div>
                     <h2>MASTER MIC</h2>
-                    <p>Controle de áudio do Windows e investigação segura do FIFINE A8 Plus.</p>
+                    <p>Controle de áudio do Windows, processamento de voz e diagnóstico USB.</p>
                 </div>
                 <button class="btn-outline" onclick="switchView('hub')">← Voltar</button>
             </div>
-
             <div class="mic-tabs">
                 <button class="mic-tab-btn active" id="btn-mic-audio" onclick="switchMicTab('audio')">Controle de Áudio</button>
                 <button class="mic-tab-btn" id="btn-mic-diag" onclick="switchMicTab('diag')">Diagnóstico USB</button>
             </div>
-
             <div id="mic-sub-audio" class="mic-subview active">
                 <div class="mic-card-box">
                     <span class="mic-card-title">Dispositivo de Captura</span>
                     <div class="mic-controls-grid">
-                        <select class="select-box"><option>Microfone (fifine Microphone)</option></select>
-                        <button class="btn-outline" style="height: 40px;">Atualizar dispositivos</button>
+                        <select class="select-box" id="micDeviceSelect" onchange="micSelectDevice(this.value)"><option value="">Carregando microfones...</option></select>
+                        <button class="btn-outline" style="height:40px" onclick="micSend({action:'mic-refresh-audio'})">↻ Atualizar dispositivos</button>
                     </div>
-                    <span style="font-size: 11px; color: var(--text-dim);">Dispositivo ativo: Microfone (fifine Microphone)</span>
+                    <span id="micDeviceStatus" style="font-size:11px;color:var(--text-dim)">Aguardando dispositivos...</span>
                 </div>
-
                 <div class="mic-card-box">
                     <span class="mic-card-title">Volume de Entrada do Windows</span>
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div class="slider-val" id="volValText">100%</div>
-                        <button class="btn-outline" id="muteBtn" onclick="toggleMute()" style="border-color: #ef4444; color: #ef4444;">Mutar Microfone</button>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+                        <div class="slider-val" id="micVolText">--%</div>
+                        <button class="btn-outline" id="micMuteBtn" onclick="micToggleMute()">MUTAR MICROFONE</button>
                     </div>
                     <div class="slider-container">
-                        <input type="range" min="0" max="100" value="100" class="range-slider" id="volRange" oninput="updateVolume(this.value)">
-                        <div class="slider-labels" style="display:flex; justify-content:space-between; font-size:10px; color:var(--text-dim);"><span>0%</span><span>100%</span></div>
+                        <input type="range" min="0" max="100" value="0" class="range-slider" id="micVolRange" oninput="micVolumeInput(this.value)">
+                        <div class="slider-labels" style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim)"><span>0%</span><span>100%</span></div>
                     </div>
-                    <span style="font-size: 11px; color: var(--text-dim);" id="muteStatusText">Estado do mute: DESATIVADO</span>
+                    <span id="micMuteStatus" style="font-size:11px;color:var(--text-dim)">Estado do mute: --</span>
+                </div>
+                <div class="mic-card-box">
+                    <span class="mic-card-title">Processamento de Voz</span>
+                    <div style="display:flex;flex-direction:column;gap:16px;margin-top:14px">
+                        <label class="mic-option"><input type="checkbox" id="micRnnoise" onchange="micEffect('rnnoise',this.checked)"><span><b>RNNoise — Supressão de ruído por IA</b><small>Reduz ruídos constantes e sons de fundo.</small></span></label>
+                        <label class="mic-option"><input type="checkbox" id="micGate" onchange="micEffect('gate',this.checked)"><span><b>Noise Gate — Controle de silêncio</b><small>Atenua o áudio quando você não está falando.</small></span></label>
+                        <div class="mic-param"><div><span>Limite do Noise Gate</span><b id="micGateValue">-45 dB</b></div><input type="range" min="-60" max="-20" value="-45" class="range-slider" id="micGateRange" oninput="micParameter('gateThreshold',this.value,'micGateValue',' dB')"></div>
+                        <label class="mic-option"><input type="checkbox" id="micCompressor" onchange="micEffect('compressor',this.checked)"><span><b>Compressor — Equilíbrio de volume</b><small>Controla picos e aproxima partes baixas da voz.</small></span></label>
+                        <div class="mic-param"><div><span>Proporção do Compressor</span><b id="micCompValue">3:1</b></div><input type="range" min="1" max="6" step="0.5" value="3" class="range-slider" id="micCompRange" oninput="micParameter('compressorRatio',this.value,'micCompValue',':1')"></div>
+                        <div class="mic-param"><div><span>Voice Clarity — Presença da voz</span><b id="micPresenceValue">+0 dB</b></div><input type="range" min="0" max="6" step="0.5" value="0" class="range-slider" id="micPresenceRange" oninput="micParameter('presence',this.value,'micPresenceValue',' dB','+')"></div>
+                    </div>
+                    <p style="font-size:10px;color:var(--text-dim);margin-top:14px">Os efeitos são aplicados ao monitoramento do MASTER MIC nesta versão.</p>
+                </div>
+                <div class="mic-card-box">
+                    <span class="mic-card-title">Monitoramento em Tempo Real</span>
+                    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:12px">
+                        <button class="btn-glow led-element" id="micMonitorBtn" onclick="micSend({action:'mic-monitor'})">▶ OUVIR MICROFONE</button>
+                        <span id="micMonitorStatus" style="font-size:11px;color:var(--text-dim)">Monitoramento desligado</span>
+                    </div>
                 </div>
             </div>
-
             <div id="mic-sub-diag" class="mic-subview">
                 <div class="mic-card-box">
-                    <span class="mic-card-title">Status do Hardware USB</span>
-                    <div style="display: flex; align-items: center; gap: 12px; margin-top: 4px;">
-                        <div class="status-badge"><span class="status-dot"></span> CONECTADO</div>
-                        <span style="font-size: 12px; font-weight: 600;">FIFINE A8 Plus USB Microphone</span>
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+                        <div><span class="mic-card-title">Dispositivos USB / Áudio / HID</span><p id="micUsbStatus" style="font-size:11px;color:var(--text-dim);margin-top:6px">Aguardando diagnóstico...</p></div>
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                            <label class="mic-option compact"><input type="checkbox" id="micShowAll" onchange="micRefreshUsb()">Mostrar todos</label>
+                            <button class="btn-outline" onclick="micRefreshUsb()">↻ Atualizar</button>
+                            <button class="btn-outline" onclick="micSend({action:'mic-export-usb'})">Exportar TXT</button>
+                        </div>
                     </div>
+                    <select class="select-box" id="micUsbSelect" style="margin-top:14px" size="7" onchange="micSelectUsb(this.value)"><option>Carregando...</option></select>
+                    <pre id="micUsbDetails" style="white-space:pre-wrap;overflow:auto;max-height:230px;background:rgba(0,0,0,.25);border:1px solid var(--border-dark);border-radius:8px;padding:12px;color:var(--text-dim);font-size:10px;margin-top:12px">Selecione um dispositivo para ver os detalhes.</pre>
                 </div>
             </div>
         </div>
     </div>
 
-
+    <style>
+      .mic-option{display:flex;align-items:flex-start;gap:10px;color:var(--text-bright);font-size:12px;cursor:pointer}
+      .mic-option input{accent-color:var(--led-active);width:15px;height:15px;margin:1px 0 0;flex:none}
+      .mic-option span{display:flex;flex-direction:column;gap:4px}
+      .mic-option small{color:var(--text-dim);font-size:10px}
+      .mic-option.compact{align-items:center;font-size:11px}
+      .mic-param{padding:10px 12px;border:1px solid var(--border-dark);border-radius:8px;background:rgba(0,0,0,.14)}
+      .mic-param>div{display:flex;justify-content:space-between;gap:12px;font-size:11px;color:var(--text-dim);margin-bottom:8px}
+      .mic-param b{color:var(--led-active);font-variant-numeric:tabular-nums}
+      #micUsbSelect{height:180px;padding:8px}
+      #micUsbSelect option{padding:7px;background:#101b2a;color:var(--text-bright)}
+    </style>
     <!-- ========================================== -->
     <!-- TELA 4: CONFIGURAÇÕES                      -->
     <!-- ========================================== -->
@@ -1074,5 +1105,46 @@ window.refreshHtmlRgbDevices=()=>post({action:"rgb-refresh-devices"});
  if(window.chrome&&window.chrome.webview)window.chrome.webview.addEventListener("message",e=>{const d=e.data||{};if(d.action==="rgb-diagnostic-finished"){const b=document.getElementById("rgbRunDiagnostic");if(b){b.disabled=false;b.textContent="Executar diagnóstico";}}});
 })();
 </script>
+
+<script>
+(() => {
+ const post=p=>{if(window.chrome&&window.chrome.webview)window.chrome.webview.postMessage(p)};
+ window.micSend=post;
+ let micState=null;
+ window.micSelectDevice=id=>post({action:"mic-select-audio",id});
+ window.micVolumeInput=v=>{document.getElementById("micVolText").textContent=Math.round(v)+"%";post({action:"mic-volume",value:Number(v)})};
+ window.micToggleMute=()=>post({action:"mic-mute",muted:!(micState&&micState.muted)});
+ window.micEffect=(effect,enabled)=>post({action:"mic-effect",effect,enabled});
+ window.micParameter=(parameter,value,label,suffix,prefix="")=>{document.getElementById(label).textContent=prefix+value+suffix;post({action:"mic-parameter",parameter,value:Number(value)})};
+ window.micRefreshUsb=()=>post({action:"mic-refresh-usb",showAll:document.getElementById("micShowAll").checked});
+ window.micSelectUsb=id=>post({action:"mic-select-usb",id});
+ function render(s){
+  micState=s;
+  const ds=document.getElementById("micDeviceSelect"),old=s.selectedId;
+  ds.replaceChildren();(s.devices||[]).forEach(d=>ds.add(new Option(d.name,d.id)));
+  ds.value=old;
+  document.getElementById("micDeviceStatus").textContent=s.deviceStatus||"";
+  document.getElementById("micVolRange").value=s.volume||0;document.getElementById("micVolText").textContent=(s.volume??0)+"%";
+  document.getElementById("micMuteBtn").textContent=s.muted?"ATIVAR MICROFONE":"MUTAR MICROFONE";
+  document.getElementById("micMuteStatus").textContent="Estado do mute: "+(s.muted?"ATIVADO":"DESATIVADO");
+  ["rnnoise","gate","compressor"].forEach(k=>document.getElementById("mic"+k[0].toUpperCase()+k.slice(1)).checked=!!s[k]);
+  document.getElementById("micGateRange").value=s.gateThreshold;document.getElementById("micGateValue").textContent=s.gateThreshold+" dB";
+  document.getElementById("micCompRange").value=s.compressorRatio;document.getElementById("micCompValue").textContent=s.compressorRatio+":1";
+  document.getElementById("micPresenceRange").value=s.presence;document.getElementById("micPresenceValue").textContent="+"+s.presence+" dB";
+  document.getElementById("micMonitorBtn").textContent=s.monitoring?"■ PARAR MONITORAMENTO":"▶ OUVIR MICROFONE";
+  document.getElementById("micMonitorStatus").textContent=s.monitorStatus||"";
+  document.getElementById("micUsbStatus").textContent=s.usbStatus||"";
+  const us=document.getElementById("micUsbSelect"),selected=us.value;us.replaceChildren();
+  (s.usbDevices||[]).forEach(d=>{const o=new Option((d.isFifine?"★ ":"")+d.name+" • "+d.pnpClass+" • "+d.status,d.pnpDeviceId);us.add(o)});
+  if(selected)us.value=selected;
+  document.getElementById("micUsbDetails").textContent=s.usbDetails||"Selecione um dispositivo para ver os detalhes.";
+ }
+ if(window.chrome&&window.chrome.webview)window.chrome.webview.addEventListener("message",e=>{const d=e.data||{};if(d.action==="mic-state")render(d.state);});
+ const observer=new MutationObserver(()=>{const v=document.getElementById("view-mic");if(v&&v.classList.contains("active"))post({action:"mic-get-state"});});
+ const view=document.getElementById("view-mic");if(view)observer.observe(view,{attributes:true,attributeFilter:["class"]});
+ window.addEventListener("DOMContentLoaded",()=>post({action:"mic-get-state"}));
+})();
+</script>
+
 </body>
 </html>
