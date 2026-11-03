@@ -691,15 +691,15 @@
                             <h3 style="margin:0 0 6px;">Calibração manual • Logitech G203</h3>
                             <p style="font-size:12px;color:var(--text-dim);margin-bottom:14px;">Ajuste cada canal para compensar a diferença de tonalidade do mouse. A calibração afeta somente o G203; os demais LEDs continuam recebendo a cor original.</p>
                             <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;">
-                                <div><label for="mouseCalRed" style="display:block;font-size:11px;margin-bottom:6px;">Vermelho <b id="mouseCalRedValue">100%</b></label><input id="mouseCalRed" type="range" min="0" max="200" value="100" class="range-slider" oninput="updateMouseCalibrationLabels()"></div>
-                                <div><label for="mouseCalGreen" style="display:block;font-size:11px;margin-bottom:6px;">Verde <b id="mouseCalGreenValue">100%</b></label><input id="mouseCalGreen" type="range" min="0" max="200" value="100" class="range-slider" oninput="updateMouseCalibrationLabels()"></div>
-                                <div><label for="mouseCalBlue" style="display:block;font-size:11px;margin-bottom:6px;">Azul <b id="mouseCalBlueValue">100%</b></label><input id="mouseCalBlue" type="range" min="0" max="200" value="100" class="range-slider" oninput="updateMouseCalibrationLabels()"></div>
+                                <div><label for="mouseCalRed" style="display:block;font-size:11px;margin-bottom:6px;">Vermelho <b id="mouseCalRedValue">255</b></label><input id="mouseCalRed" type="range" min="0" max="255" value="255" class="range-slider" oninput="updateMouseCalibrationLabels()"></div>
+                                <div><label for="mouseCalGreen" style="display:block;font-size:11px;margin-bottom:6px;">Verde <b id="mouseCalGreenValue">255</b></label><input id="mouseCalGreen" type="range" min="0" max="200" value="100" class="range-slider" oninput="updateMouseCalibrationLabels()"></div>
+                                <div><label for="mouseCalBlue" style="display:block;font-size:11px;margin-bottom:6px;">Azul <b id="mouseCalBlueValue">255</b></label><input id="mouseCalBlue" type="range" min="0" max="200" value="100" class="range-slider" oninput="updateMouseCalibrationLabels()"></div>
                             </div>
                             <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;">
                                 <button class="btn-glow" type="button" onclick="applyMouseCalibration()">Aplicar calibração ao mouse</button>
                                 <button class="btn-outline" type="button" onclick="saveMouseCalibration()">Salvar calibração</button>
                             </div>
-                            <div id="mouseCalibrationStatus" style="font-size:11px;color:var(--text-dim);margin-top:10px;">Calibração padrão: 100% em cada canal.</div>
+                            <div id="mouseCalibrationStatus" style="font-size:11px;color:var(--text-dim);margin-top:10px;">Calibração padrão: RGB 255 / 255 / 255 (sem alteração da cor original).</div>
                         </div>
                     </div>
                 </div>
@@ -1119,12 +1119,25 @@
             if (element) element.classList.add('active');
         }
 
+        function updateRgbColorReference(hexColor) {
+            const value = (hexColor || '#00F0FF').replace('#', '');
+            if (!/^[0-9A-F]{6}$/i.test(value)) return;
+            const r = parseInt(value.slice(0, 2), 16);
+            const g = parseInt(value.slice(2, 4), 16);
+            const b = parseInt(value.slice(4, 6), 16);
+            const hexLabel = document.getElementById('rgbReferenceHex');
+            const rgbLabel = document.getElementById('rgbReferenceValues');
+            if (hexLabel) hexLabel.textContent = '#' + value.toUpperCase();
+            if (rgbLabel) rgbLabel.textContent = `R: ${r}   G: ${g}   B: ${b}`;
+        }
+
         function setCustomLedColor(hexColor) {
             const normalized = hexColor.toUpperCase();
             const preview = document.getElementById('colorPreview');
             const hexInput = document.getElementById('hexInputVal');
             if (preview) preview.style.background = normalized;
             if (hexInput) hexInput.value = normalized;
+            updateRgbColorReference(normalized);
             document.querySelectorAll('.color-dot').forEach(dot => dot.classList.remove('active'));
             const customBtn = document.getElementById('customColorBtn');
             if (customBtn) customBtn.classList.add('active');
@@ -1218,6 +1231,7 @@
             handle.style.top=(rect.height/2-radius*Math.cos(angle))+'px';
         }
         syncWheelToHex(document.getElementById('hexInputVal')?.value||'#00F0FF');
+        updateRgbColorReference(document.getElementById('hexInputVal')?.value||'#00F0FF');
     </script>
 
 <script>
@@ -1261,7 +1275,7 @@ function receive(e){const d=e.data||{};
  else if(d.action==="rgb-result"||d.action==="host-error"){const s=document.getElementById("rgbStatusText");if(s)s.textContent=d.message;const b=document.getElementById("rgbApplyOne");if(b){b.disabled=false;b.textContent="Aplicar cor";}const cs=document.getElementById("mouseCalibrationStatus");if(cs&&d.action==="host-error")cs.textContent="Erro: "+d.message;}
  else if(d.action==="rgb-mouse-calibration"){document.getElementById("mouseCalRed").value=d.red;document.getElementById("mouseCalGreen").value=d.green;document.getElementById("mouseCalBlue").value=d.blue;updateMouseCalibrationLabels();}
  else if(d.action==="rgb-mouse-calibration-saved"||d.action==="rgb-mouse-calibration-applied"){document.getElementById("mouseCalibrationStatus").textContent=d.message||"Calibração atualizada.";}
-}window.updateMouseCalibrationLabels=()=>{["Red","Green","Blue"].forEach(ch=>{const v=document.getElementById("mouseCal"+ch).value;document.getElementById("mouseCal"+ch+"Value").textContent=v+"%";});};
+}window.updateMouseCalibrationLabels=()=>{["Red","Green","Blue"].forEach(ch=>{const v=document.getElementById("mouseCal"+ch).value;document.getElementById("mouseCal"+ch+"Value").textContent=v;});};
 const mouseCalibrationValues=()=>({red:Number(document.getElementById("mouseCalRed").value),green:Number(document.getElementById("mouseCalGreen").value),blue:Number(document.getElementById("mouseCalBlue").value)});
 window.applyMouseCalibration=()=>{const v=mouseCalibrationValues();post({action:"rgb-apply-mouse-calibration",...v,hex:hex.value,brightness:Number(bright.value)});document.getElementById("mouseCalibrationStatus").textContent="Aplicando calibração ao Logitech G203...";};
 window.saveMouseCalibration=()=>{post({action:"rgb-save-mouse-calibration",...mouseCalibrationValues()});document.getElementById("mouseCalibrationStatus").textContent="Salvando calibração...";};
