@@ -171,6 +171,7 @@ public partial class MainWindow : Window
         byte red = (byte)Math.Round(((rgb >> 16) & 0xFF) * brightness / 100.0);
         byte green = (byte)Math.Round(((rgb >> 8) & 0xFF) * brightness / 100.0);
         byte blue = (byte)Math.Round((rgb & 0xFF) * brightness / 100.0);
+        (red, green, blue) = ApplyControllerColorQuirks(device.Name, zone.Name, red, green, blue);
         await _openRgb.ApplyZoneColorAsync(deviceIndex, zoneIndex, ledCount, red, green, blue);
         SendHtmlMessage(new { action = "rgb-result", ok = true, message = $"Cor #{hex.ToUpperInvariant()} enviada para {device.Name} / {zone.Name}." });
     }
@@ -190,12 +191,29 @@ public partial class MainWindow : Window
         int applied = 0;
         foreach (var device in selected)
         {
-            var zones = device.Zones.Select((z, i) => (ZoneIndex: i, LedCount: z.LedCount)).Where(z => z.LedCount > 0).ToList();
-            if (zones.Count == 0) continue;
-            await _openRgb.ApplyDeviceZonesColorAsync(device.Index, zones, red, green, blue);
-            applied += zones.Count;
+            foreach (var zone in device.Zones.Select((z, i) => (Zone: z, Index: i)).Where(x => x.Zone.LedCount > 0))
+            {
+                var adjusted = ApplyControllerColorQuirks(device.Name, zone.Zone.Name, red, green, blue);
+                await _openRgb.ApplyZoneColorAsync(device.Index, zone.Index, zone.Zone.LedCount, adjusted.red, adjusted.green, adjusted.blue);
+                applied++;
+            }
         }
         SendHtmlMessage(new { action = "rgb-result", ok = true, message = $"Cor #{hex.ToUpperInvariant()} enviada para {applied} zona(s) em {selected.Count} dispositivo(s)." });
+    }
+
+    private static (byte red, byte green, byte blue) ApplyControllerColorQuirks(string deviceName, string zoneName, byte red, byte green, byte blue)
+    {
+        // MSI MPG B550 GAMING PLUS JRAINBOW2 uses the two least-significant
+        // bits of each channel as control flags in affected OpenRGB builds.
+        if (deviceName.Contains("MSI", StringComparison.OrdinalIgnoreCase)
+            && deviceName.Contains("B550", StringComparison.OrdinalIgnoreCase)
+            && zoneName.Contains("JRAINBOW2", StringComparison.OrdinalIgnoreCase))
+        {
+            red = (byte)(red & 0xFC);
+            green = (byte)(green & 0xFC);
+            blue = (byte)(blue & 0xFC);
+        }
+        return (red, green, blue);
     }
 
     private void CheckUpdatesFromHtml()
