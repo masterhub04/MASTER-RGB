@@ -123,6 +123,17 @@ public partial class MainWindow : Window
                 case "window-drag": try { DragMove(); } catch (InvalidOperationException) { } break;
                 case "check-updates": CheckUpdatesFromHtml(); break;
                 case "install-update": CheckUpdatesFromHtml(true); break;
+                case "mic-get-state": MasterMicView.HtmlInitialize(); SendHtmlMessage(new { action = "mic-state", state = MasterMicView.GetHtmlState() }); break;
+                case "mic-refresh-audio": MasterMicView.HtmlRefreshAudio(); SendHtmlMessage(new { action = "mic-state", state = MasterMicView.GetHtmlState() }); break;
+                case "mic-select-audio": MasterMicView.HtmlSelectAudio(root.GetProperty("id").GetString() ?? ""); SendHtmlMessage(new { action = "mic-state", state = MasterMicView.GetHtmlState() }); break;
+                case "mic-volume": MasterMicView.HtmlSetVolume(root.GetProperty("value").GetDouble()); SendHtmlMessage(new { action = "mic-state", state = MasterMicView.GetHtmlState() }); break;
+                case "mic-mute": MasterMicView.HtmlSetMute(root.GetProperty("muted").GetBoolean()); SendHtmlMessage(new { action = "mic-state", state = MasterMicView.GetHtmlState() }); break;
+                case "mic-effect": MasterMicView.HtmlSetEffect(root.GetProperty("effect").GetString() ?? "", root.GetProperty("enabled").GetBoolean()); SendHtmlMessage(new { action = "mic-state", state = MasterMicView.GetHtmlState() }); break;
+                case "mic-parameter": MasterMicView.HtmlSetParameter(root.GetProperty("parameter").GetString() ?? "", root.GetProperty("value").GetDouble()); SendHtmlMessage(new { action = "mic-state", state = MasterMicView.GetHtmlState() }); break;
+                case "mic-monitor": MasterMicView.HtmlToggleMonitor(); SendHtmlMessage(new { action = "mic-state", state = MasterMicView.GetHtmlState() }); break;
+                case "mic-refresh-usb": MasterMicView.HtmlRefreshUsb(root.GetProperty("showAll").GetBoolean()); SendHtmlMessage(new { action = "mic-state", state = MasterMicView.GetHtmlState() }); break;
+                case "mic-select-usb": MasterMicView.HtmlSelectUsb(root.GetProperty("id").GetString() ?? ""); SendHtmlMessage(new { action = "mic-state", state = MasterMicView.GetHtmlState() }); break;
+                case "mic-export-usb": MasterMicView.HtmlExportUsb(); break;
                 case "rgb-get-devices": await SendRgbDevicesToHtmlAsync(); break;
                 case "rgb-refresh-devices": await DetectOpenRgbDevicesAsync(); await SendRgbDevicesToHtmlAsync(); break;
                 case "rgb-run-diagnostic": RunDiagnostic_Click(this, new RoutedEventArgs()); break;
