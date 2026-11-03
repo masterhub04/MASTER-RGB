@@ -36,6 +36,7 @@ jobs:
       - name: Verify HTML interface
         shell: pwsh
         run: |
-          if (!(Test-Path 'HTML/index.html')) { throw 'HTML/index.html não foi encontrado.' }
-          $project = Get-Content 'MASTER_RGB.csproj' -Raw
-          if ($project -notmatch 'HTML\\index\.html') { throw 'HTML/index.html não está configurado para ser copiado para a saída.' }
+          $source = 'HTML/index.html'
+          $output = 'bin/Release/net8.0-windows/HTML/index.html'
+          if (!(Test-Path $source)) { throw 'HTML/index.html não foi encontrado.' }
+          if (!(Test-Path $output)) { throw 'HTML/index.html não foi copiado para a pasta de saída.' }
