@@ -172,6 +172,8 @@ public partial class MainWindow : Window
         byte green = (byte)Math.Round(((rgb >> 8) & 0xFF) * brightness / 100.0);
         byte blue = (byte)Math.Round((rgb & 0xFF) * brightness / 100.0);
         (red, green, blue) = ApplyControllerColorQuirks(device.Name, zone.Name, red, green, blue);
+        if (ledCount != zone.LedCount)
+            await _openRgb.ResizeZoneAsync(deviceIndex, zoneIndex, ledCount);
         await _openRgb.ApplyZoneColorAsync(deviceIndex, zoneIndex, ledCount, red, green, blue);
         SendHtmlMessage(new { action = "rgb-result", ok = true, message = $"Cor #{hex.ToUpperInvariant()} enviada para {device.Name} / {zone.Name}." });
     }
@@ -904,6 +906,8 @@ public partial class MainWindow : Window
             byte red = (byte)Math.Round(((rgb >> 16) & 0xFF) * brightness);
             byte green = (byte)Math.Round(((rgb >> 8) & 0xFF) * brightness);
             byte blue = (byte)Math.Round((rgb & 0xFF) * brightness);
+            if (configuredLedCount != zone.LedCount)
+                await _openRgb.ResizeZoneAsync(device.Index, zone.Index, configuredLedCount);
             await _openRgb.ApplyZoneColorAsync(device.Index, zone.Index, configuredLedCount, red, green, blue);
             EngineStatusText.Text = "Cor enviada ao OpenRGB";
             EngineStatusText.Foreground = Brushes.LightGreen;
