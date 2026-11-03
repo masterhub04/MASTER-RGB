@@ -148,7 +148,7 @@ public partial class MainWindow : Window
             if (_devices.Count == 0) await DetectOpenRgbDevicesAsync();
             var devices = _devices.Select(d => new {
                 index = d.Index, name = d.Name,
-                zones = d.Zones.Select((z, i) => new { index = i, name = z.Name, ledCount = z.LedCount })
+                zones = d.Zones.Select((z, i) => new { index = i, name = z.Name, ledCount = GetConfiguredLedCount(d, new ZoneRow(i, z.Name, z.LedCount)) })
             }).ToArray();
             SendHtmlMessage(new { action = "rgb-devices", devices });
         }
@@ -195,15 +195,24 @@ public partial class MainWindow : Window
             var zones = device.Zones.Select((zone, zoneIndex) =>
             {
                 var adjusted = ApplyControllerColorQuirks(device.Name, zone.Name, red, green, blue);
-                return (ZoneIndex: zoneIndex, LedCount: zone.LedCount, Red: adjusted.red, Green: adjusted.green, Blue: adjusted.blue);
+                var zoneRow = new ZoneRow(zoneIndex, zone.Name, zone.LedCount);
+                return (ZoneIndex: zoneIndex, LedCount: GetConfiguredLedCount(device, zoneRow), Red: adjusted.red, Green: adjusted.green, Blue: adjusted.blue);
             }).Where(zone => zone.LedCount > 0).ToArray();
             return (Device: device, Zones: zones);
         }).Where(batch => batch.Zones.Length > 0).ToArray();
 
         // Cada dispositivo recebe sua cor em paralelo. Dentro de cada dispositivo,
         // todas as zonas seguem pela mesma conexão do SDK para evitar atrasos em cascata.
-        await Task.WhenAll(batches.Select(batch =>
-            _openRgb.ApplyDeviceZonesColorAsync(batch.Device.Index, batch.Zones)));
+        await Task.WhenAll(batches.Select(async batch =>
+        {
+            foreach (var zone in batch.Zones)
+            {
+                var detected = batch.Device.Zones[zone.ZoneIndex];
+                if (zone.LedCount != detected.LedCount)
+                    await _openRgb.ResizeZoneAsync(batch.Device.Index, zone.ZoneIndex, zone.LedCount);
+            }
+            await _openRgb.ApplyDeviceZonesColorAsync(batch.Device.Index, batch.Zones);
+        }));
 
         int applied = batches.Sum(batch => batch.Zones.Length);
         SendHtmlMessage(new { action = "rgb-result", ok = true, message = $"Cor #{hex.ToUpperInvariant()} enviada para {applied} zona(s) em {selected.Count} dispositivo(s)." });
@@ -778,10 +787,15 @@ public partial class MainWindow : Window
                 var groupTargets = deviceGroup.ToList();
                 var zoneCommands = groupTargets.Select(target => (
                     ZoneIndex: target.Zone.Index,
-                    LedCount: _zoneLedOverrides.TryGetValue(GetZoneKey(target.Device, target.Zone), out int configured)
-                        ? configured : target.Zone.LedCount)).ToList();
+                    LedCount: GetConfiguredLedCount(target.Device, target.Zone))).ToList();
                 try
                 {
+                    foreach (var command in zoneCommands)
+                    {
+                        var detected = deviceGroup.Key.Zones[command.ZoneIndex];
+                        if (command.LedCount != detected.LedCount)
+                            await _openRgb.ResizeZoneAsync(deviceGroup.Key.Index, command.ZoneIndex, command.LedCount);
+                    }
                     await _openRgb.ApplyDeviceZonesColorAsync(deviceGroup.Key.Index, zoneCommands, red, green, blue);
                     System.Threading.Interlocked.Add(ref succeeded, groupTargets.Count);
                 }
@@ -825,7 +839,7 @@ public partial class MainWindow : Window
             return;
         }
         string key = GetZoneKey(device, zone);
-        int configured = _zoneLedOverrides.TryGetValue(key, out int value) ? value : zone.LedCount;
+        int configured = GetConfiguredLedCount(device, zone);
         ZoneLedCountBox.Text = configured.ToString(CultureInfo.InvariantCulture);
         ZoneLedCountInfo.Text = $"Detectados pelo OpenRGB: {zone.LedCount} • Ajuste conforme a quantidade física";
     }
@@ -971,6 +985,21 @@ public partial class MainWindow : Window
                 StatusText.Text = $"Cor {hex} removida das favoritas.";
             }
         }
+    }
+
+    private static bool IsMsiArgbHeader(DeviceRow device, ZoneRow zone) =>
+        device.Name.Contains("MSI", StringComparison.OrdinalIgnoreCase)
+        && device.Name.Contains("B550", StringComparison.OrdinalIgnoreCase)
+        && (zone.Name.Contains("JRAINBOW1", StringComparison.OrdinalIgnoreCase)
+            || zone.Name.Contains("JRAINBOW2", StringComparison.OrdinalIgnoreCase));
+
+    private int GetConfiguredLedCount(DeviceRow device, ZoneRow zone)
+    {
+        if (_zoneLedOverrides.TryGetValue(GetZoneKey(device, zone), out int configured))
+            return configured;
+
+        // Default físico solicitado para os dois headers ARGB da MSI MPG B550 Gaming Plus.
+        return IsMsiArgbHeader(device, zone) ? 8 : zone.LedCount;
     }
 
     private static string GetZoneKey(DeviceRow device, ZoneRow zone) => $"{device.Name}|{zone.Name}|{zone.Index}";
