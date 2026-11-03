@@ -708,12 +708,12 @@
             <div class="config-card-box">
                 <h3>Atualização do Aplicativo</h3>
                 <p>Verifique a integridade e busque por novas versões do Master Hub.</p>
-                <div style="display: flex; align-items: center; gap: 16px; margin-top: 12px;">
-                    <button class="btn-glow led-element" id="updateBtn" onclick="checkAppUpdate()">Verificar atualização</button>
-                    <div style="display: flex; flex-direction: column; gap: 2px;">
-                        <span style="font-size: 12px; font-weight: 700; color: var(--text-bright);" id="updateStatusText">Versão atual: v1.0.4</span>
-                        <span style="font-size: 10px; color: var(--text-dim);">Canal de atualização: Estável (Cyber Edition)</span>
-                    </div>
+                <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 12px;">
+                    <button class="btn-glow led-element" id="updateBtn" onclick="checkAppUpdate()">VERIFICAR ATUALIZAÇÃO</button>
+                    <span style="font-size: 11px; color: var(--text-dim);" id="currentVersionText">Versão instalada: verificando...</span>
+                    <span style="font-size: 11px; font-weight: 700; color: var(--text-bright);" id="availableVersionText"></span>
+                    <span style="font-size: 10px; color: var(--text-dim);">Canal de atualização: Estável (Cyber Edition)</span>
+                    <span style="font-size: 11px; color: var(--text-dim);" id="updateStatusText">Pronto para verificar atualizações.</span>
                 </div>
             </div>
 
@@ -847,25 +847,71 @@
             document.getElementById('brightnessValText').innerText = val + "%";
         }
 
-        /* Lógica do Botão de Atualização do App */
+        /* Atualização em duas etapas: verificar primeiro, instalar somente sob comando. */
         let isCheckingUpdate = false;
+        let updateIsAvailable = false;
+        function setUpdateButton(label, disabled, action) {
+            const btn = document.getElementById('updateBtn');
+            btn.innerText = label;
+            btn.disabled = disabled;
+            btn.style.opacity = disabled ? "0.55" : "1";
+            btn.style.pointerEvents = disabled ? "none" : "auto";
+            btn.onclick = action;
+        }
         function checkAppUpdate() {
             if (isCheckingUpdate) return;
+            if (updateIsAvailable) {
+                setUpdateButton("ATUALIZANDO...", true, null);
+                document.getElementById('updateStatusText').innerText = "Solicitando instalação da atualização...";
+                window.chrome.webview.postMessage({ action: "install-update" });
+                return;
+            }
             isCheckingUpdate = true;
-            const btn = document.getElementById('updateBtn');
-            const statusText = document.getElementById('updateStatusText');
-            btn.style.opacity = "0.55";
-            btn.style.pointerEvents = "none";
-            btn.innerText = "Verificando...";
-            statusText.innerText = "Solicitando verificação ao MASTER HUB...";
+            setUpdateButton("VERIFICANDO...", true, null);
+            document.getElementById('updateStatusText').innerText = "Consultando novas versões...";
+            document.getElementById('availableVersionText').innerText = "";
             if (window.chrome && window.chrome.webview) {
                 window.chrome.webview.postMessage({ action: "check-updates" });
             } else {
-                statusText.innerText = "A atualização nativa estará disponível quando executada pelo MASTER HUB.";
-                btn.style.opacity = "1";
-                btn.style.pointerEvents = "auto";
                 isCheckingUpdate = false;
+                setUpdateButton("VERIFICAR ATUALIZAÇÃO", false, checkAppUpdate);
+                document.getElementById('updateStatusText').innerText = "Abra o MASTER HUB para verificar atualizações.";
             }
+        }
+        function receiveUpdateMessage(data) {
+            const current = document.getElementById('currentVersionText');
+            const available = document.getElementById('availableVersionText');
+            const status = document.getElementById('updateStatusText');
+            if (data.currentVersion) current.innerText = "Versão instalada: v" + data.currentVersion;
+            if (data.action === "update-checking") {
+                isCheckingUpdate = true;
+                setUpdateButton("VERIFICANDO...", true, null);
+                status.innerText = "Consultando o GitHub...";
+            } else if (data.action === "update-check-result") {
+                isCheckingUpdate = false;
+                updateIsAvailable = !!data.available;
+                available.innerText = data.available ? "Versão disponível: v" + data.availableVersion : "";
+                status.innerText = data.message || "";
+                setUpdateButton(updateIsAvailable ? "ATUALIZAR" : "VERIFICAR ATUALIZAÇÃO", false, checkAppUpdate);
+            } else if (data.action === "update-installing") {
+                updateIsAvailable = false;
+                setUpdateButton("ATUALIZANDO...", true, null);
+                if (data.availableVersion) available.innerText = "Versão disponível: v" + data.availableVersion;
+                status.innerText = data.message || "Preparando atualização...";
+            } else if (data.action === "update-error") {
+                isCheckingUpdate = false;
+                updateIsAvailable = false;
+                available.innerText = "";
+                status.innerText = data.message || "Erro ao atualizar.";
+                setUpdateButton("VERIFICAR ATUALIZAÇÃO", false, checkAppUpdate);
+            }
+        }
+        if (window.chrome && window.chrome.webview) {
+            window.chrome.webview.addEventListener("message", event => {
+                const data = event.data || {};
+                if (["update-checking", "update-check-result", "update-installing", "update-error"].includes(data.action))
+                    receiveUpdateMessage(data);
+            });
         }
 
         function setTheme(themeName, element) {
