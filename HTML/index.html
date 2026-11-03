@@ -689,15 +689,15 @@
                         </div>
 
                         <div class="rgb-panel" style="margin-top:16px;border:1px solid rgba(0,200,255,.28);">
-                            <h3 style="margin:0 0 6px;">Calibração manual • Logitech G203</h3>
-                            <p style="font-size:12px;color:var(--text-dim);margin-bottom:14px;">Ajuste cada canal para compensar a diferença de tonalidade do mouse. A calibração afeta somente o G203; os demais LEDs continuam recebendo a cor original.</p>
+                            <h3 style="margin:0 0 6px;">Calibração manual • <span id="calibrationDeviceName">Selecione um dispositivo</span></h3>
+                            <p style="font-size:12px;color:var(--text-dim);margin-bottom:14px;">Ajuste os canais RGB do dispositivo selecionado acima. Cada dispositivo mantém sua própria calibração, salva individualmente.</p>
                             <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;">
                                 <div><label for="mouseCalRed" style="display:block;font-size:11px;margin-bottom:6px;">Vermelho <b id="mouseCalRedValue">255</b></label><input id="mouseCalRed" type="range" min="0" max="255" value="255" class="range-slider" oninput="updateMouseCalibrationLabels()"></div>
                                 <div><label for="mouseCalGreen" style="display:block;font-size:11px;margin-bottom:6px;">Verde <b id="mouseCalGreenValue">255</b></label><input id="mouseCalGreen" type="range" min="0" max="255" value="255" class="range-slider" oninput="updateMouseCalibrationLabels()"></div>
                                 <div><label for="mouseCalBlue" style="display:block;font-size:11px;margin-bottom:6px;">Azul <b id="mouseCalBlueValue">255</b></label><input id="mouseCalBlue" type="range" min="0" max="255" value="255" class="range-slider" oninput="updateMouseCalibrationLabels()"></div>
                             </div>
                             <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;">
-                                <button class="btn-glow" type="button" onclick="applyMouseCalibration()">Aplicar calibração ao mouse</button>
+                                <button class="btn-glow" type="button" onclick="applyMouseCalibration()">Aplicar calibração ao dispositivo</button>
                                 <button class="btn-outline" type="button" onclick="saveMouseCalibration()">Salvar calibração</button>
                             </div>
                             <div id="mouseCalibrationStatus" style="font-size:11px;color:var(--text-dim);margin-top:10px;">Calibração padrão: RGB 255 / 255 / 255 (sem alteração da cor original).</div>
@@ -1269,23 +1269,32 @@
 const post = p => { if (window.chrome && window.chrome.webview) window.chrome.webview.postMessage(p); };
 let devices = [];
 const ds=document.getElementById("rgbDeviceSelect"), zs=document.getElementById("rgbZoneSelect"), leds=document.getElementById("rgbLedCount"), hex=document.getElementById("hexInputVal"), bright=document.getElementById("brightnessRange"), group=document.getElementById("rgbGroupDevices");
-function zones(){ const d=devices.find(x=>x.index===Number(ds.value)); zs.innerHTML=""; if(!d||!d.zones.length){zs.add(new Option("Nenhuma zona disponível",""));leds.value=0;return;} d.zones.forEach(z=>zs.add(new Option(z.name+" • "+z.ledCount+" LED(s)",z.index))); count(); }
-function count(){const d=devices.find(x=>x.index===Number(ds.value));const z=d&&d.zones.find(x=>x.index===Number(zs.value));if(z)leds.value=z.ledCount;}
+function selectedDevice(){return devices.find(x=>x.index===Number(ds.value));}
+function loadSelectedDeviceCalibration(){
+ const device=selectedDevice(),name=document.getElementById("calibrationDeviceName"),status=document.getElementById("mouseCalibrationStatus");
+ if(name)name.textContent=device?device.name:"Selecione um dispositivo";
+ if(!device){if(status)status.textContent="Selecione um dispositivo RGB para configurar a calibração.";return;}
+ if(status)status.textContent="Carregando calibração de "+device.name+"...";
+ post({action:"rgb-get-device-calibration",deviceIndex:device.index});
+}
+function zones(){const d=selectedDevice();zs.innerHTML="";if(!d||!d.zones.length){zs.add(new Option("Nenhuma zona disponível",""));leds.value=0;loadSelectedDeviceCalibration();return;}d.zones.forEach(z=>zs.add(new Option(z.name+" • "+z.ledCount+" LED(s)",z.index)));count();loadSelectedDeviceCalibration();}
+function count(){const d=selectedDevice(),z=d&&d.zones.find(x=>x.index===Number(zs.value));if(z)leds.value=z.ledCount;}
 function receive(e){const d=e.data||{};
- if(d.action==="rgb-devices"){devices=(d.devices||[]).filter((v,i,a)=>a.findIndex(x=>x.name.trim().toLowerCase()===v.name.trim().toLowerCase())===i);ds.innerHTML="";group.replaceChildren();devices.forEach((v,i)=>{ds.add(new Option(v.name,v.index));const l=document.createElement("label"),c=document.createElement("input");c.type="checkbox";c.value=v.index;c.checked=i===0;l.append(c,document.createTextNode(" "+v.name));group.append(l);});if(!devices.length){ds.add(new Option("Nenhum dispositivo detectado",""));group.textContent="Nenhum dispositivo RGB detectado pelo OpenRGB.";}zones();}
+ if(d.action==="rgb-devices"){const previous=ds.value;devices=(d.devices||[]).filter((v,i,a)=>a.findIndex(x=>x.name.trim().toLowerCase()===v.name.trim().toLowerCase())===i);ds.innerHTML="";group.replaceChildren();devices.forEach((v,i)=>{ds.add(new Option(v.name,v.index));const l=document.createElement("label"),c=document.createElement("input");c.type="checkbox";c.value=v.index;c.checked=i===0;l.append(c,document.createTextNode(" "+v.name));group.append(l);});if(!devices.length){ds.add(new Option("Nenhum dispositivo detectado",""));group.textContent="Nenhum dispositivo RGB detectado pelo OpenRGB.";}else if(devices.some(v=>String(v.index)===previous)){ds.value=previous;}zones();}
  else if(d.action==="rgb-result"||d.action==="host-error"){const s=document.getElementById("rgbStatusText");if(s)s.textContent=d.message;const b=document.getElementById("rgbApplyOne");if(b){b.disabled=false;b.textContent="Aplicar cor";}const cs=document.getElementById("mouseCalibrationStatus");if(cs&&d.action==="host-error")cs.textContent="Erro: "+d.message;}
- else if(d.action==="rgb-mouse-calibration"){document.getElementById("mouseCalRed").value=d.red;document.getElementById("mouseCalGreen").value=d.green;document.getElementById("mouseCalBlue").value=d.blue;updateMouseCalibrationLabels();}
- else if(d.action==="rgb-mouse-calibration-saved"||d.action==="rgb-mouse-calibration-applied"){document.getElementById("mouseCalibrationStatus").textContent=d.message||"Calibração atualizada.";}
+ else if(d.action==="rgb-device-calibration"&&Number(ds.value)===Number(d.deviceIndex)){document.getElementById("mouseCalRed").value=d.red;document.getElementById("mouseCalGreen").value=d.green;document.getElementById("mouseCalBlue").value=d.blue;updateMouseCalibrationLabels();const name=document.getElementById("calibrationDeviceName");if(name)name.textContent=d.deviceName;document.getElementById("mouseCalibrationStatus").textContent="Perfil carregado para "+d.deviceName+".";}
+ else if(d.action==="rgb-device-calibration-saved"||d.action==="rgb-device-calibration-applied"){document.getElementById("mouseCalibrationStatus").textContent=d.message||"Calibração atualizada.";}
 }window.updateMouseCalibrationLabels=()=>{["Red","Green","Blue"].forEach(ch=>{const v=document.getElementById("mouseCal"+ch).value;document.getElementById("mouseCal"+ch+"Value").textContent=v;});};
 const mouseCalibrationValues=()=>({red:Number(document.getElementById("mouseCalRed").value),green:Number(document.getElementById("mouseCalGreen").value),blue:Number(document.getElementById("mouseCalBlue").value)});
-window.applyMouseCalibration=()=>{const v=mouseCalibrationValues();post({action:"rgb-apply-mouse-calibration",...v,hex:hex.value,brightness:Number(bright.value)});document.getElementById("mouseCalibrationStatus").textContent="Aplicando calibração ao Logitech G203...";};
-window.saveMouseCalibration=()=>{post({action:"rgb-save-mouse-calibration",...mouseCalibrationValues()});document.getElementById("mouseCalibrationStatus").textContent="Salvando calibração...";};
+window.applyMouseCalibration=()=>{const device=selectedDevice();if(!device){document.getElementById("mouseCalibrationStatus").textContent="Selecione um dispositivo RGB.";return;}const v=mouseCalibrationValues();post({action:"rgb-apply-device-calibration",deviceIndex:device.index,...v,hex:hex.value,brightness:Number(bright.value)});document.getElementById("mouseCalibrationStatus").textContent="Aplicando calibração em "+device.name+"...";};
+window.saveMouseCalibration=()=>{const device=selectedDevice();if(!device){document.getElementById("mouseCalibrationStatus").textContent="Selecione um dispositivo RGB.";return;}post({action:"rgb-save-device-calibration",deviceIndex:device.index,...mouseCalibrationValues()});document.getElementById("mouseCalibrationStatus").textContent="Salvando calibração de "+device.name+"...";};
 if(window.chrome&&window.chrome.webview)window.chrome.webview.addEventListener("message",receive);
 ds.addEventListener("change",zones);zs.addEventListener("change",count);
+
 const selectAllButton=document.getElementById("rgbSelectAll"),clearAllButton=document.getElementById("rgbClearAll");
 selectAllButton?.addEventListener("click",()=>{group.querySelectorAll('input[type="checkbox"]').forEach(c=>{c.checked=true;});});
 clearAllButton?.addEventListener("click",()=>{group.querySelectorAll('input[type="checkbox"]').forEach(c=>{c.checked=false;});});
-window.addEventListener("DOMContentLoaded",()=>{post({action:"rgb-get-devices"});post({action:"rgb-get-mouse-calibration"});});
+window.addEventListener("DOMContentLoaded",()=>{post({action:"rgb-get-devices"});});
 window.applyHtmlRgbColor=()=>{const d=devices.find(x=>x.index===Number(ds.value)),z=d&&d.zones.find(x=>x.index===Number(zs.value));if(!d||!z){document.getElementById("rgbStatusText").textContent="Selecione um dispositivo e uma zona.";return;}post({action:"rgb-apply-color",deviceIndex:d.index,zoneIndex:z.index,ledCount:Number(leds.value),hex:hex.value,brightness:Number(bright.value)});const b=document.getElementById("rgbApplyOne");b.disabled=true;b.textContent="Aplicando...";};
 window.applyHtmlRgbGroup=()=>{const ids=[...group.querySelectorAll("input:checked")].map(x=>Number(x.value));post({action:"rgb-apply-group",deviceIndices:ids,hex:hex.value,brightness:Number(bright.value)});};
 window.refreshHtmlRgbDevices=()=>post({action:"rgb-refresh-devices"});
