@@ -48,6 +48,7 @@ public partial class MainWindow : Window
     private bool _minimizeToTray;
     private bool _allowExit;
     private int _mouseRedGain = 255, _mouseGreenGain = 255, _mouseBlueGain = 255;
+    private readonly Dictionary<string, RgbCalibration> _deviceCalibrations = new(StringComparer.OrdinalIgnoreCase);
     private string? _lastMouseColorHex;
     private int _lastMouseColorBrightness = 100;
     private bool _hasSavedMouseColor;
@@ -148,17 +149,9 @@ public partial class MainWindow : Window
                 case "rgb-run-diagnostic": RunDiagnostic_Click(this, new RoutedEventArgs()); break;
                 case "rgb-apply-color": await ApplyHtmlRgbColorAsync(root); break;
                 case "rgb-apply-group": await ApplyHtmlRgbGroupAsync(root); break;
-                case "rgb-get-mouse-calibration":
-                    SendHtmlMessage(new { action = "rgb-mouse-calibration", red = _mouseRedGain, green = _mouseGreenGain, blue = _mouseBlueGain });
-                    break;
-                case "rgb-save-mouse-calibration":
-                    _mouseRedGain = Math.Clamp(root.GetProperty("red").GetInt32(), 0, 255);
-                    _mouseGreenGain = Math.Clamp(root.GetProperty("green").GetInt32(), 0, 255);
-                    _mouseBlueGain = Math.Clamp(root.GetProperty("blue").GetInt32(), 0, 255);
-                    SaveUserSettings();
-                    SendHtmlMessage(new { action = "rgb-mouse-calibration-saved", message = "Calibração do mouse salva." });
-                    break;
-                case "rgb-apply-mouse-calibration": await ApplyHtmlMouseCalibrationAsync(root); break;
+                case "rgb-get-device-calibration": SendDeviceCalibrationToHtml(root); break;
+                case "rgb-save-device-calibration": SaveDeviceCalibrationFromHtml(root); break;
+                case "rgb-apply-device-calibration": await ApplyHtmlDeviceCalibrationAsync(root); break;
                 case "boost-dashboard": SendHtmlMessage(new { action = "boost-dashboard", data = _boostGame.GetDashboard() }); break;
                 case "optimize-startup-list": SendHtmlMessage(new { action = "optimize-startup-list", items = _optimizeSystem.GetStartupItems() }); break;
                 case "optimize-services-list": SendHtmlMessage(new { action = "optimize-services-list", items = _optimizeSystem.GetOptionalServices() }); break;
@@ -216,7 +209,7 @@ public partial class MainWindow : Window
         byte green = (byte)Math.Round(((rgb >> 8) & 0xFF) * brightness / 100.0);
         byte blue = (byte)Math.Round((rgb & 0xFF) * brightness / 100.0);
         (red, green, blue) = ApplyControllerColorQuirks(device.Name, zone.Name, red, green, blue);
-        if (IsLogitechG203(device)) (red, green, blue) = ApplyMouseCalibration(red, green, blue);
+        (red, green, blue) = ApplyDeviceCalibration(device, red, green, blue);
         if (ledCount != zone.LedCount)
             await _openRgb.ResizeZoneAsync(deviceIndex, zoneIndex, ledCount);
         await _openRgb.ApplyDeviceZonesColorAsync(deviceIndex, new[] { (ZoneIndex: zoneIndex, LedCount: ledCount, Red: red, Green: green, Blue: blue) });
@@ -241,7 +234,7 @@ public partial class MainWindow : Window
             var zones = device.Zones.Select((zone, zoneIndex) =>
             {
                 var adjusted = ApplyControllerColorQuirks(device.Name, zone.Name, red, green, blue);
-                if (IsLogitechG203(device)) adjusted = ApplyMouseCalibration(adjusted.red, adjusted.green, adjusted.blue);
+                adjusted = ApplyDeviceCalibration(device, adjusted.red, adjusted.green, adjusted.blue);
                 var zoneRow = new ZoneRow(zoneIndex, zone.Name, zone.LedCount);
                 return (ZoneIndex: zoneIndex, LedCount: GetConfiguredLedCount(device, zoneRow), Red: adjusted.red, Green: adjusted.green, Blue: adjusted.blue);
             }).Where(zone => zone.LedCount > 0).ToArray();
@@ -270,44 +263,101 @@ public partial class MainWindow : Window
     private static bool IsLogitechG203(DeviceRow device) =>
         device.Name.Contains("G203", StringComparison.OrdinalIgnoreCase);
 
-    private (byte red, byte green, byte blue) ApplyMouseCalibration(byte red, byte green, byte blue) =>
-        ((byte)Math.Clamp((int)Math.Round(red * _mouseRedGain / 255.0), 0, 255),
-         (byte)Math.Clamp((int)Math.Round(green * _mouseGreenGain / 255.0), 0, 255),
-         (byte)Math.Clamp((int)Math.Round(blue * _mouseBlueGain / 255.0), 0, 255));
-
-    private async Task ApplyHtmlMouseCalibrationAsync(JsonElement root)
+    private RgbCalibration GetDeviceCalibration(DeviceRow device)
     {
-        int rGain = Math.Clamp(root.GetProperty("red").GetInt32(), 0, 200);
-        int gGain = Math.Clamp(root.GetProperty("green").GetInt32(), 0, 200);
-        int bGain = Math.Clamp(root.GetProperty("blue").GetInt32(), 0, 200);
+        if (_deviceCalibrations.TryGetValue(device.Name, out var calibration))
+            return calibration;
+
+        // Migra a calibração antiga do G203 para o perfil individual na primeira leitura.
+        if (IsLogitechG203(device) && (_mouseRedGain != 255 || _mouseGreenGain != 255 || _mouseBlueGain != 255))
+        {
+            calibration = new RgbCalibration(Math.Clamp(_mouseRedGain, 0, 255),
+                Math.Clamp(_mouseGreenGain, 0, 255), Math.Clamp(_mouseBlueGain, 0, 255));
+            _deviceCalibrations[device.Name] = calibration;
+            SaveUserSettings();
+            return calibration;
+        }
+        return new RgbCalibration(255, 255, 255);
+    }
+
+    private (byte red, byte green, byte blue) ApplyDeviceCalibration(DeviceRow device, byte red, byte green, byte blue)
+    {
+        var calibration = GetDeviceCalibration(device);
+        return ((byte)Math.Clamp((int)Math.Round(red * calibration.Red / 255.0), 0, 255),
+            (byte)Math.Clamp((int)Math.Round(green * calibration.Green / 255.0), 0, 255),
+            (byte)Math.Clamp((int)Math.Round(blue * calibration.Blue / 255.0), 0, 255));
+    }
+
+    private DeviceRow GetCalibrationTarget(JsonElement root)
+    {
+        int deviceIndex = root.GetProperty("deviceIndex").GetInt32();
+        return _devices.FirstOrDefault(d => d.Index == deviceIndex)
+            ?? throw new InvalidOperationException("Selecione um dispositivo RGB válido.");
+    }
+
+    private void SendDeviceCalibrationToHtml(JsonElement root)
+    {
+        var device = GetCalibrationTarget(root);
+        var calibration = GetDeviceCalibration(device);
+        SendHtmlMessage(new { action = "rgb-device-calibration", deviceIndex = device.Index,
+            deviceName = device.Name, red = calibration.Red, green = calibration.Green, blue = calibration.Blue });
+    }
+
+    private void SaveDeviceCalibrationFromHtml(JsonElement root)
+    {
+        var device = GetCalibrationTarget(root);
+        _deviceCalibrations[device.Name] = new RgbCalibration(
+            Math.Clamp(root.GetProperty("red").GetInt32(), 0, 255),
+            Math.Clamp(root.GetProperty("green").GetInt32(), 0, 255),
+            Math.Clamp(root.GetProperty("blue").GetInt32(), 0, 255));
+        SaveUserSettings();
+        SendHtmlMessage(new { action = "rgb-device-calibration-saved",
+            message = $"Calibração de {device.Name} salva." });
+    }
+
+    private async Task ApplyHtmlDeviceCalibrationAsync(JsonElement root)
+    {
+        var device = GetCalibrationTarget(root);
+        var calibration = new RgbCalibration(
+            Math.Clamp(root.GetProperty("red").GetInt32(), 0, 255),
+            Math.Clamp(root.GetProperty("green").GetInt32(), 0, 255),
+            Math.Clamp(root.GetProperty("blue").GetInt32(), 0, 255));
         string hex = root.GetProperty("hex").GetString()?.Trim().TrimStart('#') ?? "";
         int brightness = root.TryGetProperty("brightness", out var value) ? Math.Clamp(value.GetInt32(), 0, 100) : 100;
         if (hex.Length != 6 || !uint.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint rgb))
             throw new InvalidOperationException("Escolha uma cor HEX válida.");
-        var mouse = _devices.FirstOrDefault(IsLogitechG203) ?? throw new InvalidOperationException("Logitech G203 não encontrado. Atualize a lista.");
-        // A aplicação atualiza a calibração ativa em memória; o botão Salvar grava os valores no perfil.
-        _mouseRedGain = rGain;
-        _mouseGreenGain = gGain;
-        _mouseBlueGain = bGain;
-        var zones = mouse.Zones.Select((z, i) =>
+
+        var zones = device.Zones.Select((zone, index) =>
         {
-            byte r = (byte)Math.Round(((rgb >> 16) & 255) * brightness / 100.0);
-            byte g = (byte)Math.Round(((rgb >> 8) & 255) * brightness / 100.0);
-            byte b = (byte)Math.Round((rgb & 255) * brightness / 100.0);
-            (r, g, b) = ApplyControllerColorQuirks(mouse.Name, z.Name, r, g, b);
-            r = (byte)Math.Clamp((int)Math.Round(r * rGain / 255.0), 0, 255);
-            g = (byte)Math.Clamp((int)Math.Round(g * gGain / 255.0), 0, 255);
-            b = (byte)Math.Clamp((int)Math.Round(b * bGain / 255.0), 0, 255);
-            return (ZoneIndex: i, LedCount: GetConfiguredLedCount(mouse, new ZoneRow(i, z.Name, z.LedCount)), Red: r, Green: g, Blue: b);
-        }).Where(z => z.LedCount > 0).ToArray();
-        if (zones.Length == 0) throw new InvalidOperationException("O G203 não informou uma zona RGB controlável.");
-        foreach (var z in zones) if (z.LedCount != mouse.Zones[z.ZoneIndex].LedCount) await _openRgb.ResizeZoneAsync(mouse.Index, z.ZoneIndex, z.LedCount);
-        await _openRgb.ApplyDeviceZonesColorAsync(mouse.Index, zones);
-        _lastMouseColorHex = "#" + hex.ToUpperInvariant();
-        _lastMouseColorBrightness = brightness;
-        _hasSavedMouseColor = true;
+            byte red = (byte)Math.Round(((rgb >> 16) & 255) * brightness / 100.0);
+            byte green = (byte)Math.Round(((rgb >> 8) & 255) * brightness / 100.0);
+            byte blue = (byte)Math.Round((rgb & 255) * brightness / 100.0);
+            (red, green, blue) = ApplyControllerColorQuirks(device.Name, zone.Name, red, green, blue);
+            red = (byte)Math.Clamp((int)Math.Round(red * calibration.Red / 255.0), 0, 255);
+            green = (byte)Math.Clamp((int)Math.Round(green * calibration.Green / 255.0), 0, 255);
+            blue = (byte)Math.Clamp((int)Math.Round(blue * calibration.Blue / 255.0), 0, 255);
+            return (ZoneIndex: index, LedCount: GetConfiguredLedCount(device, new ZoneRow(index, zone.Name, zone.LedCount)),
+                Red: red, Green: green, Blue: blue);
+        }).Where(zone => zone.LedCount > 0).ToArray();
+
+        if (zones.Length == 0)
+            throw new InvalidOperationException($"{device.Name} não informou zonas RGB controláveis.");
+        foreach (var zone in zones)
+            if (zone.LedCount != device.Zones[zone.ZoneIndex].LedCount)
+                await _openRgb.ResizeZoneAsync(device.Index, zone.ZoneIndex, zone.LedCount);
+        await _openRgb.ApplyDeviceZonesColorAsync(device.Index, zones);
+
+        _deviceCalibrations[device.Name] = calibration;
         SaveUserSettings();
-        SendHtmlMessage(new { action = "rgb-mouse-calibration-applied", message = "Calibração aplicada e configurações do mouse salvas." });
+        if (IsLogitechG203(device))
+        {
+            _lastMouseColorHex = "#" + hex.ToUpperInvariant();
+            _lastMouseColorBrightness = brightness;
+            _hasSavedMouseColor = true;
+            SaveUserSettings();
+        }
+        SendHtmlMessage(new { action = "rgb-device-calibration-applied",
+            message = $"Calibração aplicada em {device.Name}." });
     }
 
     private async Task ApplySavedMouseColorAsync()
@@ -321,7 +371,7 @@ public partial class MainWindow : Window
             byte g = (byte)Math.Round(((rgb >> 8) & 255) * _lastMouseColorBrightness / 100.0);
             byte b = (byte)Math.Round((rgb & 255) * _lastMouseColorBrightness / 100.0);
             (r, g, b) = ApplyControllerColorQuirks(mouse.Name, z.Name, r, g, b);
-            (r, g, b) = ApplyMouseCalibration(r, g, b);
+            (r, g, b) = ApplyDeviceCalibration(mouse, r, g, b);
             return (ZoneIndex: i, LedCount: GetConfiguredLedCount(mouse, new ZoneRow(i, z.Name, z.LedCount)), Red: r, Green: g, Blue: b);
         }).Where(z => z.LedCount > 0).ToArray();
         if (zones.Length == 0) return;
@@ -1325,6 +1375,15 @@ public partial class MainWindow : Window
             _lastMouseColorHex = NormalizeHexColor(settings.LastMouseColorHex);
             _lastMouseColorBrightness = Math.Clamp(settings.LastMouseColorBrightness, 0, 100);
             _hasSavedMouseColor = settings.HasSavedMouseColor && _lastMouseColorHex is not null;
+            _deviceCalibrations.Clear();
+            foreach (var pair in settings.DeviceCalibrations ?? new Dictionary<string, RgbCalibration>())
+            {
+                if (!string.IsNullOrWhiteSpace(pair.Key))
+                    _deviceCalibrations[pair.Key] = new RgbCalibration(
+                        Math.Clamp(pair.Value.Red, 0, 255),
+                        Math.Clamp(pair.Value.Green, 0, 255),
+                        Math.Clamp(pair.Value.Blue, 0, 255));
+            }
         }
         catch (Exception ex)
         {
@@ -1338,7 +1397,7 @@ public partial class MainWindow : Window
         {
             string? directory = System.IO.Path.GetDirectoryName(_userSettingsPath);
             if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
-            var settings = new UserSettings(_favoriteColors.Select(c => c.Hex).ToList(), _zoneLedOverrides, BrightnessSlider.Value, _currentTheme, _startWithWindows, _startMinimized, _uiAccentColor, _minimizeToTray, _mouseRedGain, _mouseGreenGain, _mouseBlueGain, _lastMouseColorHex, _lastMouseColorBrightness, _hasSavedMouseColor, 2);
+            var settings = new UserSettings(_favoriteColors.Select(c => c.Hex).ToList(), _zoneLedOverrides, BrightnessSlider.Value, _currentTheme, _startWithWindows, _startMinimized, _uiAccentColor, _minimizeToTray, _mouseRedGain, _mouseGreenGain, _mouseBlueGain, _lastMouseColorHex, _lastMouseColorBrightness, _hasSavedMouseColor, 3, _deviceCalibrations);
             File.WriteAllText(_userSettingsPath, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
         }
         catch (Exception ex)
@@ -1414,5 +1473,6 @@ public partial class MainWindow : Window
         if (save) SaveUserSettings();
     }
 
-    private sealed record UserSettings(List<string>? FavoriteColors, Dictionary<string, int>? ZoneLedOverrides, double Brightness = 100, string? Theme = "Blue", bool StartWithWindows = false, bool StartMinimized = false, string? UiAccentColor = "#0000FF", bool MinimizeToTray = false, int MouseRedGain = 255, int MouseGreenGain = 255, int MouseBlueGain = 255, string? LastMouseColorHex = null, int LastMouseColorBrightness = 100, bool HasSavedMouseColor = false, int MouseCalibrationVersion = 1);
+    private sealed record RgbCalibration(int Red, int Green, int Blue);
+    private sealed record UserSettings(List<string>? FavoriteColors, Dictionary<string, int>? ZoneLedOverrides, double Brightness = 100, string? Theme = "Blue", bool StartWithWindows = false, bool StartMinimized = false, string? UiAccentColor = "#0000FF", bool MinimizeToTray = false, int MouseRedGain = 255, int MouseGreenGain = 255, int MouseBlueGain = 255, string? LastMouseColorHex = null, int LastMouseColorBrightness = 100, bool HasSavedMouseColor = false, int MouseCalibrationVersion = 1, Dictionary<string, RgbCalibration>? DeviceCalibrations = null);
 }
