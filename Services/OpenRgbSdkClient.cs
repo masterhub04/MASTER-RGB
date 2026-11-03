@@ -98,7 +98,7 @@ public sealed class OpenRgbSdkClient
         await Task.Delay(100, timeout.Token);
     }
 
-    public async Task ApplyDeviceZonesColorAsync(int deviceIndex, IReadOnlyList<(int ZoneIndex, int LedCount)> zones, byte red, byte green, byte blue, CancellationToken cancellationToken = default)
+    public async Task ApplyDeviceZonesColorAsync(int deviceIndex, IReadOnlyList<(int ZoneIndex, int LedCount, byte Red, byte Green, byte Blue)> zones, CancellationToken cancellationToken = default)
     {
         if (deviceIndex < 0) throw new ArgumentOutOfRangeException(nameof(deviceIndex));
         if (zones.Count == 0) return;
@@ -113,13 +113,12 @@ public sealed class OpenRgbSdkClient
         await SendPacketAsync(stream, 0, SetClientName, Encoding.UTF8.GetBytes("MASTER RGB\0"), timeout.Token);
         await SendPacketAsync(stream, (uint)deviceIndex, SetCustomMode, Array.Empty<byte>(), timeout.Token);
 
-        // A troca para o modo Custom é feita uma única vez por dispositivo.
-        // Antes, cada zona abria uma conexão e repetia as esperas de 500 + 750 ms.
+        // Uma conexão e uma única troca para Custom por dispositivo.
         await Task.Delay(500, timeout.Token);
 
-        uint packedColor = (uint)red | ((uint)green << 8) | ((uint)blue << 16);
         foreach (var zone in zones)
         {
+            uint packedColor = (uint)zone.Red | ((uint)zone.Green << 8) | ((uint)zone.Blue << 16);
             byte[] payload = new byte[10 + (zone.LedCount * 4)];
             BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(0, 4), (uint)payload.Length);
             BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(4, 4), (uint)zone.ZoneIndex);
@@ -129,7 +128,6 @@ public sealed class OpenRgbSdkClient
             await SendPacketAsync(stream, (uint)deviceIndex, UpdateZoneLeds, payload, timeout.Token);
         }
 
-        // Pequena margem para o servidor encaminhar os buffers aos controladores.
         await Task.Delay(150, timeout.Token);
     }
 
