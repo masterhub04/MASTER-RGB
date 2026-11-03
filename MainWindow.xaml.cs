@@ -658,6 +658,19 @@ public partial class MainWindow : Window
         if (string.IsNullOrWhiteSpace(executable) || !File.Exists(executable))
             throw new InvalidOperationException("Não foi possível localizar o executável instalado do MASTER HUB.");
 
+        string targetPath = executable;
+        string arguments = minimized ? "--minimized" : string.Empty;
+        string? appDirectory = System.IO.Path.GetDirectoryName(executable);
+        string? installRoot = appDirectory is null ? null : Directory.GetParent(appDirectory)?.FullName;
+        string updater = installRoot is null ? string.Empty : System.IO.Path.Combine(installRoot, "Update.exe");
+        if (File.Exists(updater))
+        {
+            targetPath = updater;
+            arguments = minimized
+                ? "--processStart \"MASTER HUB.exe\" --process-start-args \"--minimized\""
+                : "--processStart \"MASTER HUB.exe\"";
+        }
+
         // Inicialização por atalho do perfil do usuário; remove o Run antigo para evitar duas instâncias.
         runKey.DeleteValue(appValueName, throwOnMissingValue: false);
         Type shellType = Type.GetTypeFromProgID("WScript.Shell")
@@ -668,9 +681,9 @@ public partial class MainWindow : Window
             ?? throw new InvalidOperationException("Não foi possível preparar o atalho de inicialização.");
         try
         {
-            shortcut.GetType().InvokeMember("TargetPath", System.Reflection.BindingFlags.SetProperty, null, shortcut, new object[] { executable });
-            shortcut.GetType().InvokeMember("Arguments", System.Reflection.BindingFlags.SetProperty, null, shortcut, new object[] { minimized ? "--minimized" : string.Empty });
-            shortcut.GetType().InvokeMember("WorkingDirectory", System.Reflection.BindingFlags.SetProperty, null, shortcut, new object[] { System.IO.Path.GetDirectoryName(executable) ?? AppContext.BaseDirectory });
+            shortcut.GetType().InvokeMember("TargetPath", System.Reflection.BindingFlags.SetProperty, null, shortcut, new object[] { targetPath });
+            shortcut.GetType().InvokeMember("Arguments", System.Reflection.BindingFlags.SetProperty, null, shortcut, new object[] { arguments });
+            shortcut.GetType().InvokeMember("WorkingDirectory", System.Reflection.BindingFlags.SetProperty, null, shortcut, new object[] { System.IO.Path.GetDirectoryName(targetPath) ?? AppContext.BaseDirectory });
             shortcut.GetType().InvokeMember("Description", System.Reflection.BindingFlags.SetProperty, null, shortcut, new object[] { "Iniciar MASTER HUB com o Windows" });
             shortcut.GetType().InvokeMember("WindowStyle", System.Reflection.BindingFlags.SetProperty, null, shortcut, new object[] { minimized ? 7 : 1 });
             shortcut.GetType().InvokeMember("Save", System.Reflection.BindingFlags.InvokeMethod, null, shortcut, null);
