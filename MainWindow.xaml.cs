@@ -644,15 +644,43 @@ public partial class MainWindow : Window
         const string appValueName = "MASTER RGB";
         using var runKey = Registry.CurrentUser.OpenSubKey(runKeyPath, writable: true)
             ?? Registry.CurrentUser.CreateSubKey(runKeyPath, writable: true);
+        string startupFolder = Environment.GetFolderPath(Environment.SpecialFolder.Startup);
+        Directory.CreateDirectory(startupFolder);
+        string shortcutPath = System.IO.Path.Combine(startupFolder, "MASTER HUB.lnk");
         if (!enabled)
         {
             runKey.DeleteValue(appValueName, throwOnMissingValue: false);
+            if (File.Exists(shortcutPath)) File.Delete(shortcutPath);
             return;
         }
-        string? executable = Environment.ProcessPath;
-        if (string.IsNullOrWhiteSpace(executable))
-            throw new InvalidOperationException("Não foi possível localizar o executável do MASTER RGB.");
-        runKey.SetValue(appValueName, $"\"{executable}\"{(minimized ? " --minimized" : string.Empty)}");
+
+        string? executable = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName ?? Environment.ProcessPath;
+        if (string.IsNullOrWhiteSpace(executable) || !File.Exists(executable))
+            throw new InvalidOperationException("Não foi possível localizar o executável instalado do MASTER HUB.");
+
+        // Usa a pasta Inicializar do usuário, reconhecida pelo Windows como app de inicialização.
+        // Remove a entrada Run antiga para evitar abrir duas instâncias do aplicativo.
+        runKey.DeleteValue(appValueName, throwOnMissingValue: false);
+        Type shellType = Type.GetTypeFromProgID("WScript.Shell")
+            ?? throw new InvalidOperationException("O componente WScript.Shell não está disponível.");
+        object shell = Activator.CreateInstance(shellType)
+            ?? throw new InvalidOperationException("Não foi possível criar o atalho de inicialização.");
+        object shortcut = shellType.InvokeMember("CreateShortcut", System.Reflection.BindingFlags.InvokeMethod, null, shell, new object[] { shortcutPath })
+            ?? throw new InvalidOperationException("Não foi possível preparar o atalho de inicialização.");
+        try
+        {
+            shortcut.GetType().InvokeMember("TargetPath", System.Reflection.BindingFlags.SetProperty, null, shortcut, new object[] { executable });
+            shortcut.GetType().InvokeMember("Arguments", System.Reflection.BindingFlags.SetProperty, null, shortcut, new object[] { minimized ? "--minimized" : string.Empty });
+            shortcut.GetType().InvokeMember("WorkingDirectory", System.Reflection.BindingFlags.SetProperty, null, shortcut, new object[] { System.IO.Path.GetDirectoryName(executable) ?? AppContext.BaseDirectory });
+            shortcut.GetType().InvokeMember("Description", System.Reflection.BindingFlags.SetProperty, null, shortcut, new object[] { "Iniciar MASTER HUB com o Windows" });
+            shortcut.GetType().InvokeMember("WindowStyle", System.Reflection.BindingFlags.SetProperty, null, shortcut, new object[] { minimized ? 7 : 1 });
+            shortcut.GetType().InvokeMember("Save", System.Reflection.BindingFlags.InvokeMethod, null, shortcut, null);
+        }
+        finally
+        {
+            if (Marshal.IsComObject(shortcut)) Marshal.FinalReleaseComObject(shortcut);
+            if (Marshal.IsComObject(shell)) Marshal.FinalReleaseComObject(shell);
+        }
     }
 
     private bool TryReadSelectedColor(out byte red, out byte green, out byte blue)
