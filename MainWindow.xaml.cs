@@ -124,6 +124,7 @@ public partial class MainWindow : Window
                 case "check-updates": CheckUpdatesFromHtml(); break;
                 case "rgb-get-devices": await SendRgbDevicesToHtmlAsync(); break;
                 case "rgb-refresh-devices": await DetectOpenRgbDevicesAsync(); await SendRgbDevicesToHtmlAsync(); break;
+                case "rgb-run-diagnostic": RunDiagnostic_Click(this, new RoutedEventArgs()); break;
                 case "rgb-apply-color": await ApplyHtmlRgbColorAsync(root); break;
                 case "rgb-apply-group": await ApplyHtmlRgbGroupAsync(root); break;
             }
@@ -644,6 +645,7 @@ public partial class MainWindow : Window
         {
             RunDiagnosticButton.IsEnabled = true;
             ConnectButtonState(false);
+            SendHtmlMessage(new { action = "rgb-diagnostic-finished" });
         }
     }
 
