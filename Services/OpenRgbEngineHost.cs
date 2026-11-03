@@ -22,19 +22,15 @@ public sealed class OpenRgbEngineHost : IDisposable
 
         string executable = Path.Combine(AppContext.BaseDirectory, "OpenRGB", "OpenRGB.exe");
 
+        // Reuse any existing SDK server on the standard port for compatibility.
+        // Blocking an external OpenRGB process here prevents device detection.
         if (await IsSdkPortAvailableAsync(cancellationToken))
-        {
-            if (IsExpectedOpenRgbProcess(executable))
-                return; // Reuse only the bundled OpenRGB executable.
+            return;
 
-            throw new InvalidOperationException(
-                "A porta 6742 já está ocupada por um servidor que não foi identificado como o OpenRGB integrado. " +
-                "Feche o OpenRGB externo (ou outro aplicativo que use essa porta) e tente novamente. " +
-                "O MASTER HUB não vai enviar comandos RGB para um servidor desconhecido.");
-        }
+        string executable = Path.Combine(AppContext.BaseDirectory, "OpenRGB", "OpenRGB.exe");
         if (!File.Exists(executable))
             throw new FileNotFoundException(
-                "O mecanismo OpenRGB integrado não foi encontrado. Reinstale/atualize o MASTER RGB para incluir os componentes de compatibilidade.",
+                "O mecanismo OpenRGB integrado não foi encontrado. Reinstale/atualize o MASTER HUB para incluir os componentes de compatibilidade.",
                 executable);
 
         var startInfo = new ProcessStartInfo
