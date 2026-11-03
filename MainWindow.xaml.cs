@@ -47,6 +47,10 @@ public partial class MainWindow : Window
     private bool _startMinimized;
     private bool _minimizeToTray;
     private bool _allowExit;
+    private int _mouseRedGain = 100, _mouseGreenGain = 100, _mouseBlueGain = 100;
+    private string? _lastMouseColorHex;
+    private int _lastMouseColorBrightness = 100;
+    private bool _hasSavedMouseColor;
     private Forms.NotifyIcon? _trayIcon;
     private readonly ObservableCollection<string> _notifications = new();
     private readonly ObservableCollection<FavoriteColorRow> _favoriteColors = new();
