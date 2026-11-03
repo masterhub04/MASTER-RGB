@@ -497,12 +497,30 @@
                             <div class="card-meta">
                                 <h3>BOOST GAME</h3>
                                 <p>DESEMPENHO E OTIMIZAÇÃO</p>
-                                <span>Monitore o sistema, gerencie inicialização e aplique otimizações para jogos e Windows.</span>
+                                <span>Monitore hardware e ajuste recursos de energia e jogos para melhorar sua experiência.</span>
                             </div>
                         </div>
                         <div class="status-badge"><span class="status-dot"></span> DISPONÍVEL</div>
                     </div>
                     <button class="btn-glow led-element" onclick="switchView('boost-game')">Abrir Aplicativo ➔</button>
+                </div>
+
+                <!-- OPTIMIZE SYSTEM -->
+                <div class="gamer-card led-element">
+                    <div class="card-top">
+                        <div class="card-title-area">
+                            <div class="card-icon-frame">
+                                <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"></path><circle cx="8" cy="7" r="2"></circle><circle cx="15" cy="12" r="2"></circle><circle cx="10" cy="17" r="2"></circle></svg>
+                            </div>
+                            <div class="card-meta">
+                                <h3>OPTIMIZE SYSTEM</h3>
+                                <p>MANUTENÇÃO E GERENCIAMENTO</p>
+                                <span>Gerencie a inicialização do Windows e libere espaço com a limpeza de arquivos temporários.</span>
+                            </div>
+                        </div>
+                        <div class="status-badge"><span class="status-dot"></span> DISPONÍVEL</div>
+                    </div>
+                    <button class="btn-glow led-element" onclick="switchView('optimize-system')">Abrir Aplicativo ➔</button>
                 </div>
             </div>
 
@@ -767,8 +785,6 @@
             <div><div class="rgb-product-header"><div class="rgb-product-icon">🎮</div><div class="rgb-product-title"><h3>BOOST GAME</h3><span>WINDOWS & GAMING OPTIMIZER</span></div></div>
             <div class="nav-section-title">Workspace</div><div class="nav-menu">
                 <div class="boost-nav-item active" data-boost-tab="dashboard" onclick="boostTab('dashboard')">▦ Painel geral</div>
-                <div class="boost-nav-item" data-boost-tab="startup" onclick="boostTab('startup')">▤ Inicialização</div>
-                <div class="boost-nav-item" data-boost-tab="cleanup" onclick="boostTab('cleanup')">⌫ Limpeza</div>
                 <div class="boost-nav-item" data-boost-tab="gaming" onclick="boostTab('gaming')">🎮 Gaming e energia</div>
                 <div class="boost-nav-item" onclick="switchView('hub')">← Aplicativos</div>
             </div></div><div class="sdk-status-box"><h5>BOOST GAME</h5><p>Ferramentas nativas do Windows</p></div>
@@ -780,8 +796,6 @@
                 <div class="boost-panel"><h3>Memória RAM</h3><div class="boost-stat"><span>Uso</span><strong id="boostRam">Lendo...</strong></div><div class="boost-meter"><i id="boostRamBar"></i></div></div>
                 <div class="boost-panel"><h3>Armazenamento</h3><div class="boost-stat"><span>Unidade</span><strong id="boostDisk">Lendo...</strong></div></div>
             </div><div class="boost-panel"><h3>Sistema operacional</h3><p id="boostOs">Consultando Windows...</p><div class="boost-actions"><button class="btn-glow" onclick="boostRefresh()">↻ Atualizar diagnóstico</button></div></div></section>
-            <section class="boost-tab" id="boost-tab-startup"><div class="boost-panel"><h3>Programas que iniciam com o Windows</h3><p>Desative apenas aplicativos que você reconhece. Componentes críticos do Windows não são exibidos para alteração.</p><div id="boostStartupList" class="boost-list">Carregando...</div><button class="btn-outline" onclick="boostLoadStartup()">↻ Atualizar lista</button></div></section>
-            <section class="boost-tab" id="boost-tab-cleanup"><div class="boost-panel"><h3>Limpeza de arquivos temporários</h3><p>A análise verifica arquivos temporários do usuário e do Windows. Arquivos em uso ou sem permissão serão ignorados.</p><div class="boost-clean-summary"><strong id="boostCleanSize">-- MB</strong><span id="boostCleanCount">Aguardando análise</span></div><div class="boost-actions"><button class="btn-outline" onclick="boostCleanPreview()">Analisar espaço</button><button class="btn-glow" id="boostCleanBtn" onclick="boostCleanRun()" disabled>Limpar temporários</button></div><p id="boostCleanStatus"></p></div></section>
             <section class="boost-tab" id="boost-tab-gaming"><div class="boost-grid">
                 <div class="boost-panel"><h3>Plano de energia</h3><p>Escolha um plano já instalado no Windows. O BOOST GAME não cria planos nem altera limites de tensão.</p><select id="boostPowerPlan" class="select-box" style="margin-top:14px"></select><div class="boost-actions"><button class="btn-glow" onclick="boostSetPowerPlan()">Aplicar plano</button></div><p id="boostPowerStatus"></p></div>
                 <div class="boost-panel"><h3>Recursos de jogos do Windows</h3><p>Altere preferências do usuário. Cada opção pode ser revertida aqui.</p><label class="boost-toggle"><span><b>Modo de Jogo</b><small>Prioriza a experiência durante jogos compatíveis.</small></span><input type="checkbox" id="boostGameMode" onchange="boostSetGameSetting('gameMode',this.checked)"></label><label class="boost-toggle"><span><b>Captura em segundo plano</b><small>Desative para evitar gravação em segundo plano se não usa Game DVR.</small></span><input type="checkbox" id="boostCaptures" onchange="boostSetGameSetting('captures',this.checked)"></label><p id="boostGameStatus"></p></div>
@@ -790,6 +804,25 @@
     </div>
 
     <!-- ========================================== -->
+
+    <!-- ========================================== -->
+    <!-- TELA OPTIMIZE SYSTEM                       -->
+    <!-- ========================================== -->
+    <div id="view-optimize" class="view-container">
+        <div class="boost-layout"><aside class="boost-sidebar">
+            <div><div class="rgb-product-header"><div class="rgb-product-icon">⚙️</div><div class="rgb-product-title"><h3>OPTIMIZE SYSTEM</h3><span>WINDOWS MAINTENANCE</span></div></div>
+            <div class="nav-section-title">Workspace</div><div class="nav-menu">
+                <div class="boost-nav-item active" data-optimize-tab="startup" onclick="optimizeTab('startup')">▤ Inicialização</div>
+                <div class="boost-nav-item" data-optimize-tab="cleanup" onclick="optimizeTab('cleanup')">⌫ Limpeza do sistema</div>
+                <div class="boost-nav-item" onclick="switchView('hub')">← Aplicativos</div>
+            </div></div><div class="sdk-status-box"><h5>OPTIMIZE SYSTEM</h5><p>Manutenção segura do Windows</p></div>
+        </aside><main class="boost-content">
+            <div class="boost-header"><div><h2 id="optimizePageTitle">INICIALIZAÇÃO</h2><p id="optimizePageDesc">Gerencie os aplicativos iniciados com o Windows.</p></div><button class="btn-outline" onclick="switchView('hub')">← Voltar ao Hub</button></div>
+            <section class="optimize-tab active" id="optimize-tab-startup"><div class="boost-panel"><h3>Programas que iniciam com o Windows</h3><p>Desative apenas aplicativos que você reconhece. Componentes críticos do Windows não são exibidos para alteração.</p><div id="optimizeStartupList" class="boost-list">Carregando...</div><button class="btn-outline" onclick="optimizeLoadStartup()">↻ Atualizar lista</button></div></section>
+            <section class="optimize-tab" id="optimize-tab-cleanup"><div class="boost-panel"><h3>Limpeza de arquivos temporários</h3><p>A análise verifica arquivos temporários do usuário e do Windows. Arquivos em uso ou sem permissão serão ignorados.</p><div class="boost-clean-summary"><strong id="optimizeCleanSize">-- MB</strong><span id="optimizeCleanCount">Aguardando análise</span></div><div class="boost-actions"><button class="btn-outline" onclick="optimizeCleanPreview()">Analisar espaço</button><button class="btn-glow" id="optimizeCleanBtn" onclick="optimizeCleanRun()" disabled>Limpar temporários</button></div><p id="optimizeCleanStatus"></p></div></section>
+        </main></div>
+    </div>
+
     <!-- TELA 5: CONFIGURAÇÕES                      -->
     <!-- ========================================== -->
     <div id="view-config" class="view-container">
@@ -879,6 +912,10 @@
             } else if(viewName === 'boost-game') {
                 document.getElementById('view-boost').classList.add('active');
                 document.getElementById('topTitle').innerText = "BOOST GAME • Painel de Desempenho";
+            } else if(viewName === 'optimize-system') {
+                document.getElementById('view-optimize').classList.add('active');
+                document.getElementById('topTitle').innerText = "OPTIMIZE SYSTEM • Manutenção do Windows";
+                optimizeTab('startup');
             } else if(viewName === 'config') {
                 document.getElementById('view-config').classList.add('active');
                 document.getElementById('topTitle').innerText = "Configurações do Sistema";
@@ -1229,22 +1266,47 @@ window.refreshHtmlRgbDevices=()=>post({action:"rgb-refresh-devices"});
 <script>
 (() => {
  const post=(action,data={})=>{if(window.chrome&&window.chrome.webview)window.chrome.webview.postMessage({action,...data});};
- const titles={dashboard:["PAINEL DE DESEMPENHO","Informações do hardware e estado do sistema."],startup:["INICIALIZAÇÃO","Gerencie aplicativos iniciados com o Windows."],cleanup:["LIMPEZA DO SISTEMA","Analise e remova arquivos temporários."],gaming:["GAMING E ENERGIA","Planos de energia e preferências de jogos do Windows."]};
- window.boostTab=tab=>{document.querySelectorAll(".boost-tab").forEach(x=>x.classList.remove("active"));document.querySelectorAll(".boost-nav-item").forEach(x=>x.classList.toggle("active",x.dataset.boostTab===tab));document.getElementById("boost-tab-"+tab).classList.add("active");document.getElementById("boostPageTitle").textContent=titles[tab][0];document.getElementById("boostPageDesc").textContent=titles[tab][1];if(tab==="dashboard")boostRefresh();if(tab==="startup")boostLoadStartup();if(tab==="cleanup")boostCleanPreview();if(tab==="gaming"){post("boost-power-plans");post("boost-game-settings");}};
- window.boostRefresh=()=>post("boost-dashboard");window.boostLoadStartup=()=>{document.getElementById("boostStartupList").textContent="Carregando...";post("boost-startup-list");};
- window.boostCleanPreview=()=>{document.getElementById("boostCleanStatus").textContent="Analisando arquivos temporários...";post("boost-clean-preview");};
- window.boostCleanRun=()=>{if(!confirm("Deseja excluir os arquivos temporários encontrados? Arquivos em uso serão ignorados."))return;document.getElementById("boostCleanBtn").disabled=true;post("boost-clean-run");};
+  const titles={dashboard:["PAINEL DE DESEMPENHO","Informações do hardware e estado do sistema."],gaming:["GAMING E ENERGIA","Planos de energia e preferências de jogos do Windows."]};
  window.boostSetPowerPlan=()=>{const id=document.getElementById("boostPowerPlan").value;if(id)post("boost-power-set",{id});};window.boostSetGameSetting=(setting,enabled)=>post("boost-game-setting",{setting,enabled});
  if(window.chrome&&window.chrome.webview)window.chrome.webview.addEventListener("message",e=>{const d=e.data||{};
   if(d.action==="boost-dashboard"){const x=d.data;document.getElementById("boostCpu").textContent=x.cpu;document.getElementById("boostGpu").textContent=x.gpu;document.getElementById("boostRam").textContent=x.ramUsedGb+" / "+x.ramTotalGb+" GB ("+x.ramPercent+"%)";document.getElementById("boostRamBar").style.width=x.ramPercent+"%";document.getElementById("boostDisk").textContent=x.diskName+" • "+x.diskFreeGb+" GB livres de "+x.diskTotalGb+" GB";document.getElementById("boostOs").textContent=x.os;}
-  if(d.action==="boost-startup-list"){const el=document.getElementById("boostStartupList");el.replaceChildren();(d.items||[]).forEach(item=>{const row=document.createElement("div");row.className="boost-start-item";const info=document.createElement("div"),name=document.createElement("b"),cmd=document.createElement("small");name.textContent=item.name+" • "+item.source;cmd.textContent=item.command;info.append(name,cmd);row.append(info);if(item.canToggle){const btn=document.createElement("button");btn.className="btn-outline";btn.textContent="Desativar";btn.onclick=()=>{if(confirm("Desativar "+item.name+" da inicialização?"))post("boost-startup-toggle",{id:item.id,enabled:false});};row.append(btn);}else{const tag=document.createElement("small");tag.textContent="Somente leitura";row.append(tag);}el.append(row);});if(!el.children.length)el.textContent="Nenhum item encontrado.";}
-  if(d.action==="boost-clean-preview"){document.getElementById("boostCleanSize").textContent=d.data.sizeMb+" MB";document.getElementById("boostCleanCount").textContent=d.data.count+" arquivo(s) encontrados";document.getElementById("boostCleanBtn").disabled=d.data.count===0;document.getElementById("boostCleanStatus").textContent="Locais analisados: "+d.data.locations.join(" • ");}
-  if(d.action==="boost-clean-result"){document.getElementById("boostCleanBtn").disabled=false;document.getElementById("boostCleanStatus").textContent="Limpeza concluída: "+d.data.deleted+" arquivo(s), "+d.data.freedMb+" MB liberados.";boostCleanPreview();}
   if(d.action==="boost-power-plans"){const sel=document.getElementById("boostPowerPlan");sel.replaceChildren();(d.data.plans||[]).forEach(p=>{sel.add(new Option(p.name+(p.active?" (Ativo)":""),p.id));if(p.active)sel.value=p.id;});document.getElementById("boostPowerStatus").textContent="Plano ativo identificado.";}
   if(d.action==="boost-game-settings"){document.getElementById("boostGameMode").checked=!!d.data.gameMode;document.getElementById("boostCaptures").checked=!!d.data.captures;document.getElementById("boostGameStatus").textContent="Preferências sincronizadas com o Windows.";}
  });
  const observer=new MutationObserver(()=>{const v=document.getElementById("view-boost");if(v&&v.classList.contains("active"))boostRefresh();});const v=document.getElementById("view-boost");if(v)observer.observe(v,{attributes:true,attributeFilter:["class"]});
 })();
 </script>
+
+ <style>.optimize-tab{display:none;flex-direction:column;gap:16px}.optimize-tab.active{display:flex}</style>
+ <script>
+ (() => {
+  const post=(action,data={})=>{if(window.chrome&&window.chrome.webview)window.chrome.webview.postMessage({action,...data});};
+  const titles={startup:["INICIALIZAÇÃO","Gerencie os aplicativos iniciados com o Windows."],cleanup:["LIMPEZA DO SISTEMA","Analise e remova arquivos temporários com segurança."]};
+  window.optimizeTab=tab=>{
+   document.querySelectorAll(".optimize-tab").forEach(x=>x.classList.remove("active"));
+   document.querySelectorAll("#view-optimize .boost-nav-item").forEach(x=>x.classList.toggle("active",x.dataset.optimizeTab===tab));
+   document.getElementById("optimize-tab-"+tab).classList.add("active");
+   document.getElementById("optimizePageTitle").textContent=titles[tab][0];
+   document.getElementById("optimizePageDesc").textContent=titles[tab][1];
+   if(tab==="startup")window.optimizeLoadStartup();else window.optimizeCleanPreview();
+  };
+  window.optimizeLoadStartup=()=>{document.getElementById("optimizeStartupList").textContent="Carregando...";post("optimize-startup-list");};
+  window.optimizeCleanPreview=()=>{document.getElementById("optimizeCleanStatus").textContent="Analisando arquivos temporários...";post("optimize-clean-preview");};
+  window.optimizeCleanRun=()=>{if(!confirm("Deseja excluir os arquivos temporários encontrados? Arquivos em uso serão ignorados."))return;document.getElementById("optimizeCleanBtn").disabled=true;post("optimize-clean-run");};
+  if(window.chrome&&window.chrome.webview)window.chrome.webview.addEventListener("message",e=>{
+   const d=e.data||{};
+   if(d.action==="optimize-startup-list"){
+    const el=document.getElementById("optimizeStartupList");if(!el)return;el.replaceChildren();
+    (d.items||[]).forEach(item=>{const row=document.createElement("div");row.className="boost-start-item";const info=document.createElement("div"),name=document.createElement("b"),cmd=document.createElement("small");name.textContent=item.name+" • "+item.source;cmd.textContent=item.command;info.append(name,cmd);row.append(info);
+     if(item.canToggle){const btn=document.createElement("button");btn.className="btn-outline";btn.textContent="Desativar";btn.onclick=()=>{if(confirm("Desativar "+item.name+" da inicialização?"))post("optimize-startup-toggle",{id:item.id,enabled:false});};row.append(btn);}else{const tag=document.createElement("small");tag.textContent="Somente leitura";row.append(tag);}el.append(row);
+    });if(!el.children.length)el.textContent="Nenhum item encontrado.";
+   }
+   if(d.action==="optimize-clean-preview"){document.getElementById("optimizeCleanSize").textContent=d.data.sizeMb+" MB";document.getElementById("optimizeCleanCount").textContent=d.data.count+" arquivo(s) encontrados";document.getElementById("optimizeCleanBtn").disabled=d.data.count===0;document.getElementById("optimizeCleanStatus").textContent="Locais analisados: "+d.data.locations.join(" • ");}
+   if(d.action==="optimize-clean-result"){document.getElementById("optimizeCleanBtn").disabled=false;document.getElementById("optimizeCleanStatus").textContent="Limpeza concluída: "+d.data.deleted+" arquivo(s), "+d.data.freedMb+" MB liberados.";window.optimizeCleanPreview();}
+  });
+  const v=document.getElementById("view-optimize");if(v)new MutationObserver(()=>{if(v.classList.contains("active"))window.optimizeTab("startup");}).observe(v,{attributes:true,attributeFilter:["class"]});
+ })();
+ </script>
+
 </body>
 </html>
