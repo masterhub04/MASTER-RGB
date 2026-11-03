@@ -27,7 +27,6 @@ public sealed class OpenRgbEngineHost : IDisposable
         if (await IsSdkPortAvailableAsync(cancellationToken))
             return;
 
-        string executable = Path.Combine(AppContext.BaseDirectory, "OpenRGB", "OpenRGB.exe");
         if (!File.Exists(executable))
             throw new FileNotFoundException(
                 "O mecanismo OpenRGB integrado não foi encontrado. Reinstale/atualize o MASTER HUB para incluir os componentes de compatibilidade.",
