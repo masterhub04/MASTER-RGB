@@ -275,7 +275,20 @@ public partial class MainWindow : Window
                 return;
             }
 
-            var update = await manager.CheckForUpdatesAsync();
+            // Evita deixar a tela presa indefinidamente caso o GitHub não responda.
+            using var checkTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            UpdateStatusText.Text = "Conectando ao GitHub para verificar atualizações...";
+            Velopack.UpdateInfo? update;
+            try
+            {
+                update = await manager.CheckForUpdatesAsync(checkTimeout.Token);
+            }
+            catch (OperationCanceledException) when (checkTimeout.IsCancellationRequested)
+            {
+                UpdateStatusText.Text = "A verificação demorou mais de 30 segundos. Confira sua conexão e tente novamente.";
+                return;
+            }
+
             if (update is null)
             {
                 UpdateStatusText.Text = "Você já está usando a versão mais recente.";
