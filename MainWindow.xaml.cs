@@ -360,7 +360,7 @@ public partial class MainWindow : Window
                 SaveUserSettings();
             }
         }
-        SendHtmlMessage(new { action = "rgb-device-calibration-applied",
+        SendHtmlMessage(new { action = preview ? "rgb-device-calibration-preview-applied" : "rgb-device-calibration-applied",
             message = preview ? $"Prévia aplicada em {device.Name}." : $"Calibração aplicada em {device.Name}." });
     }
 
