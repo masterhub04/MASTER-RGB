@@ -174,7 +174,7 @@ public partial class MainWindow : Window
         (red, green, blue) = ApplyControllerColorQuirks(device.Name, zone.Name, red, green, blue);
         if (ledCount != zone.LedCount)
             await _openRgb.ResizeZoneAsync(deviceIndex, zoneIndex, ledCount);
-        await _openRgb.ApplyZoneColorAsync(deviceIndex, zoneIndex, ledCount, red, green, blue);
+        await _openRgb.ApplyDeviceZonesColorAsync(deviceIndex, new[] { (ZoneIndex: zoneIndex, LedCount: ledCount, Red: red, Green: green, Blue: blue) });
         SendHtmlMessage(new { action = "rgb-result", ok = true, message = $"Cor #{hex.ToUpperInvariant()} enviada para {device.Name} / {zone.Name}." });
     }
 
@@ -190,16 +190,22 @@ public partial class MainWindow : Window
         byte red = (byte)Math.Round(((rgb >> 16) & 0xFF) * brightness / 100.0);
         byte green = (byte)Math.Round(((rgb >> 8) & 0xFF) * brightness / 100.0);
         byte blue = (byte)Math.Round((rgb & 0xFF) * brightness / 100.0);
-        int applied = 0;
-        foreach (var device in selected)
+        var batches = selected.Select(device =>
         {
-            foreach (var zone in device.Zones.Select((z, i) => (Zone: z, Index: i)).Where(x => x.Zone.LedCount > 0))
+            var zones = device.Zones.Select((zone, zoneIndex) =>
             {
-                var adjusted = ApplyControllerColorQuirks(device.Name, zone.Zone.Name, red, green, blue);
-                await _openRgb.ApplyZoneColorAsync(device.Index, zone.Index, zone.Zone.LedCount, adjusted.red, adjusted.green, adjusted.blue);
-                applied++;
-            }
-        }
+                var adjusted = ApplyControllerColorQuirks(device.Name, zone.Name, red, green, blue);
+                return (ZoneIndex: zoneIndex, LedCount: zone.LedCount, Red: adjusted.red, Green: adjusted.green, Blue: adjusted.blue);
+            }).Where(zone => zone.LedCount > 0).ToArray();
+            return (Device: device, Zones: zones);
+        }).Where(batch => batch.Zones.Length > 0).ToArray();
+
+        // Cada dispositivo recebe sua cor em paralelo. Dentro de cada dispositivo,
+        // todas as zonas seguem pela mesma conexão do SDK para evitar atrasos em cascata.
+        await Task.WhenAll(batches.Select(batch =>
+            _openRgb.ApplyDeviceZonesColorAsync(batch.Device.Index, batch.Zones)));
+
+        int applied = batches.Sum(batch => batch.Zones.Length);
         SendHtmlMessage(new { action = "rgb-result", ok = true, message = $"Cor #{hex.ToUpperInvariant()} enviada para {applied} zona(s) em {selected.Count} dispositivo(s)." });
     }
 
