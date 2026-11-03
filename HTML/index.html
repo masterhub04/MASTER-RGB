@@ -692,8 +692,8 @@
                             <h3 style="margin:0 0 6px;">Calibração manual • <span id="calibrationDeviceName">Selecione um dispositivo</span></h3>
                             <p style="font-size:12px;color:var(--text-dim);margin-bottom:14px;">Ajuste os canais RGB do dispositivo selecionado acima. Cada dispositivo mantém sua própria calibração, salva individualmente.</p>
                             <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;">
-                                <div><label for="mouseCalRed" style="display:block;font-size:11px;margin-bottom:6px;">Vermelho <b id="mouseCalRedValue">255</b></label><input id="mouseCalRed" type="range" min="0" max="255" value="255" class="range-slider" oninput="updateMouseCalibrationLabels(); scheduleMouseCalibrationPreview('red')"></div>
-                                <div><label for="mouseCalGreen" style="display:block;font-size:11px;margin-bottom:6px;">Verde <b id="mouseCalGreenValue">255</b></label><input id="mouseCalGreen" type="range" min="0" max="255" value="255" class="range-slider" oninput="updateMouseCalibrationLabels()"></div>
+                                <div><label for="mouseCalRed" style="display:block;font-size:11px;margin-bottom:6px;">Vermelho <b id="mouseCalRedValue">255</b></label><input id="mouseCalRed" type="range" min="0" max="255" value="255" class="range-slider" oninput="updateMouseCalibrationLabels(); scheduleMouseCalibrationPreview()"></div>
+                                <div><label for="mouseCalGreen" style="display:block;font-size:11px;margin-bottom:6px;">Verde <b id="mouseCalGreenValue">255</b></label><input id="mouseCalGreen" type="range" min="0" max="255" value="255" class="range-slider" oninput="updateMouseCalibrationLabels(); scheduleMouseCalibrationPreview()"></div>
                                 <div><label for="mouseCalBlue" style="display:block;font-size:11px;margin-bottom:6px;">Azul <b id="mouseCalBlueValue">255</b></label><input id="mouseCalBlue" type="range" min="0" max="255" value="255" class="range-slider" oninput="updateMouseCalibrationLabels()"></div>
                             </div>
                             <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;">
@@ -1130,6 +1130,14 @@
             const rgbLabel = document.getElementById('rgbReferenceValues');
             if (hexLabel) hexLabel.textContent = '#' + value.toUpperCase();
             if (rgbLabel) rgbLabel.textContent = `R: ${r}   G: ${g}   B: ${b}`;
+            // A seleção da paleta atualiza os controles; mover os controles não altera a paleta.
+            const calibrationChannels = [['Red', r], ['Green', g], ['Blue', b]];
+            calibrationChannels.forEach(([channel, channelValue]) => {
+                const slider = document.getElementById('mouseCal' + channel);
+                if (slider) slider.value = channelValue;
+            });
+            if (typeof window.updateMouseCalibrationLabels === 'function')
+                window.updateMouseCalibrationLabels();
         }
 
         function setCustomLedColor(hexColor) {
@@ -1288,8 +1296,7 @@ function receive(e){const d=e.data||{};
 }window.updateMouseCalibrationLabels=()=>{["Red","Green","Blue"].forEach(ch=>{const v=document.getElementById("mouseCal"+ch).value;document.getElementById("mouseCal"+ch+"Value").textContent=v;});};
 const mouseCalibrationValues=()=>({red:Number(document.getElementById("mouseCalRed").value),green:Number(document.getElementById("mouseCalGreen").value),blue:Number(document.getElementById("mouseCalBlue").value)});
 let calibrationPreviewInFlight=false, calibrationPreviewPending=false;
-window.scheduleMouseCalibrationPreview=(channel)=>{
- if(channel!=="red")return;
+window.scheduleMouseCalibrationPreview=()=>{
  calibrationPreviewPending=true;
  flushMouseCalibrationPreview();
 };
