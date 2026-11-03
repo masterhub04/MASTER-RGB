@@ -23,6 +23,7 @@ using CheckBox = System.Windows.Controls.CheckBox;
 using ColorConverter = System.Windows.Media.ColorConverter;
 using Point = System.Windows.Point;
 using SaveFileDialog = Microsoft.Win32.SaveFileDialog;
+using System.Runtime.InteropServices;
 
 namespace MasterRgb;
 
@@ -122,7 +123,7 @@ public partial class MainWindow : Window
             {
                 case "window-minimize": WindowState = WindowState.Minimized; break;
                 case "window-close": CloseWindow_Click(this, new RoutedEventArgs()); break;
-                case "window-drag": try { DragMove(); } catch (InvalidOperationException) { } break;
+                case "window-drag": BeginNativeWindowDrag(); break;
                 case "check-updates": CheckUpdatesFromHtml(); break;
                 case "install-update": CheckUpdatesFromHtml(true); break;
                 case "mic-get-state": MasterMicView.HtmlInitialize(); SendHtmlMessage(new { action = "mic-state", state = MasterMicView.GetHtmlState() }); break;
@@ -422,6 +423,30 @@ public partial class MainWindow : Window
         }
     }
 
+    [DllImport("user32.dll")]
+    private static extern bool ReleaseCapture();
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+    private const int WmNcLButtonDown = 0x00A1;
+    private static readonly IntPtr HtCaption = new(2);
+
+    private void BeginNativeWindowDrag()
+    {
+        try
+        {
+            if (WindowState == WindowState.Maximized) return;
+            ReleaseCapture();
+            SendMessage(new System.Windows.Interop.WindowInteropHelper(this).Handle,
+                WmNcLButtonDown, HtCaption, IntPtr.Zero);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Falha ao arrastar a janela: {ex.Message}");
+        }
+    }
+
     private void HeaderBar_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
         if (e.ChangedButton != System.Windows.Input.MouseButton.Left) return;
@@ -433,7 +458,7 @@ public partial class MainWindow : Window
             ToggleWindowState();
             return;
         }
-        if (e.ButtonState == System.Windows.Input.MouseButtonState.Pressed) DragMove();
+        if (e.ButtonState == System.Windows.Input.MouseButtonState.Pressed) BeginNativeWindowDrag();
     }
 
     private static T? FindVisualAncestor<T>(DependencyObject? current) where T : DependencyObject
