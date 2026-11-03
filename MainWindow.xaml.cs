@@ -336,13 +336,6 @@ public partial class MainWindow : Window
         {
             _deviceCalibrations[device.Name] = calibration;
             SaveUserSettings();
-            if (IsLogitechG203(device))
-            {
-                _lastMouseColorHex = "#" + hex.ToUpperInvariant();
-                _lastMouseColorBrightness = brightness;
-                _hasSavedMouseColor = true;
-                SaveUserSettings();
-            }
         }
         SendHtmlMessage(new { action = preview ? "rgb-device-calibration-preview-applied" : "rgb-device-calibration-applied",
             message = preview ? $"Prévia aplicada em {device.Name}." : $"Calibração aplicada em {device.Name}." });
