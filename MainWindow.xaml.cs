@@ -31,6 +31,7 @@ public partial class MainWindow : Window
     private FrameworkElement? _previousPage;
     private FrameworkElement? _currentPage;
     private readonly BoostGameService _boostGame = new();
+    private readonly OptimizeSystemService _optimizeSystem = new();
     private readonly OpenRgbSdkClient _openRgb = new();
     private readonly OpenRgbEngineHost _openRgbEngine = new();
     private readonly ObservableCollection<DeviceRow> _devices = new();
@@ -141,10 +142,10 @@ public partial class MainWindow : Window
                 case "rgb-apply-color": await ApplyHtmlRgbColorAsync(root); break;
                 case "rgb-apply-group": await ApplyHtmlRgbGroupAsync(root); break;
                 case "boost-dashboard": SendHtmlMessage(new { action = "boost-dashboard", data = _boostGame.GetDashboard() }); break;
-                case "boost-startup-list": SendHtmlMessage(new { action = "boost-startup-list", items = _boostGame.GetStartupItems() }); break;
-                case "boost-startup-toggle": SendHtmlMessage(new { action = "boost-startup-list", items = _boostGame.ToggleStartup(root.GetProperty("id").GetString() ?? "", root.GetProperty("enabled").GetBoolean()) }); break;
-                case "boost-clean-preview": SendHtmlMessage(new { action = "boost-clean-preview", data = _boostGame.GetCleanupPreview() }); break;
-                case "boost-clean-run": SendHtmlMessage(new { action = "boost-clean-result", data = _boostGame.CleanTemp() }); break;
+                case "optimize-startup-list": SendHtmlMessage(new { action = "optimize-startup-list", items = _optimizeSystem.GetStartupItems() }); break;
+                case "optimize-startup-toggle": SendHtmlMessage(new { action = "optimize-startup-list", items = _optimizeSystem.ToggleStartup(root.GetProperty("id").GetString() ?? "", root.GetProperty("enabled").GetBoolean()) }); break;
+                case "optimize-clean-preview": SendHtmlMessage(new { action = "optimize-clean-preview", data = _optimizeSystem.GetCleanupPreview() }); break;
+                case "optimize-clean-run": SendHtmlMessage(new { action = "optimize-clean-result", data = _optimizeSystem.CleanTemp() }); break;
                 case "boost-power-plans": SendHtmlMessage(new { action = "boost-power-plans", data = _boostGame.GetPowerPlans() }); break;
                 case "boost-power-set": SendHtmlMessage(new { action = "boost-power-plans", data = _boostGame.SetPowerPlan(root.GetProperty("id").GetString() ?? "") }); break;
                 case "boost-game-settings": SendHtmlMessage(new { action = "boost-game-settings", data = _boostGame.GetGameSettings() }); break;
