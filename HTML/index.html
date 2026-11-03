@@ -813,13 +813,15 @@
             <div><div class="rgb-product-header"><div class="rgb-product-icon">⚙️</div><div class="rgb-product-title"><h3>OPTIMIZE SYSTEM</h3><span>WINDOWS MAINTENANCE</span></div></div>
             <div class="nav-section-title">Workspace</div><div class="nav-menu">
                 <div class="boost-nav-item active" data-optimize-tab="startup" onclick="optimizeTab('startup')">▤ Inicialização</div>
+                <div class="boost-nav-item" data-optimize-tab="services" onclick="optimizeTab('services')">⚙ Serviços do Windows</div>
                 <div class="boost-nav-item" data-optimize-tab="cleanup" onclick="optimizeTab('cleanup')">⌫ Limpeza do sistema</div>
                 <div class="boost-nav-item" onclick="switchView('hub')">← Aplicativos</div>
             </div></div><div class="sdk-status-box"><h5>OPTIMIZE SYSTEM</h5><p>Manutenção segura do Windows</p></div>
         </aside><main class="boost-content">
             <div class="boost-header"><div><h2 id="optimizePageTitle">INICIALIZAÇÃO</h2><p id="optimizePageDesc">Gerencie os aplicativos iniciados com o Windows.</p></div><button class="btn-outline" onclick="switchView('hub')">← Voltar ao Hub</button></div>
             <section class="optimize-tab active" id="optimize-tab-startup"><div class="boost-panel"><h3>Programas que iniciam com o Windows</h3><p>Desative apenas aplicativos que você reconhece. Componentes críticos do Windows não são exibidos para alteração.</p><div id="optimizeStartupList" class="boost-list">Carregando...</div><button class="btn-outline" onclick="optimizeLoadStartup()">↻ Atualizar lista</button></div></section>
-            <section class="optimize-tab" id="optimize-tab-cleanup"><div class="boost-panel"><h3>Limpeza de arquivos temporários</h3><p>A análise verifica arquivos temporários do usuário e do Windows. Arquivos em uso ou sem permissão serão ignorados.</p><div class="boost-clean-summary"><strong id="optimizeCleanSize">-- MB</strong><span id="optimizeCleanCount">Aguardando análise</span></div><div class="boost-actions"><button class="btn-outline" onclick="optimizeCleanPreview()">Analisar espaço</button><button class="btn-glow" id="optimizeCleanBtn" onclick="optimizeCleanRun()" disabled>Limpar temporários</button></div><p id="optimizeCleanStatus"></p></div></section>
+            <section class="optimize-tab" id="optimize-tab-services"><div class="boost-panel"><h3>Serviços opcionais do Windows</h3><p>Lista controlada de serviços que podem ser dispensáveis em alguns computadores. Confira a descrição antes de desativar: recursos como pesquisa, mapas e Xbox podem deixar de funcionar. Serviços essenciais não aparecem nesta lista.</p><div class="boost-actions"><button class="btn-outline" onclick="optimizeLoadServices()">↻ Atualizar serviços</button></div><div id="optimizeServicesList" class="boost-list">Carregando serviços...</div><p id="optimizeServicesStatus">Algumas alterações exigem executar o MASTER HUB como administrador. A configuração original é guardada para permitir restaurar.</p></div></section>
+            <section class="optimize-tab" id="optimize-tab-cleanup"><div class="boost-panel"><h3>Limpeza de arquivos temporários</h3><p>Analise temporários do usuário e do Windows, caches de sistema, relatórios de falhas e a Lixeira. Arquivos em uso ou sem permissão serão ignorados.</p><div class="boost-clean-summary"><strong id="optimizeCleanSize">-- MB</strong><span id="optimizeCleanCount">Aguardando análise</span></div><div class="boost-actions"><button class="btn-outline" onclick="optimizeCleanPreview()">Analisar espaço</button><button class="btn-glow" id="optimizeCleanBtn" onclick="optimizeCleanRun()" disabled>Limpar selecionados</button></div><div id="optimizeCleanFolders" class="boost-list"><p>Pressione “Analisar espaço” para listar os locais e seus tamanhos.</p></div><p id="optimizeCleanStatus"></p></div></section>
         </main></div>
     </div>
 
@@ -1277,22 +1279,30 @@ window.refreshHtmlRgbDevices=()=>post({action:"rgb-refresh-devices"});
 })();
 </script>
 
- <style>.optimize-tab{display:none;flex-direction:column;gap:16px}.optimize-tab.active{display:flex}</style>
+
+ <style>
+  .optimize-tab{display:none;flex-direction:column;gap:16px}.optimize-tab.active{display:flex}
+  .optimize-total{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 20px;border:1px solid rgba(0,200,255,.35);border-radius:12px;background:rgba(0,160,220,.07);margin:12px 0}
+  .optimize-total strong{font-size:30px;color:var(--text-bright)}.optimize-folder-row,.optimize-service-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px 15px;border:1px solid var(--border-color,rgba(255,255,255,.08));border-radius:10px;margin:8px 0;background:rgba(255,255,255,.02)}
+  .optimize-row-info{display:flex;flex-direction:column;gap:4px;min-width:0}.optimize-row-info small{opacity:.68;overflow-wrap:anywhere}.optimize-row-size{white-space:nowrap;font-weight:700;color:var(--text-bright)}.optimize-service-row button,.optimize-folder-row button{flex-shrink:0}
+  .optimize-warning{font-size:12px;opacity:.75;margin-top:8px}
+ </style>
  <script>
  (() => {
   const post=(action,data={})=>{if(window.chrome&&window.chrome.webview)window.chrome.webview.postMessage({action,...data});};
-  const titles={startup:["INICIALIZAÇÃO","Gerencie os aplicativos iniciados com o Windows."],cleanup:["LIMPEZA DO SISTEMA","Analise e remova arquivos temporários com segurança."]};
+  const titles={startup:["INICIALIZAÇÃO","Gerencie os aplicativos iniciados com o Windows."],services:["SERVIÇOS DO WINDOWS","Gerencie serviços opcionais sem abrir o console Serviços."],cleanup:["LIMPEZA DO SISTEMA","Veja o espaço ocupado por cada local antes de limpar."]};
   window.optimizeTab=tab=>{
-   document.querySelectorAll(".optimize-tab").forEach(x=>x.classList.remove("active"));
+   document.querySelectorAll("#view-optimize .optimize-tab").forEach(x=>x.classList.remove("active"));
    document.querySelectorAll("#view-optimize .boost-nav-item").forEach(x=>x.classList.toggle("active",x.dataset.optimizeTab===tab));
    document.getElementById("optimize-tab-"+tab).classList.add("active");
    document.getElementById("optimizePageTitle").textContent=titles[tab][0];
    document.getElementById("optimizePageDesc").textContent=titles[tab][1];
-   if(tab==="startup")window.optimizeLoadStartup();else window.optimizeCleanPreview();
+   if(tab==="startup")window.optimizeLoadStartup();else if(tab==="services")window.optimizeLoadServices();else window.optimizeCleanPreview();
   };
   window.optimizeLoadStartup=()=>{document.getElementById("optimizeStartupList").textContent="Carregando...";post("optimize-startup-list");};
-  window.optimizeCleanPreview=()=>{document.getElementById("optimizeCleanStatus").textContent="Analisando arquivos temporários...";post("optimize-clean-preview");};
-  window.optimizeCleanRun=()=>{if(!confirm("Deseja excluir os arquivos temporários encontrados? Arquivos em uso serão ignorados."))return;document.getElementById("optimizeCleanBtn").disabled=true;post("optimize-clean-run");};
+  window.optimizeLoadServices=()=>{document.getElementById("optimizeServicesList").textContent="Consultando serviços...";post("optimize-services-list");};
+  window.optimizeCleanPreview=()=>{document.getElementById("optimizeCleanStatus").textContent="Analisando os locais de limpeza...";document.getElementById("optimizeCleanFolders").textContent="Calculando tamanhos...";post("optimize-clean-preview");};
+  window.optimizeCleanRun=()=>{if(!confirm("Confirma a limpeza dos locais listados, incluindo a Lixeira? Esta ação não pode ser desfeita."))return;document.getElementById("optimizeCleanBtn").disabled=true;post("optimize-clean-run");};
   if(window.chrome&&window.chrome.webview)window.chrome.webview.addEventListener("message",e=>{
    const d=e.data||{};
    if(d.action==="optimize-startup-list"){
@@ -1301,8 +1311,50 @@ window.refreshHtmlRgbDevices=()=>post({action:"rgb-refresh-devices"});
      if(item.canToggle){const btn=document.createElement("button");btn.className="btn-outline";btn.textContent="Desativar";btn.onclick=()=>{if(confirm("Desativar "+item.name+" da inicialização?"))post("optimize-startup-toggle",{id:item.id,enabled:false});};row.append(btn);}else{const tag=document.createElement("small");tag.textContent="Somente leitura";row.append(tag);}el.append(row);
     });if(!el.children.length)el.textContent="Nenhum item encontrado.";
    }
-   if(d.action==="optimize-clean-preview"){document.getElementById("optimizeCleanSize").textContent=d.data.sizeMb+" MB";document.getElementById("optimizeCleanCount").textContent=d.data.count+" arquivo(s) encontrados";document.getElementById("optimizeCleanBtn").disabled=d.data.count===0;document.getElementById("optimizeCleanStatus").textContent="Locais analisados: "+d.data.locations.join(" • ");}
-   if(d.action==="optimize-clean-result"){document.getElementById("optimizeCleanBtn").disabled=false;document.getElementById("optimizeCleanStatus").textContent="Limpeza concluída: "+d.data.deleted+" arquivo(s), "+d.data.freedMb+" MB liberados.";window.optimizeCleanPreview();}
+   if(d.action==="optimize-services-list"){
+    const el=document.getElementById("optimizeServicesList");el.replaceChildren();
+    (d.items||[]).forEach(item=>{
+     const row=document.createElement("div");row.className="optimize-service-row";
+     const info=document.createElement("div");info.className="optimize-row-info";
+     const name=document.createElement("b");name.textContent=item.displayName+" ("+item.name+")";
+     const desc=document.createElement("small");desc.textContent=item.description;
+     const state=document.createElement("small");state.textContent="Estado: "+item.state+" • Inicialização: "+item.startMode+(item.disabledByApp?" • gerenciado pelo OPTIMIZE SYSTEM":"");
+     info.append(name,desc,state);row.append(info);
+     const btn=document.createElement("button");btn.className="btn-outline";btn.textContent=item.disabledByApp?"Restaurar":"Desativar";
+     btn.onclick=()=>{const disable=!item.disabledByApp;const msg=disable?"Desativar o serviço "+item.displayName+"? Alguns recursos associados podem parar de funcionar.":"Restaurar a configuração anterior de "+item.displayName+"?";if(confirm(msg)){btn.disabled=true;post("optimize-service-toggle",{name:item.name,disable});}};
+     row.append(btn);el.append(row);
+    });
+    if(!el.children.length)el.textContent="Nenhum serviço opcional disponível foi encontrado neste Windows.";
+   }
+   if(d.action==="optimize-clean-preview"){
+    const data=d.data||{}, folders=data.locations||[];
+    document.getElementById("optimizeCleanSize").textContent=Number(data.sizeMb||0).toFixed(2)+" MB";
+    document.getElementById("optimizeCleanCount").textContent=(data.count||0)+" arquivo(s) detectados";
+    document.getElementById("optimizeCleanBtn").disabled=!(data.totalBytes>0);
+    const el=document.getElementById("optimizeCleanFolders");el.replaceChildren();
+    folders.forEach(item=>{
+     const row=document.createElement("div");row.className="optimize-folder-row";
+     const info=document.createElement("div");info.className="optimize-row-info";
+     const name=document.createElement("b");name.textContent=item.name;
+     const path=document.createElement("small");path.textContent=item.isRecycleBin?"Todas as unidades":item.path;
+     const count=document.createElement("small");count.textContent=item.count+" arquivo(s)";
+     info.append(name,path,count);
+     const size=document.createElement("strong");size.className="optimize-row-size";size.textContent=Number(item.sizeMb||0).toFixed(2)+" MB";
+     row.append(info,size);el.append(row);
+    });
+    if(!folders.length)el.textContent="Nenhuma pasta temporária encontrada.";
+    document.getElementById("optimizeCleanStatus").textContent="Total estimado a liberar: "+Number(data.sizeMb||0).toFixed(2)+" MB. Arquivos bloqueados ou sem permissão podem permanecer.";
+   }
+   if(d.action==="optimize-clean-result"){
+    document.getElementById("optimizeCleanBtn").disabled=true;
+    const rows=(d.data.folders||[]).map(x=>x.name+": "+Number(x.freedMb||0).toFixed(2)+" MB").join(" • ");
+    document.getElementById("optimizeCleanStatus").textContent="Limpeza concluída: "+d.data.deleted+" arquivo(s), "+Number(d.data.freedMb||0).toFixed(2)+" MB liberados. "+rows;
+    window.optimizeCleanPreview();
+   }
+   if(d.action==="host-error"){
+    const status=document.getElementById("optimizeServicesStatus");if(status)status.textContent="Erro: "+d.message;
+    const clean=document.getElementById("optimizeCleanStatus");if(clean)clean.textContent="Erro: "+d.message;
+   }
   });
   const v=document.getElementById("view-optimize");if(v)new MutationObserver(()=>{if(v.classList.contains("active"))window.optimizeTab("startup");}).observe(v,{attributes:true,attributeFilter:["class"]});
  })();
