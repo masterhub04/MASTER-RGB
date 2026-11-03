@@ -270,18 +270,26 @@ public sealed class OptimizeSystemService
     {
         string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         string windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
-        var candidates = new[]
+        var candidates = new List<CleanupTarget>
         {
-            new CleanupTarget("user-temp", "Temporários do usuário", Path.GetTempPath()),
-            new CleanupTarget("windows-temp", "Temporários do Windows", Path.Combine(windows, "Temp")),
-            new CleanupTarget("directx-cache", "Cache de shaders DirectX", Path.Combine(local, "D3DSCache")),
-            new CleanupTarget("inet-cache", "Cache temporário da Internet", Path.Combine(local, "Microsoft", "Windows", "INetCache")),
-            new CleanupTarget("wer-queue", "Relatórios de erro pendentes", Path.Combine(local, "Microsoft", "Windows", "WER", "ReportQueue")),
-            new CleanupTarget("wer-archive", "Relatórios de erro arquivados", Path.Combine(local, "Microsoft", "Windows", "WER", "ReportArchive")),
-            new CleanupTarget("crash-dumps", "Relatórios de falhas de aplicativos", Path.Combine(local, "CrashDumps")),
-            new CleanupTarget("delivery-cache", "Cache de Otimização de Entrega", Path.Combine(windows, "ServiceProfiles", "NetworkService", "AppData", "Local", "Microsoft", "Windows", "DeliveryOptimization", "Cache")),
-            new CleanupTarget("recycle-bin", "Lixeira (todas as unidades)", "", true)
+            new("user-temp", "Temporários do usuário", Path.GetTempPath()),
+            new("windows-temp", "Temporários do Windows", Path.Combine(windows, "Temp")),
+            new("directx-cache", "Cache de shaders DirectX", Path.Combine(local, "D3DSCache")),
+            new("inet-cache", "Cache temporário da Internet", Path.Combine(local, "Microsoft", "Windows", "INetCache")),
+            new("wer-queue", "Relatórios de erro pendentes", Path.Combine(local, "Microsoft", "Windows", "WER", "ReportQueue")),
+            new("wer-archive", "Relatórios de erro arquivados", Path.Combine(local, "Microsoft", "Windows", "WER", "ReportArchive")),
+            new("crash-dumps", "Relatórios de falhas de aplicativos", Path.Combine(local, "CrashDumps")),
+            new("delivery-cache", "Cache de Otimização de Entrega", Path.Combine(windows, "ServiceProfiles", "NetworkService", "AppData", "Local", "Microsoft", "Windows", "DeliveryOptimization", "Cache")),
+            new("recycle-bin", "Lixeira (todas as unidades)", "", true)
         };
+        AddBrowserCacheTargets(candidates, Path.Combine(local, "Google", "Chrome", "User Data"), "chrome", "Google Chrome");
+        AddBrowserCacheTargets(candidates, Path.Combine(local, "Microsoft", "Edge", "User Data"), "edge", "Microsoft Edge");
+        string firefoxProfiles = Path.Combine(local, "Mozilla", "Firefox", "Profiles");
+        if (Directory.Exists(firefoxProfiles))
+        {
+            foreach (string profile in Directory.GetDirectories(firefoxProfiles))
+                candidates.Add(new CleanupTarget("firefox-" + Path.GetFileName(profile), "Cache do Firefox • " + Path.GetFileName(profile), Path.Combine(profile, "cache2", "entries")));
+        }
         var result = new List<CleanupTarget>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var item in candidates)
@@ -290,6 +298,24 @@ public sealed class OptimizeSystemService
                 result.Add(item);
         }
         return result;
+    }
+
+    private static void AddBrowserCacheTargets(List<CleanupTarget> candidates, string userData, string idPrefix, string browserName)
+    {
+        if (!Directory.Exists(userData)) return;
+        foreach (string profile in Directory.GetDirectories(userData))
+        {
+            string profileName = Path.GetFileName(profile);
+            if (profileName.Equals("Crashpad", StringComparison.OrdinalIgnoreCase) ||
+                profileName.Equals("ShaderCache", StringComparison.OrdinalIgnoreCase)) continue;
+            foreach (string cacheName in new[] { "Cache", "Code Cache", "GPUCache" })
+            {
+                string path = Path.Combine(profile, cacheName);
+                if (Directory.Exists(path))
+                    candidates.Add(new CleanupTarget(idPrefix + "-" + profileName + "-" + cacheName.Replace(" ", "").ToLowerInvariant(),
+                        "Cache do " + browserName + " • " + profileName + " • " + cacheName, path));
+            }
+        }
     }
 
     private static (int Count, long Bytes) ScanFolder(string path)
