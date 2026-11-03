@@ -306,7 +306,8 @@ public partial class MainWindow : Window
         _lastMouseColorHex = "#" + hex.ToUpperInvariant();
         _lastMouseColorBrightness = brightness;
         _hasSavedMouseColor = true;
-        SendHtmlMessage(new { action = "rgb-mouse-calibration-applied", message = "Calibração aplicada ao Logitech G203." });
+        SaveUserSettings();
+        SendHtmlMessage(new { action = "rgb-mouse-calibration-applied", message = "Calibração aplicada e configurações do mouse salvas." });
     }
 
     private async Task ApplySavedMouseColorAsync()
