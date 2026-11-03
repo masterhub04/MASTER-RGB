@@ -705,7 +705,8 @@ public partial class MainWindow : Window
         _hueMarker = new Ellipse { Width = 19, Height = 19, Fill = Brushes.White, Stroke = new SolidColorBrush(Color.FromRgb(20, 35, 48)), StrokeThickness = 4, IsHitTestVisible = false };
         HueArcCanvas.Children.Add(_hueMarker);
         _hueArcDrawn = true;
-        UpdateHueMarker(180);
+        if (ColorConverter.ConvertFromString(HexColorBox.Text) is Color initialColor)
+            UpdateHueMarker(GetHueFromRgb(initialColor));
     }
 
     private void HueArcCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -724,6 +725,25 @@ public partial class MainWindow : Window
         HexColorBox.Text = $"#{color.R:X2}{color.G:X2}{color.B:X2}";
         UpdateHueMarker(hue);
         e.Handled = true;
+    }
+
+    private static double GetHueFromRgb(Color color)
+    {
+        double r = color.R / 255.0;
+        double g = color.G / 255.0;
+        double b = color.B / 255.0;
+        double max = Math.Max(r, Math.Max(g, b));
+        double min = Math.Min(r, Math.Min(g, b));
+        double delta = max - min;
+
+        if (delta == 0) return 0;
+
+        double hue;
+        if (max == r) hue = 60.0 * (((g - b) / delta) % 6.0);
+        else if (max == g) hue = 60.0 * (((b - r) / delta) + 2.0);
+        else hue = 60.0 * (((r - g) / delta) + 4.0);
+
+        return (hue + 360.0) % 360.0;
     }
 
     private void UpdateHueMarker(double hue)
@@ -868,8 +888,10 @@ public partial class MainWindow : Window
             if (RedSlider is null || GreenSlider is null || BlueSlider is null || RedValueText is null || GreenValueText is null || BlueValueText is null) return;
             try
             {
-                ColorPreview.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(value));
+                Color selectedColor = (Color)ColorConverter.ConvertFromString(value);
+                ColorPreview.Background = new SolidColorBrush(selectedColor);
                 ApplyUiAccentColor(value);
+                UpdateHueMarker(GetHueFromRgb(selectedColor));
                 _updatingColorText = true;
                 RedSlider.Value = (rgb >> 16) & 0xFF;
                 GreenSlider.Value = (rgb >> 8) & 0xFF;
@@ -896,7 +918,9 @@ public partial class MainWindow : Window
         _updatingColorText = true;
         HexColorBox.Text = hex;
         ApplyUiAccentColor(hex);
-        ColorPreview.Background = new SolidColorBrush(Color.FromRgb((byte)r, (byte)g, (byte)b));
+        Color selectedColor = Color.FromRgb((byte)r, (byte)g, (byte)b);
+        ColorPreview.Background = new SolidColorBrush(selectedColor);
+        UpdateHueMarker(GetHueFromRgb(selectedColor));
         _updatingColorText = false;
     }
 
