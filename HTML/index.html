@@ -307,6 +307,11 @@
         .boost-nav-item:hover,.boost-nav-item.active { background:var(--led-active); color:#000; }
         @media(max-width:900px) { .boost-sidebar { width:190px; } .boost-grid { grid-template-columns:1fr; } }
 
+        .boost-tab{display:none;flex-direction:column;gap:16px}.boost-tab.active{display:flex}
+        .boost-meter{height:8px;background:rgba(255,255,255,.09);border-radius:8px;overflow:hidden;margin-top:12px}.boost-meter i{display:block;height:100%;width:0;background:var(--led-active);transition:width .3s}
+        .boost-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}.boost-clean-summary{display:flex;align-items:baseline;gap:14px;margin-top:18px}.boost-clean-summary strong{font-size:28px;color:var(--led-active)}.boost-clean-summary span{font-size:12px;color:var(--text-dim)}
+        .boost-list{display:flex;flex-direction:column;gap:8px;margin:16px 0}.boost-start-item{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px;border:1px solid var(--border-dark);border-radius:10px;background:rgba(0,0,0,.2)}.boost-start-item b{font-size:12px}.boost-start-item small{display:block;color:var(--text-dim);font-size:10px;max-width:600px;overflow-wrap:anywhere;margin-top:4px}
+        .boost-toggle{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--border-dark);font-size:12px}.boost-toggle small{display:block;color:var(--text-dim);font-size:10px;margin-top:4px}.boost-toggle input{accent-color:var(--led-active);width:18px;height:18px}
         /* --- TELA PERFECT AUDIO --- */
         .mic-body { padding: 24px; display: flex; flex-direction: column; gap: 20px; }
         .mic-header-flex { display: flex; justify-content: space-between; align-items: flex-start; }
@@ -758,59 +763,30 @@
     <!-- TELA 4: BOOST GAME                         -->
     <!-- ========================================== -->
     <div id="view-boost" class="view-container">
-        <div class="boost-layout">
-            <aside class="boost-sidebar">
-                <div>
-                    <div class="rgb-product-header">
-                        <div class="rgb-product-icon">
-                            <svg viewBox="0 0 24 24"><path d="M6 12h4m-2-2v4"></path><path d="M15 11h.01M18 13h.01"></path><path d="M7 7h10a4 4 0 0 1 3.8 5.2l-1.1 3.5a2 2 0 0 1-3.2 1l-2.1-1.6h-4.8l-2.1 1.6a2 2 0 0 1-3.2-1L3.2 12.2A4 4 0 0 1 7 7z"></path></svg>
-                        </div>
-                        <div class="rgb-product-title"><h3>BOOST GAME</h3><span>WINDOWS & GAMING OPTIMIZER</span></div>
-                    </div>
-                    <div class="nav-section-title">Workspace</div>
-                    <div class="nav-menu">
-                        <div class="boost-nav-item active" onclick="switchView('hub')">← Aplicativos</div>
-                        <div class="boost-nav-item active">▦ Painel geral</div>
-                        <div class="boost-nav-item">⌁ Desempenho</div>
-                        <div class="boost-nav-item">🎮 Gaming</div>
-                        <div class="boost-nav-item">▤ Inicialização</div>
-                        <div class="boost-nav-item">⚙ Ferramentas</div>
-                    </div>
-                </div>
-                <div class="sdk-status-box"><h5>BOOST GAME</h5><p>Módulo integrado ao MASTER HUB</p></div>
-            </aside>
-            <main class="boost-content">
-                <div class="boost-header">
-                    <div><h2>PAINEL DE DESEMPENHO</h2><p>Visão geral do Windows, hardware e recursos para jogos.</p></div>
-                    <button class="btn-outline" onclick="switchView('hub')">← Voltar ao Hub</button>
-                </div>
-                <div class="boost-grid">
-                    <section class="boost-panel">
-                        <h3>Monitoramento do sistema</h3>
-                        <p>Indicadores de hardware e sistema em tempo real.</p>
-                        <div class="boost-stat"><span>Processador (CPU)</span><strong>Aguardando integração</strong></div>
-                        <div class="boost-stat"><span>Memória RAM</span><strong>Aguardando integração</strong></div>
-                        <div class="boost-stat"><span>Placa de vídeo (GPU)</span><strong>Aguardando integração</strong></div>
-                        <div class="boost-stat"><span>Armazenamento</span><strong>Aguardando integração</strong></div>
-                    </section>
-                    <section class="boost-panel">
-                        <h3>Otimização para jogos</h3>
-                        <p>Central de ajustes para melhorar a experiência em jogos, com controle e possibilidade de reversão.</p>
-                        <div class="boost-placeholder">Os ajustes serão adicionados em etapas, com descrição, nível de risco e opção de restaurar cada alteração.</div>
-                    </section>
-                    <section class="boost-panel">
-                        <h3>Inicialização do Windows</h3>
-                        <p>Visualize os aplicativos que iniciam junto com o Windows e controle o que deseja manter ativo.</p>
-                        <div class="boost-placeholder">Gerenciador de inicialização — integração pendente.</div>
-                    </section>
-                    <section class="boost-panel">
-                        <h3>Ferramentas do sistema</h3>
-                        <p>Acesso rápido à manutenção e às informações importantes do computador.</p>
-                        <div class="boost-placeholder">Limpeza de disco, tarefas agendadas e diagnóstico — integração pendente.</div>
-                    </section>
-                </div>
-            </main>
-        </div>
+        <div class="boost-layout"><aside class="boost-sidebar">
+            <div><div class="rgb-product-header"><div class="rgb-product-icon">🎮</div><div class="rgb-product-title"><h3>BOOST GAME</h3><span>WINDOWS & GAMING OPTIMIZER</span></div></div>
+            <div class="nav-section-title">Workspace</div><div class="nav-menu">
+                <div class="boost-nav-item active" data-boost-tab="dashboard" onclick="boostTab('dashboard')">▦ Painel geral</div>
+                <div class="boost-nav-item" data-boost-tab="startup" onclick="boostTab('startup')">▤ Inicialização</div>
+                <div class="boost-nav-item" data-boost-tab="cleanup" onclick="boostTab('cleanup')">⌫ Limpeza</div>
+                <div class="boost-nav-item" data-boost-tab="gaming" onclick="boostTab('gaming')">🎮 Gaming e energia</div>
+                <div class="boost-nav-item" onclick="switchView('hub')">← Aplicativos</div>
+            </div></div><div class="sdk-status-box"><h5>BOOST GAME</h5><p>Ferramentas nativas do Windows</p></div>
+        </aside><main class="boost-content">
+            <div class="boost-header"><div><h2 id="boostPageTitle">PAINEL DE DESEMPENHO</h2><p id="boostPageDesc">Informações do hardware e estado do sistema.</p></div><button class="btn-outline" onclick="switchView('hub')">← Voltar ao Hub</button></div>
+            <section class="boost-tab active" id="boost-tab-dashboard"><div class="boost-grid">
+                <div class="boost-panel"><h3>Processador</h3><div class="boost-stat"><span>Modelo</span><strong id="boostCpu">Lendo...</strong></div></div>
+                <div class="boost-panel"><h3>Placa de vídeo</h3><div class="boost-stat"><span>Modelo</span><strong id="boostGpu">Lendo...</strong></div></div>
+                <div class="boost-panel"><h3>Memória RAM</h3><div class="boost-stat"><span>Uso</span><strong id="boostRam">Lendo...</strong></div><div class="boost-meter"><i id="boostRamBar"></i></div></div>
+                <div class="boost-panel"><h3>Armazenamento</h3><div class="boost-stat"><span>Unidade</span><strong id="boostDisk">Lendo...</strong></div></div>
+            </div><div class="boost-panel"><h3>Sistema operacional</h3><p id="boostOs">Consultando Windows...</p><div class="boost-actions"><button class="btn-glow" onclick="boostRefresh()">↻ Atualizar diagnóstico</button></div></div></section>
+            <section class="boost-tab" id="boost-tab-startup"><div class="boost-panel"><h3>Programas que iniciam com o Windows</h3><p>Desative apenas aplicativos que você reconhece. Componentes críticos do Windows não são exibidos para alteração.</p><div id="boostStartupList" class="boost-list">Carregando...</div><button class="btn-outline" onclick="boostLoadStartup()">↻ Atualizar lista</button></div></section>
+            <section class="boost-tab" id="boost-tab-cleanup"><div class="boost-panel"><h3>Limpeza de arquivos temporários</h3><p>A análise verifica arquivos temporários do usuário e do Windows. Arquivos em uso ou sem permissão serão ignorados.</p><div class="boost-clean-summary"><strong id="boostCleanSize">-- MB</strong><span id="boostCleanCount">Aguardando análise</span></div><div class="boost-actions"><button class="btn-outline" onclick="boostCleanPreview()">Analisar espaço</button><button class="btn-glow" id="boostCleanBtn" onclick="boostCleanRun()" disabled>Limpar temporários</button></div><p id="boostCleanStatus"></p></div></section>
+            <section class="boost-tab" id="boost-tab-gaming"><div class="boost-grid">
+                <div class="boost-panel"><h3>Plano de energia</h3><p>Escolha um plano já instalado no Windows. O BOOST GAME não cria planos nem altera limites de tensão.</p><select id="boostPowerPlan" class="select-box" style="margin-top:14px"></select><div class="boost-actions"><button class="btn-glow" onclick="boostSetPowerPlan()">Aplicar plano</button></div><p id="boostPowerStatus"></p></div>
+                <div class="boost-panel"><h3>Recursos de jogos do Windows</h3><p>Altere preferências do usuário. Cada opção pode ser revertida aqui.</p><label class="boost-toggle"><span><b>Modo de Jogo</b><small>Prioriza a experiência durante jogos compatíveis.</small></span><input type="checkbox" id="boostGameMode" onchange="boostSetGameSetting('gameMode',this.checked)"></label><label class="boost-toggle"><span><b>Captura em segundo plano</b><small>Desative para evitar gravação em segundo plano se não usa Game DVR.</small></span><input type="checkbox" id="boostCaptures" onchange="boostSetGameSetting('captures',this.checked)"></label><p id="boostGameStatus"></p></div>
+            </div></section>
+        </main></div>
     </div>
 
     <!-- ========================================== -->
@@ -1250,5 +1226,25 @@ window.refreshHtmlRgbDevices=()=>post({action:"rgb-refresh-devices"});
 })();
 </script>
 
+<script>
+(() => {
+ const post=(action,data={})=>{if(window.chrome&&window.chrome.webview)window.chrome.webview.postMessage({action,...data});};
+ const titles={dashboard:["PAINEL DE DESEMPENHO","Informações do hardware e estado do sistema."],startup:["INICIALIZAÇÃO","Gerencie aplicativos iniciados com o Windows."],cleanup:["LIMPEZA DO SISTEMA","Analise e remova arquivos temporários."],gaming:["GAMING E ENERGIA","Planos de energia e preferências de jogos do Windows."]};
+ window.boostTab=tab=>{document.querySelectorAll(".boost-tab").forEach(x=>x.classList.remove("active"));document.querySelectorAll(".boost-nav-item").forEach(x=>x.classList.toggle("active",x.dataset.boostTab===tab));document.getElementById("boost-tab-"+tab).classList.add("active");document.getElementById("boostPageTitle").textContent=titles[tab][0];document.getElementById("boostPageDesc").textContent=titles[tab][1];if(tab==="dashboard")boostRefresh();if(tab==="startup")boostLoadStartup();if(tab==="cleanup")boostCleanPreview();if(tab==="gaming"){post("boost-power-plans");post("boost-game-settings");}};
+ window.boostRefresh=()=>post("boost-dashboard");window.boostLoadStartup=()=>{document.getElementById("boostStartupList").textContent="Carregando...";post("boost-startup-list");};
+ window.boostCleanPreview=()=>{document.getElementById("boostCleanStatus").textContent="Analisando arquivos temporários...";post("boost-clean-preview");};
+ window.boostCleanRun=()=>{if(!confirm("Deseja excluir os arquivos temporários encontrados? Arquivos em uso serão ignorados."))return;document.getElementById("boostCleanBtn").disabled=true;post("boost-clean-run");};
+ window.boostSetPowerPlan=()=>{const id=document.getElementById("boostPowerPlan").value;if(id)post("boost-power-set",{id});};window.boostSetGameSetting=(setting,enabled)=>post("boost-game-setting",{setting,enabled});
+ if(window.chrome&&window.chrome.webview)window.chrome.webview.addEventListener("message",e=>{const d=e.data||{};
+  if(d.action==="boost-dashboard"){const x=d.data;document.getElementById("boostCpu").textContent=x.cpu;document.getElementById("boostGpu").textContent=x.gpu;document.getElementById("boostRam").textContent=x.ramUsedGb+" / "+x.ramTotalGb+" GB ("+x.ramPercent+"%)";document.getElementById("boostRamBar").style.width=x.ramPercent+"%";document.getElementById("boostDisk").textContent=x.diskName+" • "+x.diskFreeGb+" GB livres de "+x.diskTotalGb+" GB";document.getElementById("boostOs").textContent=x.os;}
+  if(d.action==="boost-startup-list"){const el=document.getElementById("boostStartupList");el.replaceChildren();(d.items||[]).forEach(item=>{const row=document.createElement("div");row.className="boost-start-item";const info=document.createElement("div"),name=document.createElement("b"),cmd=document.createElement("small");name.textContent=item.name+" • "+item.source;cmd.textContent=item.command;info.append(name,cmd);row.append(info);if(item.canToggle){const btn=document.createElement("button");btn.className="btn-outline";btn.textContent="Desativar";btn.onclick=()=>{if(confirm("Desativar "+item.name+" da inicialização?"))post("boost-startup-toggle",{id:item.id,enabled:false});};row.append(btn);}else{const tag=document.createElement("small");tag.textContent="Somente leitura";row.append(tag);}el.append(row);});if(!el.children.length)el.textContent="Nenhum item encontrado.";}
+  if(d.action==="boost-clean-preview"){document.getElementById("boostCleanSize").textContent=d.data.sizeMb+" MB";document.getElementById("boostCleanCount").textContent=d.data.count+" arquivo(s) encontrados";document.getElementById("boostCleanBtn").disabled=d.data.count===0;document.getElementById("boostCleanStatus").textContent="Locais analisados: "+d.data.locations.join(" • ");}
+  if(d.action==="boost-clean-result"){document.getElementById("boostCleanBtn").disabled=false;document.getElementById("boostCleanStatus").textContent="Limpeza concluída: "+d.data.deleted+" arquivo(s), "+d.data.freedMb+" MB liberados.";boostCleanPreview();}
+  if(d.action==="boost-power-plans"){const sel=document.getElementById("boostPowerPlan");sel.replaceChildren();(d.data.plans||[]).forEach(p=>{sel.add(new Option(p.name+(p.active?" (Ativo)":""),p.id));if(p.active)sel.value=p.id;});document.getElementById("boostPowerStatus").textContent="Plano ativo identificado.";}
+  if(d.action==="boost-game-settings"){document.getElementById("boostGameMode").checked=!!d.data.gameMode;document.getElementById("boostCaptures").checked=!!d.data.captures;document.getElementById("boostGameStatus").textContent="Preferências sincronizadas com o Windows.";}
+ });
+ const observer=new MutationObserver(()=>{const v=document.getElementById("view-boost");if(v&&v.classList.contains("active"))boostRefresh();});const v=document.getElementById("view-boost");if(v)observer.observe(v,{attributes:true,attributeFilter:["class"]});
+})();
+</script>
 </body>
 </html>
