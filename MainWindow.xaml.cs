@@ -286,6 +286,10 @@ public partial class MainWindow : Window
         if (hex.Length != 6 || !uint.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint rgb))
             throw new InvalidOperationException("Escolha uma cor HEX válida.");
         var mouse = _devices.FirstOrDefault(IsLogitechG203) ?? throw new InvalidOperationException("Logitech G203 não encontrado. Atualize a lista.");
+        // A aplicação atualiza a calibração ativa em memória; o botão Salvar grava os valores no perfil.
+        _mouseRedGain = rGain;
+        _mouseGreenGain = gGain;
+        _mouseBlueGain = bGain;
         var zones = mouse.Zones.Select((z, i) =>
         {
             byte r = (byte)Math.Round(((rgb >> 16) & 255) * brightness / 100.0);
