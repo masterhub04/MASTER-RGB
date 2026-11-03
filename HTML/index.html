@@ -602,7 +602,7 @@
                     <div class="rgb-panel">
                         <div class="hardware-actions">
                             <button class="btn-glow led-element">Detectar dispositivos RGB</button>
-                            <button class="btn-outline">Executar diagnóstico</button>
+                            <button class="btn-outline" id="rgbRunDiagnostic" type="button" onclick="runRgbDiagnostic()">Executar diagnóstico</button>
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                             <h4 style="font-size: 13px; font-weight: 800; text-transform: uppercase;">Dispositivos encontrados</h4>
@@ -1021,6 +1021,8 @@ window.addEventListener("DOMContentLoaded",()=>post({action:"rgb-get-devices"}))
 window.applyHtmlRgbColor=()=>{const d=devices.find(x=>x.index===Number(ds.value)),z=d&&d.zones.find(x=>x.index===Number(zs.value));if(!d||!z){document.getElementById("rgbStatusText").textContent="Selecione um dispositivo e uma zona.";return;}post({action:"rgb-apply-color",deviceIndex:d.index,zoneIndex:z.index,ledCount:Number(leds.value),hex:hex.value,brightness:Number(bright.value)});const b=document.getElementById("rgbApplyOne");b.disabled=true;b.textContent="Aplicando...";};
 window.applyHtmlRgbGroup=()=>{const ids=[...group.querySelectorAll("input:checked")].map(x=>Number(x.value));post({action:"rgb-apply-group",deviceIndices:ids,hex:hex.value,brightness:Number(bright.value)});};
 window.refreshHtmlRgbDevices=()=>post({action:"rgb-refresh-devices"});
+ window.runRgbDiagnostic=()=>{const b=document.getElementById("rgbRunDiagnostic");if(b){b.disabled=true;b.textContent="Executando...";}post({action:"rgb-run-diagnostic"});};
+ if(window.chrome&&window.chrome.webview)window.chrome.webview.addEventListener("message",e=>{const d=e.data||{};if(d.action==="rgb-diagnostic-finished"){const b=document.getElementById("rgbRunDiagnostic");if(b){b.disabled=false;b.textContent="Executar diagnóstico";}}});
 })();
 </script>
 </body>
