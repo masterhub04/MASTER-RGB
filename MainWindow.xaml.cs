@@ -275,19 +275,18 @@ public partial class MainWindow : Window
                 return;
             }
 
-            // Evita deixar a tela presa indefinidamente caso o GitHub não responda.
-            using var checkTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            // O Velopack 1.2.161 não oferece CancellationToken nesse método.
+            // Task.WhenAny limita o tempo de espera da interface sem usar uma API inexistente.
             UpdateStatusText.Text = "Conectando ao GitHub para verificar atualizações...";
-            Velopack.UpdateInfo? update;
-            try
+            var checkTask = manager.CheckForUpdatesAsync();
+            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(30));
+            if (await Task.WhenAny(checkTask, timeoutTask) != checkTask)
             {
-                update = await manager.CheckForUpdatesAsync(checkTimeout.Token);
-            }
-            catch (OperationCanceledException) when (checkTimeout.IsCancellationRequested)
-            {
+                _ = checkTask.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
                 UpdateStatusText.Text = "A verificação demorou mais de 30 segundos. Confira sua conexão e tente novamente.";
                 return;
             }
+            var update = await checkTask;
 
             if (update is null)
             {
