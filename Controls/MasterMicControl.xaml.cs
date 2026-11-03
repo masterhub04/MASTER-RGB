@@ -604,6 +604,36 @@ public partial class MasterMicControl : System.Windows.Controls.UserControl
         }
     }
 
+    // API pública consumida pela interface HTML do MASTER HUB.
+    public object GetHtmlState()
+    {
+        var devices = _audioDevices.Select(d => new { id = d.Device.ID, name = d.FriendlyName }).ToArray();
+        var endpoint = _selectedAudioDevice?.AudioEndpointVolume;
+        return new {
+            devices, selectedId = _selectedAudioDevice?.ID ?? "",
+            volume = endpoint is null ? 0 : (int)Math.Round(endpoint.MasterVolumeLevelScalar * 100),
+            muted = endpoint?.Mute ?? false, deviceStatus = DeviceStatusText.Text,
+            monitoring = _monitorCapture is not null, monitorStatus = MonitorStatusText.Text,
+            rnnoise = NoiseSuppressionCheck.IsChecked == true, gate = NoiseGateCheck.IsChecked == true,
+            gateThreshold = GateThresholdSlider.Value, compressor = CompressorCheck.IsChecked == true,
+            compressorRatio = CompressorRatioSlider.Value, presence = PresenceSlider.Value,
+            usbStatus = StatusText.Text,
+            usbDevices = _devices.Select(d => new { name=d.Name, manufacturer=d.Manufacturer, pnpClass=d.PnpClass, status=d.Status, service=d.Service, errorCode=d.ErrorCode, pnpDeviceId=d.PnpDeviceId, isFifine=d.IsFifine }).ToArray(),
+            usbDetails = DetailsText.Text
+        };
+    }
+    public void HtmlInitialize() { if (_audioDevices.Count == 0) RefreshAudioDevices(); if (_allDevices.Count == 0) LoadUsbDevices(); if (!_monitorTimer.IsEnabled) _monitorTimer.Start(); }
+    public void HtmlRefreshAudio() => RefreshAudioDevices();
+    public void HtmlSelectAudio(string id) { var item = _audioDevices.FirstOrDefault(d => d.Device.ID == id); if (item is not null) MicrophoneCombo.SelectedItem = item; }
+    public void HtmlSetVolume(double value) { if (_selectedAudioDevice is not null) VolumeSlider.Value = Math.Clamp(value, 0, 100); }
+    public void HtmlSetMute(bool muted) { if (_selectedAudioDevice is not null) { _selectedAudioDevice.AudioEndpointVolume.Mute = muted; UpdateAudioState(); } }
+    public void HtmlSetEffect(string effect, bool enabled) { switch(effect) { case "rnnoise": NoiseSuppressionCheck.IsChecked=enabled; break; case "gate": NoiseGateCheck.IsChecked=enabled; break; case "compressor": CompressorCheck.IsChecked=enabled; break; } UpdateEffectSettingsFromUi(); RestartMonitorForEffectChange(); }
+    public void HtmlSetParameter(string parameter, double value) { switch(parameter) { case "gateThreshold": GateThresholdSlider.Value=Math.Clamp(value,-60,-20); break; case "compressorRatio": CompressorRatioSlider.Value=Math.Clamp(value,1,6); break; case "presence": PresenceSlider.Value=Math.Clamp(value,0,6); break; } UpdateEffectSettingsFromUi(); RestartMonitorForEffectChange(); }
+    public void HtmlToggleMonitor() { if (_monitorCapture is null) MonitorButton_Click(MonitorButton,new RoutedEventArgs()); else StopMicrophoneMonitor(); }
+    public void HtmlRefreshUsb(bool showAll) { ShowAllCheck.IsChecked=showAll; LoadUsbDevices(); }
+    public void HtmlSelectUsb(string id) { var item=_devices.FirstOrDefault(d=>d.PnpDeviceId==id); if(item is not null) DevicesGrid.SelectedItem=item; }
+    public void HtmlExportUsb() => Export_Click(this,new RoutedEventArgs());
+
     public void Shutdown() => CleanupAudio();
 
     private void CleanupAudio()
