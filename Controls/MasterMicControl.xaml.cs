@@ -283,12 +283,55 @@ public partial class MasterMicControl : System.Windows.Controls.UserControl
 
     private void RestartMonitorForEffectChange()
     {
-        if (_monitorCapture is null)
+        // A cadeia de efeitos é atualizada em tempo real. A captura WASAPI,
+        // o buffer e a saída permanecem ativos; somente o processador muda.
+        var capture = _monitorCapture;
+        if (capture is null)
             return;
 
-        StopMicrophoneMonitor();
-        MonitorStatusText.Text =
-            "Efeitos alterados. Clique em OUVIR MICROFONE para aplicar.";
+        try
+        {
+            bool useRnNoise = NoiseSuppressionCheck.IsChecked == true;
+            bool useVoiceEffects = _noiseGateEnabled ||
+                _compressorEnabled || _presenceAmountDb > 0.01f;
+
+            lock (_monitorProcessingLock)
+            {
+                if (useRnNoise || useVoiceEffects)
+                {
+                    InitializeAudioProcessing(capture.WaveFormat, useRnNoise);
+                }
+                else
+                {
+                    _noiseSuppressor?.Dispose();
+                    _noiseSuppressor = null;
+                    _noiseFramePosition = 0;
+                    _gateEnvelope = 0f;
+                    _gateGain = 1f;
+                    _compressorEnvelope = 0f;
+                    _compressorGain = 1f;
+                    _presenceLowpass = 0f;
+                }
+            }
+
+            string activeEffects = string.Join(" + ",
+                new[]
+                {
+                    useRnNoise ? "RNNoise" : null,
+                    _noiseGateEnabled ? "Noise Gate" : null,
+                    _compressorEnabled ? "Compressor" : null,
+                    _presenceAmountDb > 0.01f ? "Voice Clarity" : null
+                }.Where(effect => effect is not null));
+
+            MonitorStatusText.Text = activeEffects.Length > 0
+                ? $"Monitoramento ativo ({activeEffects}) — {_selectedAudioDevice?.FriendlyName}"
+                : $"Monitoramento ativo — ouvindo {_selectedAudioDevice?.FriendlyName}";
+        }
+        catch (Exception ex)
+        {
+            MonitorStatusText.Text =
+                "Monitoramento ativo; não foi possível aplicar o efeito: " + ex.Message;
+        }
     }
 
     private void MonitorButton_Click(object sender, RoutedEventArgs e)
