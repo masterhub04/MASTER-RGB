@@ -200,13 +200,10 @@ public partial class MainWindow : Window
             return (Device: device, Zones: zones);
         }).Where(batch => batch.Zones.Length > 0).ToArray();
 
-        // Mantém dispositivos em paralelo, mas envia cada zona em uma operação
-        // individual para evitar incompatibilidade no envio de múltiplas zonas.
-        await Task.WhenAll(batches.Select(async batch =>
-        {
-            foreach (var zone in batch.Zones)
-                await _openRgb.ApplyDeviceZonesColorAsync(batch.Device.Index, new[] { zone });
-        }));
+        // Cada dispositivo recebe sua cor em paralelo. Dentro de cada dispositivo,
+        // todas as zonas seguem pela mesma conexão do SDK para evitar atrasos em cascata.
+        await Task.WhenAll(batches.Select(batch =>
+            _openRgb.ApplyDeviceZonesColorAsync(batch.Device.Index, batch.Zones)));
 
         int applied = batches.Sum(batch => batch.Zones.Length);
         SendHtmlMessage(new { action = "rgb-result", ok = true, message = $"Cor #{hex.ToUpperInvariant()} enviada para {applied} zona(s) em {selected.Count} dispositivo(s)." });
@@ -772,27 +769,26 @@ public partial class MainWindow : Window
         var failures = new System.Collections.Concurrent.ConcurrentBag<string>();
         try
         {
-            // Dispositivos diferentes continuam em paralelo; cada zona recebe
-            // um comando individual, isolando falhas de uma zona das demais.
+            // Uma conexão por dispositivo: ativa o modo Custom uma vez e envia
+            // todas as zonas sem repetir as pausas de cada operação.
+            // Dispositivos diferentes continuam sendo atualizados em paralelo.
             var deviceGroups = targets.GroupBy(t => t.Device).ToList();
             var updateTasks = deviceGroups.Select(async deviceGroup =>
             {
-                foreach (var target in deviceGroup)
+                var groupTargets = deviceGroup.ToList();
+                var zoneCommands = groupTargets.Select(target => (
+                    ZoneIndex: target.Zone.Index,
+                    LedCount: _zoneLedOverrides.TryGetValue(GetZoneKey(target.Device, target.Zone), out int configured)
+                        ? configured : target.Zone.LedCount)).ToList();
+                try
                 {
-                    int ledCount = _zoneLedOverrides.TryGetValue(GetZoneKey(target.Device, target.Zone), out int configured)
-                        ? configured : target.Zone.LedCount;
-                    try
-                    {
-                        await _openRgb.ApplyDeviceZonesColorAsync(deviceGroup.Key.Index, new[]
-                        {
-                            (ZoneIndex: target.Zone.Index, LedCount: ledCount)
-                        }, red, green, blue);
-                        System.Threading.Interlocked.Increment(ref succeeded);
-                    }
-                    catch (Exception ex)
-                    {
+                    await _openRgb.ApplyDeviceZonesColorAsync(deviceGroup.Key.Index, zoneCommands, red, green, blue);
+                    System.Threading.Interlocked.Add(ref succeeded, groupTargets.Count);
+                }
+                catch (Exception ex)
+                {
+                    foreach (var target in groupTargets)
                         failures.Add($"{target.Device.Name}/{target.Zone.Name}: {ex.Message}");
-                    }
                 }
             });
 
