@@ -769,12 +769,8 @@
                 document.getElementById('view-rgb').classList.add('active');
                 switchRgbTab('studio');
             } else if(viewName === 'mic') {
-                if (window.chrome && window.chrome.webview) {
-                    window.chrome.webview.postMessage({ action: "open-master-mic" });
-                } else {
-                    document.getElementById('view-mic').classList.add('active');
-                    document.getElementById('topTitle').innerText = "Voice Studio & USB Inspector";
-                }
+                document.getElementById('view-mic').classList.add('active');
+                document.getElementById('topTitle').innerText = "Voice Studio & USB Inspector";
             } else if(viewName === 'config') {
                 document.getElementById('view-config').classList.add('active');
                 document.getElementById('topTitle').innerText = "Configurações do Sistema";
