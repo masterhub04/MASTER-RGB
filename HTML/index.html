@@ -1320,7 +1320,7 @@ window.refreshHtmlRgbDevices=()=>post({action:"rgb-refresh-devices"});
      const desc=document.createElement("small");desc.textContent=item.description;
      const state=document.createElement("small");state.textContent="Estado: "+item.state+" • Inicialização: "+item.startMode+(item.disabledByApp?" • gerenciado pelo OPTIMIZE SYSTEM":"");
      info.append(name,desc,state);row.append(info);
-     const btn=document.createElement("button");btn.className="btn-outline";btn.textContent=item.disabledByApp?"Restaurar":"Desativar";
+     const btn=document.createElement("button");btn.className="btn-outline";btn.textContent=item.disabledByApp?"Restaurar":(item.alreadyDisabled?"Já desativado":"Desativar");btn.disabled=!!item.alreadyDisabled;
      btn.onclick=()=>{const disable=!item.disabledByApp;const msg=disable?"Desativar o serviço "+item.displayName+"? Alguns recursos associados podem parar de funcionar.":"Restaurar a configuração anterior de "+item.displayName+"?";if(confirm(msg)){btn.disabled=true;post("optimize-service-toggle",{name:item.name,disable});}};
      row.append(btn);el.append(row);
     });
