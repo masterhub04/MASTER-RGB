@@ -47,7 +47,7 @@ public partial class MainWindow : Window
     private bool _startMinimized;
     private bool _minimizeToTray;
     private bool _allowExit;
-    private int _mouseRedGain = 100, _mouseGreenGain = 100, _mouseBlueGain = 100;
+    private int _mouseRedGain = 255, _mouseGreenGain = 255, _mouseBlueGain = 255;
     private string? _lastMouseColorHex;
     private int _lastMouseColorBrightness = 100;
     private bool _hasSavedMouseColor;
@@ -152,9 +152,9 @@ public partial class MainWindow : Window
                     SendHtmlMessage(new { action = "rgb-mouse-calibration", red = _mouseRedGain, green = _mouseGreenGain, blue = _mouseBlueGain });
                     break;
                 case "rgb-save-mouse-calibration":
-                    _mouseRedGain = Math.Clamp(root.GetProperty("red").GetInt32(), 0, 200);
-                    _mouseGreenGain = Math.Clamp(root.GetProperty("green").GetInt32(), 0, 200);
-                    _mouseBlueGain = Math.Clamp(root.GetProperty("blue").GetInt32(), 0, 200);
+                    _mouseRedGain = Math.Clamp(root.GetProperty("red").GetInt32(), 0, 255);
+                    _mouseGreenGain = Math.Clamp(root.GetProperty("green").GetInt32(), 0, 255);
+                    _mouseBlueGain = Math.Clamp(root.GetProperty("blue").GetInt32(), 0, 255);
                     SaveUserSettings();
                     SendHtmlMessage(new { action = "rgb-mouse-calibration-saved", message = "Calibração do mouse salva." });
                     break;
@@ -271,9 +271,9 @@ public partial class MainWindow : Window
         device.Name.Contains("G203", StringComparison.OrdinalIgnoreCase);
 
     private (byte red, byte green, byte blue) ApplyMouseCalibration(byte red, byte green, byte blue) =>
-        ((byte)Math.Clamp((int)Math.Round(red * _mouseRedGain / 100.0), 0, 255),
-         (byte)Math.Clamp((int)Math.Round(green * _mouseGreenGain / 100.0), 0, 255),
-         (byte)Math.Clamp((int)Math.Round(blue * _mouseBlueGain / 100.0), 0, 255));
+        ((byte)Math.Clamp((int)Math.Round(red * _mouseRedGain / 255.0), 0, 255),
+         (byte)Math.Clamp((int)Math.Round(green * _mouseGreenGain / 255.0), 0, 255),
+         (byte)Math.Clamp((int)Math.Round(blue * _mouseBlueGain / 255.0), 0, 255));
 
     private async Task ApplyHtmlMouseCalibrationAsync(JsonElement root)
     {
@@ -295,9 +295,9 @@ public partial class MainWindow : Window
             byte g = (byte)Math.Round(((rgb >> 8) & 255) * brightness / 100.0);
             byte b = (byte)Math.Round((rgb & 255) * brightness / 100.0);
             (r, g, b) = ApplyControllerColorQuirks(mouse.Name, z.Name, r, g, b);
-            r = (byte)Math.Clamp((int)Math.Round(r * rGain / 100.0), 0, 255);
-            g = (byte)Math.Clamp((int)Math.Round(g * gGain / 100.0), 0, 255);
-            b = (byte)Math.Clamp((int)Math.Round(b * bGain / 100.0), 0, 255);
+            r = (byte)Math.Clamp((int)Math.Round(r * rGain / 255.0), 0, 255);
+            g = (byte)Math.Clamp((int)Math.Round(g * gGain / 255.0), 0, 255);
+            b = (byte)Math.Clamp((int)Math.Round(b * bGain / 255.0), 0, 255);
             return (ZoneIndex: i, LedCount: GetConfiguredLedCount(mouse, new ZoneRow(i, z.Name, z.LedCount)), Red: r, Green: g, Blue: b);
         }).Where(z => z.LedCount > 0).ToArray();
         if (zones.Length == 0) throw new InvalidOperationException("O G203 não informou uma zona RGB controlável.");
@@ -1310,9 +1310,9 @@ public partial class MainWindow : Window
             _startWithWindows = settings.StartWithWindows;
             _startMinimized = settings.StartMinimized;
             _minimizeToTray = settings.MinimizeToTray;
-            _mouseRedGain = Math.Clamp(settings.MouseRedGain, 0, 200);
-            _mouseGreenGain = Math.Clamp(settings.MouseGreenGain, 0, 200);
-            _mouseBlueGain = Math.Clamp(settings.MouseBlueGain, 0, 200);
+            _mouseRedGain = Math.Clamp(settings.MouseRedGain, 0, 255);
+            _mouseGreenGain = Math.Clamp(settings.MouseGreenGain, 0, 255);
+            _mouseBlueGain = Math.Clamp(settings.MouseBlueGain, 0, 255);
             _lastMouseColorHex = NormalizeHexColor(settings.LastMouseColorHex);
             _lastMouseColorBrightness = Math.Clamp(settings.LastMouseColorBrightness, 0, 100);
             _hasSavedMouseColor = settings.HasSavedMouseColor && _lastMouseColorHex is not null;
@@ -1405,5 +1405,5 @@ public partial class MainWindow : Window
         if (save) SaveUserSettings();
     }
 
-    private sealed record UserSettings(List<string>? FavoriteColors, Dictionary<string, int>? ZoneLedOverrides, double Brightness = 100, string? Theme = "Blue", bool StartWithWindows = false, bool StartMinimized = false, string? UiAccentColor = "#0000FF", bool MinimizeToTray = false, int MouseRedGain = 100, int MouseGreenGain = 100, int MouseBlueGain = 100, string? LastMouseColorHex = null, int LastMouseColorBrightness = 100, bool HasSavedMouseColor = false);
+    private sealed record UserSettings(List<string>? FavoriteColors, Dictionary<string, int>? ZoneLedOverrides, double Brightness = 100, string? Theme = "Blue", bool StartWithWindows = false, bool StartMinimized = false, string? UiAccentColor = "#0000FF", bool MinimizeToTray = false, int MouseRedGain = 255, int MouseGreenGain = 255, int MouseBlueGain = 255, string? LastMouseColorHex = null, int LastMouseColorBrightness = 100, bool HasSavedMouseColor = false);
 }
