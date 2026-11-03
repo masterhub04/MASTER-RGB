@@ -1266,6 +1266,12 @@ public partial class MainWindow : Window
             _startWithWindows = settings.StartWithWindows;
             _startMinimized = settings.StartMinimized;
             _minimizeToTray = settings.MinimizeToTray;
+            _mouseRedGain = Math.Clamp(settings.MouseRedGain, 0, 200);
+            _mouseGreenGain = Math.Clamp(settings.MouseGreenGain, 0, 200);
+            _mouseBlueGain = Math.Clamp(settings.MouseBlueGain, 0, 200);
+            _lastMouseColorHex = NormalizeHexColor(settings.LastMouseColorHex);
+            _lastMouseColorBrightness = Math.Clamp(settings.LastMouseColorBrightness, 0, 100);
+            _hasSavedMouseColor = settings.HasSavedMouseColor && _lastMouseColorHex is not null;
         }
         catch (Exception ex)
         {
@@ -1279,7 +1285,7 @@ public partial class MainWindow : Window
         {
             string? directory = System.IO.Path.GetDirectoryName(_userSettingsPath);
             if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
-            var settings = new UserSettings(_favoriteColors.Select(c => c.Hex).ToList(), _zoneLedOverrides, BrightnessSlider.Value, _currentTheme, _startWithWindows, _startMinimized, _uiAccentColor, _minimizeToTray);
+            var settings = new UserSettings(_favoriteColors.Select(c => c.Hex).ToList(), _zoneLedOverrides, BrightnessSlider.Value, _currentTheme, _startWithWindows, _startMinimized, _uiAccentColor, _minimizeToTray, _mouseRedGain, _mouseGreenGain, _mouseBlueGain, _lastMouseColorHex, _lastMouseColorBrightness, _hasSavedMouseColor);
             File.WriteAllText(_userSettingsPath, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
         }
         catch (Exception ex)
@@ -1355,5 +1361,5 @@ public partial class MainWindow : Window
         if (save) SaveUserSettings();
     }
 
-    private sealed record UserSettings(List<string>? FavoriteColors, Dictionary<string, int>? ZoneLedOverrides, double Brightness = 100, string? Theme = "Blue", bool StartWithWindows = false, bool StartMinimized = false, string? UiAccentColor = "#0000FF", bool MinimizeToTray = false);
+    private sealed record UserSettings(List<string>? FavoriteColors, Dictionary<string, int>? ZoneLedOverrides, double Brightness = 100, string? Theme = "Blue", bool StartWithWindows = false, bool StartMinimized = false, string? UiAccentColor = "#0000FF", bool MinimizeToTray = false, int MouseRedGain = 100, int MouseGreenGain = 100, int MouseBlueGain = 100, string? LastMouseColorHex = null, int LastMouseColorBrightness = 100, bool HasSavedMouseColor = false);
 }
