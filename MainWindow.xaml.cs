@@ -658,8 +658,7 @@ public partial class MainWindow : Window
         if (string.IsNullOrWhiteSpace(executable) || !File.Exists(executable))
             throw new InvalidOperationException("Não foi possível localizar o executável instalado do MASTER HUB.");
 
-        // Usa a pasta Inicializar do usuário, reconhecida pelo Windows como app de inicialização.
-        // Remove a entrada Run antiga para evitar abrir duas instâncias do aplicativo.
+        // Inicialização por atalho do perfil do usuário; remove o Run antigo para evitar duas instâncias.
         runKey.DeleteValue(appValueName, throwOnMissingValue: false);
         Type shellType = Type.GetTypeFromProgID("WScript.Shell")
             ?? throw new InvalidOperationException("O componente WScript.Shell não está disponível.");
