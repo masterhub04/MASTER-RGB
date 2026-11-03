@@ -268,8 +268,7 @@ public partial class MainWindow : Window
 
 
     private static bool IsLogitechG203(DeviceRow device) =>
-        device.Name.Contains("G203", StringComparison.OrdinalIgnoreCase) &&
-        device.Name.Contains("Logitech", StringComparison.OrdinalIgnoreCase);
+        device.Name.Contains("G203", StringComparison.OrdinalIgnoreCase);
 
     private (byte red, byte green, byte blue) ApplyMouseCalibration(byte red, byte green, byte blue) =>
         ((byte)Math.Clamp((int)Math.Round(red * _mouseRedGain / 100.0), 0, 255),
