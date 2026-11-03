@@ -121,7 +121,7 @@ public partial class MainWindow : Window
                 case "window-minimize": WindowState = WindowState.Minimized; break;
                 case "window-close": CloseWindow_Click(this, new RoutedEventArgs()); break;
                 case "window-drag": try { DragMove(); } catch (InvalidOperationException) { } break;
-                case "check-updates": CheckUpdatesFromHtml(); break;
+                case "check-updates": CheckUpdatesFromHtml(); break;\n                case "install-update": CheckUpdatesFromHtml(true); break;
                 case "rgb-get-devices": await SendRgbDevicesToHtmlAsync(); break;
                 case "rgb-refresh-devices": await DetectOpenRgbDevicesAsync(); await SendRgbDevicesToHtmlAsync(); break;
                 case "rgb-run-diagnostic": RunDiagnostic_Click(this, new RoutedEventArgs()); break;
@@ -234,10 +234,56 @@ public partial class MainWindow : Window
         return (red, green, blue);
     }
 
-    private void CheckUpdatesFromHtml()
+    private async void CheckUpdatesFromHtml(bool installUpdate = false)
     {
-        // Reutiliza o verificador nativo já existente no aplicativo.
-        CheckUpdates_Click(this, new RoutedEventArgs());
+        string currentVersion = typeof(App).Assembly.GetName().Version?.ToString(3) ?? "desconhecida";
+        try
+        {
+            var source = new GithubSource("https://github.com/masterhub04/MASTER-RGB", null, false);
+            var manager = new UpdateManager(source);
+            if (!manager.IsInstalled)
+            {
+                SendHtmlMessage(new { action = "update-check-result", currentVersion, available = false,
+                    message = "Atualização automática disponível somente na versão instalada pelo instalador." });
+                return;
+            }
+
+            SendHtmlMessage(new { action = "update-checking", currentVersion });
+            var checkTask = manager.CheckForUpdatesAsync();
+            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(30));
+            if (await Task.WhenAny(checkTask, timeoutTask) != checkTask)
+            {
+                _ = checkTask.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
+                throw new TimeoutException("A verificação demorou mais de 30 segundos. Confira sua conexão e tente novamente.");
+            }
+
+            var update = await checkTask;
+            if (update is null)
+            {
+                SendHtmlMessage(new { action = "update-check-result", currentVersion, available = false,
+                    message = "Você já está usando a versão mais recente." });
+                return;
+            }
+
+            string availableVersion = update.TargetFullRelease.Version.ToString();
+            if (!installUpdate)
+            {
+                SendHtmlMessage(new { action = "update-check-result", currentVersion, available = true,
+                    availableVersion, message = $"Nova versão disponível: v{availableVersion}" });
+                return;
+            }
+
+            SendHtmlMessage(new { action = "update-installing", currentVersion, availableVersion,
+                message = $"Baixando a versão v{availableVersion}..." });
+            await manager.DownloadUpdatesAsync(update);
+            SendHtmlMessage(new { action = "update-installing", currentVersion, availableVersion,
+                message = "Download concluído. Fechando o MASTER HUB para aplicar a atualização..." });
+            manager.ApplyUpdatesAndRestart(update);
+        }
+        catch (Exception ex)
+        {
+            SendHtmlMessage(new { action = "update-error", currentVersion, message = "Não foi possível concluir: " + ex.Message });
+        }
     }
 
     private void NavigateDashboard_Click(object sender, RoutedEventArgs e)
