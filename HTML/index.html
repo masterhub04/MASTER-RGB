@@ -692,8 +692,8 @@
                             <p style="font-size:12px;color:var(--text-dim);margin-bottom:14px;">Ajuste cada canal para compensar a diferença de tonalidade do mouse. A calibração afeta somente o G203; os demais LEDs continuam recebendo a cor original.</p>
                             <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;">
                                 <div><label for="mouseCalRed" style="display:block;font-size:11px;margin-bottom:6px;">Vermelho <b id="mouseCalRedValue">255</b></label><input id="mouseCalRed" type="range" min="0" max="255" value="255" class="range-slider" oninput="updateMouseCalibrationLabels()"></div>
-                                <div><label for="mouseCalGreen" style="display:block;font-size:11px;margin-bottom:6px;">Verde <b id="mouseCalGreenValue">255</b></label><input id="mouseCalGreen" type="range" min="0" max="200" value="100" class="range-slider" oninput="updateMouseCalibrationLabels()"></div>
-                                <div><label for="mouseCalBlue" style="display:block;font-size:11px;margin-bottom:6px;">Azul <b id="mouseCalBlueValue">255</b></label><input id="mouseCalBlue" type="range" min="0" max="200" value="100" class="range-slider" oninput="updateMouseCalibrationLabels()"></div>
+                                <div><label for="mouseCalGreen" style="display:block;font-size:11px;margin-bottom:6px;">Verde <b id="mouseCalGreenValue">255</b></label><input id="mouseCalGreen" type="range" min="0" max="255" value="255" class="range-slider" oninput="updateMouseCalibrationLabels()"></div>
+                                <div><label for="mouseCalBlue" style="display:block;font-size:11px;margin-bottom:6px;">Azul <b id="mouseCalBlueValue">255</b></label><input id="mouseCalBlue" type="range" min="0" max="255" value="255" class="range-slider" oninput="updateMouseCalibrationLabels()"></div>
                             </div>
                             <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;">
                                 <button class="btn-glow" type="button" onclick="applyMouseCalibration()">Aplicar calibração ao mouse</button>
