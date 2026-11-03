@@ -129,6 +129,7 @@ public sealed class OptimizeSystemService
                     state = info.State,
                     startMode = info.StartMode,
                     disabledByApp = changedByApp,
+                    alreadyDisabled = info.StartMode.Equals("Disabled", StringComparison.OrdinalIgnoreCase) && !changedByApp,
                     canChange = true
                 };
             }).ToArray();
