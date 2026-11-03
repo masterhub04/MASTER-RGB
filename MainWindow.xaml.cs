@@ -266,6 +266,69 @@ public partial class MainWindow : Window
         SendHtmlMessage(new { action = "rgb-result", ok = true, message = $"Cor #{hex.ToUpperInvariant()} enviada para {applied} zona(s) em {selected.Count} dispositivo(s)." });
     }
 
+
+    private static bool IsLogitechG203(DeviceRow device) =>
+        device.Name.Contains("G203", StringComparison.OrdinalIgnoreCase) &&
+        device.Name.Contains("Logitech", StringComparison.OrdinalIgnoreCase);
+
+    private (byte red, byte green, byte blue) ApplyMouseCalibration(byte red, byte green, byte blue) =>
+        ((byte)Math.Clamp((int)Math.Round(red * _mouseRedGain / 100.0), 0, 255),
+         (byte)Math.Clamp((int)Math.Round(green * _mouseGreenGain / 100.0), 0, 255),
+         (byte)Math.Clamp((int)Math.Round(blue * _mouseBlueGain / 100.0), 0, 255));
+
+    private async Task ApplyHtmlMouseCalibrationAsync(JsonElement root)
+    {
+        int rGain = Math.Clamp(root.GetProperty("red").GetInt32(), 0, 200);
+        int gGain = Math.Clamp(root.GetProperty("green").GetInt32(), 0, 200);
+        int bGain = Math.Clamp(root.GetProperty("blue").GetInt32(), 0, 200);
+        string hex = root.GetProperty("hex").GetString()?.Trim().TrimStart('#') ?? "";
+        int brightness = root.TryGetProperty("brightness", out var value) ? Math.Clamp(value.GetInt32(), 0, 100) : 100;
+        if (hex.Length != 6 || !uint.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint rgb))
+            throw new InvalidOperationException("Escolha uma cor HEX válida.");
+        var mouse = _devices.FirstOrDefault(IsLogitechG203) ?? throw new InvalidOperationException("Logitech G203 não encontrado. Atualize a lista.");
+        var zones = mouse.Zones.Select((z, i) =>
+        {
+            byte r = (byte)Math.Round(((rgb >> 16) & 255) * brightness / 100.0);
+            byte g = (byte)Math.Round(((rgb >> 8) & 255) * brightness / 100.0);
+            byte b = (byte)Math.Round((rgb & 255) * brightness / 100.0);
+            (r, g, b) = ApplyControllerColorQuirks(mouse.Name, z.Name, r, g, b);
+            r = (byte)Math.Clamp((int)Math.Round(r * rGain / 100.0), 0, 255);
+            g = (byte)Math.Clamp((int)Math.Round(g * gGain / 100.0), 0, 255);
+            b = (byte)Math.Clamp((int)Math.Round(b * bGain / 100.0), 0, 255);
+            return (ZoneIndex: i, LedCount: GetConfiguredLedCount(mouse, new ZoneRow(i, z.Name, z.LedCount)), Red: r, Green: g, Blue: b);
+        }).Where(z => z.LedCount > 0).ToArray();
+        if (zones.Length == 0) throw new InvalidOperationException("O G203 não informou uma zona RGB controlável.");
+        foreach (var z in zones) if (z.LedCount != mouse.Zones[z.ZoneIndex].LedCount) await _openRgb.ResizeZoneAsync(mouse.Index, z.ZoneIndex, z.LedCount);
+        await _openRgb.ApplyDeviceZonesColorAsync(mouse.Index, zones);
+        _lastMouseColorHex = "#" + hex.ToUpperInvariant();
+        _lastMouseColorBrightness = brightness;
+        _hasSavedMouseColor = true;
+        SendHtmlMessage(new { action = "rgb-mouse-calibration-applied", message = "Calibração aplicada ao Logitech G203." });
+    }
+
+    private async Task ApplySavedMouseColorAsync()
+    {
+        if (!_hasSavedMouseColor || string.IsNullOrWhiteSpace(_lastMouseColorHex)) return;
+        var mouse = _devices.FirstOrDefault(IsLogitechG203);
+        if (mouse is null || !uint.TryParse(_lastMouseColorHex.TrimStart('#'), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint rgb)) return;
+        var zones = mouse.Zones.Select((z, i) =>
+        {
+            byte r = (byte)Math.Round(((rgb >> 16) & 255) * _lastMouseColorBrightness / 100.0);
+            byte g = (byte)Math.Round(((rgb >> 8) & 255) * _lastMouseColorBrightness / 100.0);
+            byte b = (byte)Math.Round((rgb & 255) * _lastMouseColorBrightness / 100.0);
+            (r, g, b) = ApplyControllerColorQuirks(mouse.Name, z.Name, r, g, b);
+            (r, g, b) = ApplyMouseCalibration(r, g, b);
+            return (ZoneIndex: i, LedCount: GetConfiguredLedCount(mouse, new ZoneRow(i, z.Name, z.LedCount)), Red: r, Green: g, Blue: b);
+        }).Where(z => z.LedCount > 0).ToArray();
+        if (zones.Length == 0) return;
+        try
+        {
+            foreach (var z in zones) if (z.LedCount != mouse.Zones[z.ZoneIndex].LedCount) await _openRgb.ResizeZoneAsync(mouse.Index, z.ZoneIndex, z.LedCount);
+            await _openRgb.ApplyDeviceZonesColorAsync(mouse.Index, zones);
+        }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine("Falha ao reaplicar cor do mouse: " + ex.Message); }
+    }
+
     private static (byte red, byte green, byte blue) ApplyControllerColorQuirks(string deviceName, string zoneName, byte red, byte green, byte blue)
     {
         // MSI MPG B550 GAMING PLUS JRAINBOW2 uses the two least-significant
