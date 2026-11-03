@@ -692,7 +692,7 @@
                             <h3 style="margin:0 0 6px;">Calibração manual • <span id="calibrationDeviceName">Selecione um dispositivo</span></h3>
                             <p style="font-size:12px;color:var(--text-dim);margin-bottom:14px;">Ajuste os canais RGB do dispositivo selecionado acima. Cada dispositivo mantém sua própria calibração, salva individualmente.</p>
                             <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;">
-                                <div><label for="mouseCalRed" style="display:block;font-size:11px;margin-bottom:6px;">Vermelho <b id="mouseCalRedValue">255</b></label><input id="mouseCalRed" type="range" min="0" max="255" value="255" class="range-slider" oninput="updateMouseCalibrationLabels(); scheduleMouseCalibrationPreview()"></div>
+                                <div><label for="mouseCalRed" style="display:block;font-size:11px;margin-bottom:6px;">Vermelho <b id="mouseCalRedValue">255</b></label><input id="mouseCalRed" type="range" min="0" max="255" value="255" class="range-slider" oninput="updateMouseCalibrationLabels(); scheduleMouseCalibrationPreview('red')"></div>
                                 <div><label for="mouseCalGreen" style="display:block;font-size:11px;margin-bottom:6px;">Verde <b id="mouseCalGreenValue">255</b></label><input id="mouseCalGreen" type="range" min="0" max="255" value="255" class="range-slider" oninput="updateMouseCalibrationLabels(); scheduleMouseCalibrationPreview()"></div>
                                 <div><label for="mouseCalBlue" style="display:block;font-size:11px;margin-bottom:6px;">Azul <b id="mouseCalBlueValue">255</b></label><input id="mouseCalBlue" type="range" min="0" max="255" value="255" class="range-slider" oninput="updateMouseCalibrationLabels(); scheduleMouseCalibrationPreview()"></div>
                             </div>
@@ -1283,26 +1283,21 @@ function receive(e){const d=e.data||{};
  if(d.action==="rgb-devices"){const previous=ds.value;devices=(d.devices||[]).filter((v,i,a)=>a.findIndex(x=>x.name.trim().toLowerCase()===v.name.trim().toLowerCase())===i);ds.innerHTML="";group.replaceChildren();devices.forEach((v,i)=>{ds.add(new Option(v.name,v.index));const l=document.createElement("label"),c=document.createElement("input");c.type="checkbox";c.value=v.index;c.checked=i===0;l.append(c,document.createTextNode(" "+v.name));group.append(l);});if(!devices.length){ds.add(new Option("Nenhum dispositivo detectado",""));group.textContent="Nenhum dispositivo RGB detectado pelo OpenRGB.";}else if(devices.some(v=>String(v.index)===previous)){ds.value=previous;}zones();}
  else if(d.action==="rgb-result"||d.action==="host-error"){const s=document.getElementById("rgbStatusText");if(s)s.textContent=d.message;const b=document.getElementById("rgbApplyOne");if(b){b.disabled=false;b.textContent="Aplicar cor";}const cs=document.getElementById("mouseCalibrationStatus");if(cs&&d.action==="host-error")cs.textContent="Erro: "+d.message;}
  else if(d.action==="rgb-device-calibration"&&Number(ds.value)===Number(d.deviceIndex)){document.getElementById("mouseCalRed").value=d.red;document.getElementById("mouseCalGreen").value=d.green;document.getElementById("mouseCalBlue").value=d.blue;updateMouseCalibrationLabels();const name=document.getElementById("calibrationDeviceName");if(name)name.textContent=d.deviceName;document.getElementById("mouseCalibrationStatus").textContent="Perfil carregado para "+d.deviceName+".";}
+ else if(d.action==="rgb-device-calibration-preview-applied"){calibrationPreviewInFlight=false;document.getElementById("mouseCalibrationStatus").textContent=d.message||"Prévia atualizada.";flushMouseCalibrationPreview();}
  else if(d.action==="rgb-device-calibration-saved"||d.action==="rgb-device-calibration-applied"){document.getElementById("mouseCalibrationStatus").textContent=d.message||"Calibração atualizada.";}
 }window.updateMouseCalibrationLabels=()=>{["Red","Green","Blue"].forEach(ch=>{const v=document.getElementById("mouseCal"+ch).value;document.getElementById("mouseCal"+ch+"Value").textContent=v;});};
 const mouseCalibrationValues=()=>({red:Number(document.getElementById("mouseCalRed").value),green:Number(document.getElementById("mouseCalGreen").value),blue:Number(document.getElementById("mouseCalBlue").value)});
-let calibrationPreviewTimer=null, lastCalibrationPreviewAt=0;
-const calibrationPreviewInterval=120;
-window.scheduleMouseCalibrationPreview=()=>{
- const now=Date.now(), elapsed=now-lastCalibrationPreviewAt;
- if(elapsed>=calibrationPreviewInterval){
-  if(calibrationPreviewTimer){clearTimeout(calibrationPreviewTimer);calibrationPreviewTimer=null;}
-  lastCalibrationPreviewAt=now;
-  window.applyMouseCalibration(true);
-  return;
- }
- if(!calibrationPreviewTimer){
-  calibrationPreviewTimer=setTimeout(()=>{
-   calibrationPreviewTimer=null;
-   lastCalibrationPreviewAt=Date.now();
-   window.applyMouseCalibration(true);
-  },calibrationPreviewInterval-elapsed);
- }
+let calibrationPreviewInFlight=false, calibrationPreviewPending=false;
+window.scheduleMouseCalibrationPreview=(channel)=>{
+ if(channel!=="red")return;
+ calibrationPreviewPending=true;
+ flushMouseCalibrationPreview();
+};
+window.flushMouseCalibrationPreview=()=>{
+ if(calibrationPreviewInFlight||!calibrationPreviewPending)return;
+ calibrationPreviewPending=false;
+ calibrationPreviewInFlight=true;
+ window.applyMouseCalibration(true);
 };
 window.applyMouseCalibration=(preview=false)=>{const device=selectedDevice();if(!device){document.getElementById("mouseCalibrationStatus").textContent="Selecione um dispositivo RGB.";return;}const v=mouseCalibrationValues();post({action:"rgb-apply-device-calibration",deviceIndex:device.index,...v,hex:hex.value,brightness:Number(bright.value),preview});document.getElementById("mouseCalibrationStatus").textContent=(preview?"Atualizando prévia em ":"Aplicando calibração em ")+device.name+"...";};
 window.saveMouseCalibration=()=>{const device=selectedDevice();if(!device){document.getElementById("mouseCalibrationStatus").textContent="Selecione um dispositivo RGB.";return;}post({action:"rgb-save-device-calibration",deviceIndex:device.index,...mouseCalibrationValues()});document.getElementById("mouseCalibrationStatus").textContent="Salvando calibração de "+device.name+"...";};
