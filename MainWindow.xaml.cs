@@ -121,7 +121,8 @@ public partial class MainWindow : Window
                 case "window-minimize": WindowState = WindowState.Minimized; break;
                 case "window-close": CloseWindow_Click(this, new RoutedEventArgs()); break;
                 case "window-drag": try { DragMove(); } catch (InvalidOperationException) { } break;
-                case "check-updates": CheckUpdatesFromHtml(); break;\n                case "install-update": CheckUpdatesFromHtml(true); break;
+                case "check-updates": CheckUpdatesFromHtml(); break;
+                case "install-update": CheckUpdatesFromHtml(true); break;
                 case "rgb-get-devices": await SendRgbDevicesToHtmlAsync(); break;
                 case "rgb-refresh-devices": await DetectOpenRgbDevicesAsync(); await SendRgbDevicesToHtmlAsync(); break;
                 case "rgb-run-diagnostic": RunDiagnostic_Click(this, new RoutedEventArgs()); break;
