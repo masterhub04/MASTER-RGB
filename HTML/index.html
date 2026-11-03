@@ -542,8 +542,8 @@
                             <div class="group-control-header">
                                 <h4>Aplicação em Grupo</h4>
                                 <div class="action-btns">
-                                    <button class="btn-outline">Selecionar todos</button>
-                                    <button class="btn-outline">Limpar</button>
+                                    <button id="rgbSelectAll" class="btn-outline" type="button">Selecionar todos</button>
+                                    <button id="rgbClearAll" class="btn-outline" type="button">Limpar</button>
                                 </div>
                             </div>
                             <div class="devices-checkboxes" id="rgbGroupDevices"><span style="color:var(--text-dim)">Carregando dispositivos...</span></div>
@@ -881,18 +881,15 @@
         }
 
         function setCustomLedColor(hexColor) {
-            document.documentElement.style.setProperty('--led-active', hexColor);
-            document.documentElement.style.setProperty('--led-glow', hexColor + '66');
-            document.documentElement.setAttribute('data-led-color', 'custom');
-            
-            document.querySelectorAll('.color-dot').forEach(dot => dot.classList.remove('active'));
-            const customBtn = document.getElementById('customColorBtn');
-            if(customBtn) customBtn.classList.add('active');
-            
+            const normalized = hexColor.toUpperCase();
             const preview = document.getElementById('colorPreview');
             const hexInput = document.getElementById('hexInputVal');
-            if(preview) preview.style.background = hexColor;
-            if(hexInput) hexInput.value = hexColor.toUpperCase();
+            if (preview) preview.style.background = normalized;
+            if (hexInput) hexInput.value = normalized;
+            document.querySelectorAll('.color-dot').forEach(dot => dot.classList.remove('active'));
+            const customBtn = document.getElementById('customColorBtn');
+            if (customBtn) customBtn.classList.add('active');
+            syncWheelToHex(normalized);
         }
 
         function changeLedEffect(effect, element) {
@@ -963,6 +960,22 @@
             };
             return `#${f(0)}${f(8)}${f(4)}`.toUpperCase();
         }
+
+        function hexToHsl(hex) {
+            const v=hex.replace('#','');
+            const r=parseInt(v.slice(0,2),16)/255,g=parseInt(v.slice(2,4),16)/255,b=parseInt(v.slice(4,6),16)/255;
+            const max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min,l=(max+min)/2;
+            let hue=0,s=0;
+            if(d){s=d/(1-Math.abs(2*l-1));if(max===r)hue=60*(((g-b)/d)%6);else if(max===g)hue=60*((b-r)/d+2);else hue=60*((r-g)/d+4);}
+            return {h:(hue+360)%360,s:s*100};
+        }
+        function syncWheelToHex(hex) {
+            if(!wheel||!handle||!/^#[0-9A-F]{6}$/i.test(hex))return;
+            const c=hexToHsl(hex),rect=wheel.getBoundingClientRect(),radius=Math.max(0,rect.width/2-5)*(c.s/100),angle=c.h*Math.PI/180;
+            handle.style.left=(rect.width/2+radius*Math.cos(angle))+'px';
+            handle.style.top=(rect.height/2+radius*Math.sin(angle))+'px';
+        }
+        syncWheelToHex(document.getElementById('hexInputVal')?.value||'#00F0FF');
     </script>
 
 <script>
@@ -1001,7 +1014,7 @@ let devices = [];
 const ds=document.getElementById("rgbDeviceSelect"), zs=document.getElementById("rgbZoneSelect"), leds=document.getElementById("rgbLedCount"), hex=document.getElementById("hexInputVal"), bright=document.getElementById("brightnessRange"), group=document.getElementById("rgbGroupDevices");
 function zones(){ const d=devices.find(x=>x.index===Number(ds.value)); zs.innerHTML=""; if(!d||!d.zones.length){zs.add(new Option("Nenhuma zona disponível",""));leds.value=0;return;} d.zones.forEach(z=>zs.add(new Option(z.name+" • "+z.ledCount+" LED(s)",z.index))); count(); }
 function count(){const d=devices.find(x=>x.index===Number(ds.value));const z=d&&d.zones.find(x=>x.index===Number(zs.value));if(z)leds.value=z.ledCount;}
-function receive(e){const d=e.data||{};if(d.action==="rgb-devices"){devices=d.devices||[];ds.innerHTML="";group.innerHTML="";devices.forEach((v,i)=>{ds.add(new Option(v.name,v.index));const l=document.createElement("label"),c=document.createElement("input");c.type="checkbox";c.value=v.index;c.checked=i===0;l.append(c,document.createTextNode(" "+v.name));group.append(l);});if(!devices.length){ds.add(new Option("Nenhum dispositivo detectado",""));group.textContent="Nenhum dispositivo RGB detectado pelo OpenRGB.";}zones();}else if(d.action==="rgb-result"||d.action==="host-error"){const s=document.getElementById("rgbStatusText");if(s)s.textContent=d.message;const b=document.getElementById("rgbApplyOne");if(b){b.disabled=false;b.textContent="Aplicar cor";}}}
+function receive(e){const d=e.data||{};if(d.action==="rgb-devices"){devices=(d.devices||[]).filter((v,i,a)=>a.findIndex(x=>x.name.trim().toLowerCase()===v.name.trim().toLowerCase())===i);ds.innerHTML="";group.replaceChildren();devices.forEach((v,i)=>{ds.add(new Option(v.name,v.index));const l=document.createElement("label"),c=document.createElement("input");c.type="checkbox";c.value=v.index;c.checked=i===0;l.append(c,document.createTextNode(" "+v.name));group.append(l);});if(!devices.length){ds.add(new Option("Nenhum dispositivo detectado",""));group.textContent="Nenhum dispositivo RGB detectado pelo OpenRGB.";}zones();}else if(d.action==="rgb-result"||d.action==="host-error"){const s=document.getElementById("rgbStatusText");if(s)s.textContent=d.message;const b=document.getElementById("rgbApplyOne");if(b){b.disabled=false;b.textContent="Aplicar cor";}}}
 if(window.chrome&&window.chrome.webview)window.chrome.webview.addEventListener("message",receive);
 ds.addEventListener("change",zones);zs.addEventListener("change",count);
 window.addEventListener("DOMContentLoaded",()=>post({action:"rgb-get-devices"}));
