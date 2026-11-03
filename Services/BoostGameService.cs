@@ -19,12 +19,15 @@ public sealed class BoostGameService
         double totalGb = totalKb / 1024d / 1024d;
         double usedGb = Math.Max(0, totalGb - freeKb / 1024d / 1024d);
         double ramPercent = totalKb > 0 ? usedGb / totalGb * 100 : 0;
-        var disks = new DriveInfo(DriveInfo.GetDrives().Where(d => d.IsReady).FirstOrDefault(d => d.Name.StartsWith(Environment.GetFolderPath(Environment.SpecialFolder.System)[..3], StringComparison.OrdinalIgnoreCase)) ?? DriveInfo.GetDrives().First(d => d.IsReady).Name);
+        string systemDrive = Environment.GetFolderPath(Environment.SpecialFolder.System);
+        string driveRoot = string.IsNullOrWhiteSpace(systemDrive) ? "C:\\\\" : Path.GetPathRoot(systemDrive) ?? "C:\\\\";
+        var disks = DriveInfo.GetDrives().FirstOrDefault(d => d.IsReady && d.Name.Equals(driveRoot, StringComparison.OrdinalIgnoreCase))
+            ?? DriveInfo.GetDrives().First(d => d.IsReady);
         return new {
             cpu, gpu, os, ramTotalGb = Math.Round(totalGb,1), ramUsedGb = Math.Round(usedGb,1), ramPercent = Math.Round(ramPercent,1),
             diskName = disks.Name, diskTotalGb = Math.Round(disks.TotalSize/1024d/1024/1024,1),
             diskFreeGb = Math.Round(disks.AvailableFreeSpace/1024d/1024/1024,1),
-            uptime = (DateTime.Now - DateTime.Now.AddMilliseconds(-Environment.TickCount64)).ToString()
+            uptime = TimeSpan.FromMilliseconds(Environment.TickCount64).ToString(@"d\\:hh\\:mm")
         };
     }
 
