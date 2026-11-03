@@ -123,7 +123,6 @@ public partial class MainWindow : Window
                 case "window-drag": try { DragMove(); } catch (InvalidOperationException) { } break;
                 case "check-updates": CheckUpdatesFromHtml(); break;
                 case "install-update": CheckUpdatesFromHtml(true); break;
-                case "open-master-mic": ShowPage(MasterMicPage, DashboardNavButton); break;
                 case "rgb-get-devices": await SendRgbDevicesToHtmlAsync(); break;
                 case "rgb-refresh-devices": await DetectOpenRgbDevicesAsync(); await SendRgbDevicesToHtmlAsync(); break;
                 case "rgb-run-diagnostic": RunDiagnostic_Click(this, new RoutedEventArgs()); break;
@@ -392,7 +391,6 @@ public partial class MainWindow : Window
         ProfilesPage.Visibility = ReferenceEquals(page, ProfilesPage) ? Visibility.Visible : Visibility.Collapsed;
         SettingsPage.Visibility = ReferenceEquals(page, SettingsPage) ? Visibility.Visible : Visibility.Collapsed;
         MasterMicPage.Visibility = ReferenceEquals(page, MasterMicPage) ? Visibility.Visible : Visibility.Collapsed;
-        HtmlInterface.Visibility = ReferenceEquals(page, MasterMicPage) ? Visibility.Collapsed : Visibility.Visible;
         foreach (var button in new[] { DashboardNavButton, LightingNavButton, DevicesNavButton, ProfilesNavButton, SettingsNavButton })
         {
             button.Background = ReferenceEquals(button, activeButton) ? new SolidColorBrush(Color.FromRgb(23, 54, 77)) : Brushes.Transparent;
