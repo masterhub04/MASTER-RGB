@@ -18,6 +18,7 @@ public sealed class OpenRgbSdkClient
     private const uint RequestProtocolVersion = 40;
     private const uint SetClientName = 50;
     private const uint DeviceListUpdated = 100;
+    private const uint ResizeZone = 1000;
     private const uint UpdateZoneLeds = 1051;
     private const uint SetCustomMode = 1100;
     private const uint ClientProtocolVersion = 5;
@@ -78,6 +79,24 @@ public sealed class OpenRgbSdkClient
         return devices;
     }
 
+
+    public async Task ResizeZoneAsync(int deviceIndex, int zoneIndex, int newLedCount, CancellationToken cancellationToken = default)
+    {
+        if (deviceIndex < 0 || zoneIndex < 0) throw new ArgumentOutOfRangeException("Índice de dispositivo ou zona inválido.");
+        if (newLedCount < 1 || newLedCount > ushort.MaxValue) throw new InvalidOperationException("A quantidade de LEDs deve ficar entre 1 e 65535.");
+
+        using var client = new TcpClient { NoDelay = true };
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(8));
+        await client.ConnectAsync("127.0.0.1", Port, timeout.Token);
+        using NetworkStream stream = client.GetStream();
+        await SendPacketAsync(stream, 0, SetClientName, Encoding.UTF8.GetBytes("MASTER RGB\\0"), timeout.Token);
+        byte[] payload = new byte[8];
+        BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(0, 4), (uint)zoneIndex);
+        BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(4, 4), (uint)newLedCount);
+        await SendPacketAsync(stream, (uint)deviceIndex, ResizeZone, payload, timeout.Token);
+        await Task.Delay(100, timeout.Token);
+    }
 
     public async Task ApplyDeviceZonesColorAsync(int deviceIndex, IReadOnlyList<(int ZoneIndex, int LedCount)> zones, byte red, byte green, byte blue, CancellationToken cancellationToken = default)
     {
