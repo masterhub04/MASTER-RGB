@@ -67,6 +67,11 @@ jobs:
       - name: Publish Windows x64
         run: dotnet publish MASTER_RGB.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:Version=${{ env.VERSION }} -p:DebugType=None -p:DebugSymbols=false -o publish/app
 
+      - name: Publish independent maintenance utility
+        run: |
+          dotnet publish Maintenance/MasterHubMaintenance.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:DebugType=None -p:DebugSymbols=false -o publish/maintenance
+          Copy-Item "publish/maintenance/MASTER HUB - Manutencao.exe" "publish/app/MASTER HUB - Manutencao.exe" -Force
+
       - name: Bundle OpenRGB 1.1 SDK server runtime (background, no GUI)
         shell: pwsh
         run: |
