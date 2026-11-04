@@ -151,7 +151,7 @@ public partial class MainWindow : Window
                 case "rgb-apply-color": await ApplyHtmlRgbColorAsync(root); break;
                 case "rgb-apply-effect": await ApplyHtmlRgbEffectAsync(root); break;
                 case "rgb-apply-animation": SendHtmlMessage(new { action = "rgb-result", ok = true, message = "Comando Rainbow recebido pelo MASTER RGB. Preparando o controlador..." }); await ApplyHtmlRgbAnimationAsync(root); break;
-                case "rgb-stop-animation": StopHtmlRgbAnimation(root); break;
+                case "rgb-stop-animation": await StopHtmlRgbAnimationAsync(root); break;
                 case "rgb-save-zone-led-count": SaveZoneLedCountPreference(root); break;
                 case "rgb-apply-group": await ApplyHtmlRgbGroupAsync(root); break;
                 case "rgb-get-device-calibration": SendDeviceCalibrationToHtml(root); break;
@@ -253,7 +253,8 @@ public partial class MainWindow : Window
     private async Task ApplyHtmlRgbAnimationAsync(JsonElement root)
     {
         string effect = root.GetProperty("effect").GetString() ?? "";
-        if (!effect.Equals("rainbow", StringComparison.OrdinalIgnoreCase))
+        string[] supportedEffects = { "rainbow", "color-cycle", "breathing", "wave", "scanner", "strobe" };
+        if (!supportedEffects.Contains(effect, StringComparer.OrdinalIgnoreCase))
             throw new InvalidOperationException("Efeito animado não reconhecido.");
 
         var indices = root.GetProperty("deviceIndices").EnumerateArray()
@@ -287,7 +288,7 @@ public partial class MainWindow : Window
             var started = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             starts.Add(started.Task);
             _ = RunRgbEffectAsync(target.Device, target.ZoneIndex, target.Zone, target.LedCount,
-                key, cancellation, started);
+                effect, key, cancellation, started);
         }
 
         try
@@ -310,6 +311,7 @@ public partial class MainWindow : Window
         int zoneIndex,
         OpenRgbZone zone,
         int ledCount,
+        string effect,
         string key,
         CancellationTokenSource cancellation,
         TaskCompletionSource<bool> started)
@@ -321,7 +323,7 @@ public partial class MainWindow : Window
                 zoneIndex,
                 frame =>
                 {
-                    var colors = CreateRainbowFrame(ledCount, frame);
+                    var colors = CreateEffectFrame(effect, ledCount, frame);
                     return colors.Select(color =>
                     {
                         var adjusted = ApplyControllerColorQuirks(device.Name, zone.Name, color.Red, color.Green, color.Blue);
@@ -349,13 +351,46 @@ public partial class MainWindow : Window
         }
     }
 
-    private static IReadOnlyList<(byte Red, byte Green, byte Blue)> CreateRainbowFrame(int ledCount, int frame)
+    private static IReadOnlyList<(byte Red, byte Green, byte Blue)> CreateEffectFrame(string effect, int ledCount, int frame)
     {
         var colors = new (byte Red, byte Green, byte Blue)[ledCount];
+        double phase = frame * 0.10;
+        int scannerPosition = ledCount <= 1 ? 0 : (int)Math.Round((1 - Math.Cos(frame * 0.055)) * 0.5 * (ledCount - 1));
+
         for (int led = 0; led < ledCount; led++)
         {
-            double hue = ((led * 360.0 / ledCount) + (frame * 3.0)) % 360.0;
-            colors[led] = HsvToRgb(hue, 1.0, 1.0);
+            double hue;
+            double brightness = 1.0;
+            switch (effect.ToLowerInvariant())
+            {
+                case "rainbow":
+                    hue = ((led * 360.0 / ledCount) + (frame * 3.0)) % 360.0;
+                    break;
+                case "color-cycle":
+                    hue = (frame * 3.0) % 360.0;
+                    break;
+                case "breathing":
+                    hue = 190;
+                    brightness = 0.08 + ((Math.Sin(phase) + 1.0) * 0.46);
+                    break;
+                case "wave":
+                    hue = (led * 18.0 + frame * 4.0) % 360.0;
+                    brightness = 0.35 + (0.65 * (0.5 + 0.5 * Math.Sin((led * 0.55) - phase)));
+                    break;
+                case "scanner":
+                    hue = 190;
+                    brightness = Math.Max(0.015, 1.0 - (Math.Abs(led - scannerPosition) / 3.0));
+                    break;
+                case "strobe":
+                    hue = 0;
+                    brightness = (frame / 5) % 2 == 0 ? 1.0 : 0.0;
+                    break;
+                default:
+                    hue = 0;
+                    break;
+            }
+
+            colors[led] = HsvToRgb(hue, 1.0, brightness);
         }
         return colors;
     }
@@ -381,7 +416,7 @@ public partial class MainWindow : Window
             (byte)Math.Clamp(Math.Round((b + match) * 255.0), 0, 255));
     }
 
-    private void StopHtmlRgbAnimation(JsonElement root)
+    private async Task StopHtmlRgbAnimationAsync(JsonElement root)
     {
         var indices = root.GetProperty("deviceIndices").EnumerateArray()
             .Select(x => x.GetInt32()).Distinct().ToHashSet();
@@ -392,7 +427,7 @@ public partial class MainWindow : Window
         int stopped = 0;
         foreach (var device in selected)
         {
-            foreach (var zone in device.Zones.Select((z, i) => new ZoneRow(i, z.Name, z.LedCount)))
+            foreach (var zone in device.SourceZones.Select((z, i) => new ZoneRow(i, z.Name, z.LedCount)))
             {
                 string key = GetZoneKey(device, zone);
                 if (_rgbEffectCancellations.Remove(key, out var active))
@@ -403,8 +438,21 @@ public partial class MainWindow : Window
             }
         }
 
+        await Task.Delay(150);
+        foreach (var device in selected)
+        {
+            var zones = device.SourceZones.Select((zone, index) =>
+            {
+                var row = new ZoneRow(index, zone.Name, zone.LedCount);
+                return (ZoneIndex: index, LedCount: GetConfiguredLedCount(device, row),
+                    Red: (byte)0, Green: (byte)0, Blue: (byte)0);
+            }).Where(zone => zone.LedCount > 0).ToArray();
+            if (zones.Length > 0)
+                await _openRgb.ApplyDeviceZonesColorAsync(device.Index, zones);
+        }
+
         SendHtmlMessage(new { action = "rgb-result", ok = true,
-            message = $"Efeito interrompido nos dispositivos selecionados. {stopped} zona(s) tiveram a animação encerrada." });
+            message = $"Efeito encerrado e LEDs apagados nos dispositivos selecionados. {stopped} zona(s) tiveram a animação cancelada." });
     }
 
     private async Task ApplyHtmlRgbColorAsync(JsonElement root)
