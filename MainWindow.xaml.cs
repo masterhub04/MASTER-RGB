@@ -252,54 +252,57 @@ public partial class MainWindow : Window
 
     private async Task ApplyHtmlRgbAnimationAsync(JsonElement root)
     {
-        int deviceIndex = root.GetProperty("deviceIndex").GetInt32();
-        int zoneIndex = root.GetProperty("zoneIndex").GetInt32();
-        int ledCount = root.GetProperty("ledCount").GetInt32();
         string effect = root.GetProperty("effect").GetString() ?? "";
-
         if (!effect.Equals("rainbow", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Efeito animado não reconhecido.");
-        if (ledCount < 1 || ledCount > ushort.MaxValue)
-            throw new InvalidOperationException("A quantidade de LEDs deve ficar entre 1 e 65535.");
 
-        var device = _devices.FirstOrDefault(d => d.Index == deviceIndex)
-            ?? throw new InvalidOperationException("Dispositivo não encontrado. Atualize a lista.");
-        if (zoneIndex < 0 || zoneIndex >= device.Zones.Count)
-            throw new InvalidOperationException("Zona não encontrada. Atualize a lista.");
+        var indices = root.GetProperty("deviceIndices").EnumerateArray()
+            .Select(x => x.GetInt32()).Distinct().ToHashSet();
+        var selected = _devices.Where(d => indices.Contains(d.Index)).ToList();
+        if (selected.Count == 0)
+            throw new InvalidOperationException("Selecione pelo menos um dispositivo em Aplicação em Grupo.");
 
-        var zoneRow = device.Zones[zoneIndex];
-        if (zoneRow.LedCount < 1)
-            throw new InvalidOperationException("A zona selecionada não possui LEDs controláveis.");
+        var targets = selected.SelectMany(device => device.Zones.Select((zone, zoneIndex) =>
+        {
+            var row = new ZoneRow(zoneIndex, zone.Name, zone.LedCount);
+            return (Device: device, ZoneIndex: zoneIndex, Zone: zone, LedCount: GetConfiguredLedCount(device, row), Row: row);
+        })).Where(target => target.LedCount > 0).ToList();
 
-        // DeviceRow.Zones is the UI projection (ZoneRow); the streaming API needs
-        // the original OpenRgbZone from SourceZones.
-        var zone = device.SourceZones[zoneIndex];
-        StopRgbEffect(device, zoneRow);
-        if (ledCount != zone.LedCount)
-            await _openRgb.ResizeZoneAsync(deviceIndex, zoneIndex, ledCount);
+        if (targets.Count == 0)
+            throw new InvalidOperationException("Os dispositivos selecionados não possuem zonas com LEDs controláveis.");
 
-        string key = GetZoneKey(device, zoneRow);
-        var cancellation = new CancellationTokenSource();
-        _rgbEffectCancellations[key] = cancellation;
-        var started = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        foreach (var target in targets)
+        {
+            StopRgbEffect(target.Device, target.Row);
+            if (target.LedCount != target.Zone.LedCount)
+                await _openRgb.ResizeZoneAsync(target.Device.Index, target.ZoneIndex, target.LedCount);
+        }
 
-        _ = RunRgbEffectAsync(device, zoneIndex, zone, ledCount, key, cancellation, started);
+        var starts = new List<Task>();
+        foreach (var target in targets)
+        {
+            string key = GetZoneKey(target.Device, target.Row);
+            var cancellation = new CancellationTokenSource();
+            _rgbEffectCancellations[key] = cancellation;
+            var started = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            starts.Add(started.Task);
+            _ = RunRgbEffectAsync(target.Device, target.ZoneIndex, target.Zone, target.LedCount,
+                key, cancellation, started);
+        }
+
         try
         {
-            await started.Task.WaitAsync(TimeSpan.FromSeconds(10));
-        }
-        catch (OperationCanceledException)
-        {
-            return;
+            await Task.WhenAll(starts).WaitAsync(TimeSpan.FromSeconds(10));
         }
         catch
         {
-            StopRgbEffect(device, zoneRow);
+            foreach (var target in targets)
+                StopRgbEffect(target.Device, target.Row);
             throw;
         }
 
         SendHtmlMessage(new { action = "rgb-result", ok = true,
-            message = $"Rainbow iniciado em {device.Name} / {zone.Name} ({ledCount} LEDs). A animação está sendo enviada em tempo real." });
+            message = $"Rainbow iniciado em {selected.Count} dispositivo(s), cobrindo {targets.Count} zona(s). A animação está sendo enviada em tempo real." });
     }
 
     private async Task RunRgbEffectAsync(
@@ -380,16 +383,28 @@ public partial class MainWindow : Window
 
     private void StopHtmlRgbAnimation(JsonElement root)
     {
-        int deviceIndex = root.GetProperty("deviceIndex").GetInt32();
-        int zoneIndex = root.GetProperty("zoneIndex").GetInt32();
-        var device = _devices.FirstOrDefault(d => d.Index == deviceIndex)
-            ?? throw new InvalidOperationException("Dispositivo não encontrado. Atualize a lista.");
-        if (zoneIndex < 0 || zoneIndex >= device.Zones.Count)
-            throw new InvalidOperationException("Zona não encontrada. Atualize a lista.");
-        var zone = device.Zones[zoneIndex];
-        StopRgbEffect(device, new ZoneRow(zoneIndex, zone.Name, zone.LedCount));
+        var indices = root.GetProperty("deviceIndices").EnumerateArray()
+            .Select(x => x.GetInt32()).Distinct().ToHashSet();
+        var selected = _devices.Where(d => indices.Contains(d.Index)).ToList();
+        if (selected.Count == 0)
+            throw new InvalidOperationException("Selecione pelo menos um dispositivo em Aplicação em Grupo.");
+
+        int stopped = 0;
+        foreach (var device in selected)
+        {
+            foreach (var zone in device.Zones.Select((z, i) => new ZoneRow(i, z.Name, z.LedCount)))
+            {
+                string key = GetZoneKey(device, zone);
+                if (_rgbEffectCancellations.Remove(key, out var active))
+                {
+                    active.Cancel();
+                    stopped++;
+                }
+            }
+        }
+
         SendHtmlMessage(new { action = "rgb-result", ok = true,
-            message = $"Efeito interrompido em {device.Name} / {zone.Name}. A última cor permanece aplicada." });
+            message = $"Efeito interrompido nos dispositivos selecionados. {stopped} zona(s) tiveram a animação encerrada." });
     }
 
     private async Task ApplyHtmlRgbColorAsync(JsonElement root)
