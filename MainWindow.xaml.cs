@@ -34,7 +34,7 @@ public partial class MainWindow : Window
     private readonly BoostGameService _boostGame = new();
     private readonly OptimizeSystemService _optimizeSystem = new();
     private readonly OpenRgbSdkClient _openRgb = new();
-    private CancellationTokenSource? _rgbEffectCancellation;
+    private readonly Dictionary<string, CancellationTokenSource> _rgbEffectCancellations = new(StringComparer.OrdinalIgnoreCase);
     private readonly OpenRgbEngineHost _openRgbEngine = new();
     private readonly ObservableCollection<DeviceRow> _devices = new();
     private readonly ObservableCollection<DeviceRow> _selectableDevices = new();
@@ -77,7 +77,7 @@ public partial class MainWindow : Window
         ConfigureTrayIcon();
         Loaded += MainWindow_Loaded;
         Closing += MainWindow_Closing;
-        Closed += (_, _) => { _rgbEffectCancellation?.Cancel(); _rgbEffectCancellation?.Dispose(); MasterMicView.Shutdown(); _trayIcon?.Dispose(); _openRgbEngine.Dispose(); };
+        Closed += (_, _) => { foreach (var effect in _rgbEffectCancellations.Values) { effect.Cancel(); effect.Dispose(); } _rgbEffectCancellations.Clear(); MasterMicView.Shutdown(); _trayIcon?.Dispose(); _openRgbEngine.Dispose(); };
     }
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -223,6 +223,16 @@ public partial class MainWindow : Window
             : $"Quantidade personalizada de {zone.Name} será temporária." });
     }
 
+    private void StopRgbEffect(DeviceRow device, ZoneRow zone)
+    {
+        string key = GetZoneKey(device, zone);
+        if (_rgbEffectCancellations.Remove(key, out var active))
+        {
+            active.Cancel();
+            active.Dispose();
+        }
+    }
+
     private async Task ApplyHtmlRgbEffectAsync(JsonElement root)
     {
         int deviceIndex = root.GetProperty("deviceIndex").GetInt32();
@@ -239,13 +249,17 @@ public partial class MainWindow : Window
         if (ledCount < 1 || ledCount > ushort.MaxValue || zone.LedCount < 1) throw new InvalidOperationException("Quantidade de LEDs inválida.");
         string[] supported = { "static", "pulse", "rainbow", "wave", "cycle", "breathing", "strobe", "comet", "fire", "ocean", "sparkle" };
         if (!supported.Contains(effect, StringComparer.OrdinalIgnoreCase)) throw new InvalidOperationException("Efeito não reconhecido.");
-        _rgbEffectCancellation?.Cancel();
-        _rgbEffectCancellation?.Dispose();
-        _rgbEffectCancellation = new CancellationTokenSource();
-        var token = _rgbEffectCancellation.Token;
+        string key = GetZoneKey(device, new ZoneRow(zoneIndex, zone.Name, zone.LedCount));
+        if (_rgbEffectCancellations.Remove(key, out var previousEffect))
+        {
+            previousEffect.Cancel();
+            previousEffect.Dispose();
+        }
+        var effectCancellation = new CancellationTokenSource();
+        _rgbEffectCancellations[key] = effectCancellation;
+        var token = effectCancellation.Token;
         if (ledCount != zone.LedCount) await _openRgb.ResizeZoneAsync(deviceIndex, zoneIndex, ledCount, token);
         bool remember = root.TryGetProperty("rememberLedCount", out var rememberValue) && rememberValue.GetBoolean();
-        string key = GetZoneKey(device, new ZoneRow(zoneIndex, zone.Name, zone.LedCount));
         if (remember) _zoneLedOverrides[key] = ledCount; else _zoneLedOverrides.Remove(key);
         SaveUserSettings();
         byte baseR = (byte)Math.Round(((rgb >> 16) & 255) * brightness / 100.0);
@@ -320,6 +334,7 @@ public partial class MainWindow : Window
         var device = _devices.FirstOrDefault(d => d.Index == deviceIndex) ?? throw new InvalidOperationException("Dispositivo não encontrado. Atualize a lista.");
         if (zoneIndex < 0 || zoneIndex >= device.Zones.Count) throw new InvalidOperationException("Zona não encontrada. Atualize a lista.");
         var zone = device.Zones[zoneIndex];
+        StopRgbEffect(device, new ZoneRow(zoneIndex, zone.Name, zone.LedCount));
         if (ledCount < 1 || ledCount > ushort.MaxValue || zone.LedCount < 1) throw new InvalidOperationException("Quantidade de LEDs inválida para a zona.");
         byte red = (byte)Math.Round(((rgb >> 16) & 0xFF) * brightness / 100.0);
         byte green = (byte)Math.Round(((rgb >> 8) & 0xFF) * brightness / 100.0);
