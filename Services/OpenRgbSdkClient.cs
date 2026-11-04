@@ -222,7 +222,7 @@ public sealed class OpenRgbSdkClient
         await client.ConnectAsync("127.0.0.1", Port, timeout.Token);
         using NetworkStream stream = client.GetStream();
 
-        await SendPacketAsync(stream, 0, SetClientName, Encoding.UTF8.GetBytes("MASTER RGB\\0"), timeout.Token);
+        await SendPacketAsync(stream, 0, SetClientName, Encoding.UTF8.GetBytes("MASTER RGB\0"), timeout.Token);
         await SendPacketAsync(stream, (uint)deviceIndex, SetCustomMode, Array.Empty<byte>(), timeout.Token);
         await Task.Delay(500, timeout.Token);
 
