@@ -730,16 +730,14 @@
                     <div style="font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px;">Hardware</div>
                     <div class="rgb-panel">
                         <div class="hardware-actions">
-                            <button class="btn-glow led-element">Detectar dispositivos RGB</button>
+                            <button class="btn-glow led-element" id="rgbRefreshDevices" type="button" onclick="refreshHtmlRgbDevices()">↻ Detectar / Atualizar dispositivos</button>
                             <button class="btn-outline" id="rgbRunDiagnostic" type="button" onclick="runRgbDiagnostic()">Executar diagnóstico</button>
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                             <h4 style="font-size: 13px; font-weight: 800; text-transform: uppercase;">Dispositivos encontrados</h4>
-                            <span style="font-size: 11px; color: var(--text-dim);">4 dispositivo(s)</span>
+                            <span id="rgbDeviceCount" style="font-size: 11px; color: var(--text-dim);">Aguardando detecção...</span>
                         </div>
-                        <div class="device-card-item"><div class="device-info"><h4>Logitech G203 Prodigy</h4><p>Logitech • 1 LED(s)</p><span>Zonas: Logo (1)</span></div><div class="openrgb-pill">OPENRGB</div></div>
-                        <div class="device-card-item"><div class="device-info"><h4>MSI MPG B550 GAMING PLUS</h4><p>MSI • 47 LED(s)</p><span>Zonas: JRGB1 • JRAINBOW</span></div><div class="openrgb-pill">OPENRGB</div></div>
-                        <div class="device-card-item"><div class="device-info"><h4>Palit GeForce RTX 3060 LHR</h4><p>NVIDIA • 2 LED(s)</p><span>Zonas: RGBW</span></div><div class="openrgb-pill">OPENRGB</div></div>
+                        <div id="rgbDetectedDevices"><div class="device-card-item"><div class="device-info"><h4>Detectando dispositivos...</h4><p>Consultando o OpenRGB SDK</p></div></div></div>
                     </div>
                 </div>
 
@@ -1003,6 +1001,7 @@
                 document.getElementById('rgb-sub-devices').classList.add('active');
                 document.getElementById('nav-devices').classList.add('active');
                 document.getElementById('topTitle').innerText = "Dispositivos Hardware • OpenRGB";
+                window.refreshHtmlRgbDevices?.();
             } else if(tabName === 'profiles') {
                 document.getElementById('rgb-sub-profiles').classList.add('active');
                 document.getElementById('nav-profiles').classList.add('active');
@@ -1311,7 +1310,23 @@ function saveZoneLedCountPreference(){const d=selectedDevice(),z=d&&d.zones.find
 window.applyHtmlRgbAnimation=()=>{const status=document.getElementById("rgbStatusText"),deviceIndices=[...group.querySelectorAll("input[type=checkbox]:checked")].map(x=>Number(x.value)),effect=document.getElementById("rgbAnimatedEffect").value;if(!deviceIndices.length){status.textContent="Selecione pelo menos um dispositivo em Aplicação em Grupo.";return;}const supported=["rainbow","color-cycle","breathing","wave","scanner","strobe"];if(!supported.includes(effect)){status.textContent="Selecione um efeito animado.";return;}status.textContent="Solicitando "+document.getElementById("rgbAnimatedEffect").selectedOptions[0].text+" para os dispositivos selecionados...";post({action:"rgb-apply-animation",deviceIndices,effect});};
 window.stopHtmlRgbAnimation=()=>{const status=document.getElementById("rgbStatusText"),deviceIndices=[...group.querySelectorAll("input[type=checkbox]:checked")].map(x=>Number(x.value));if(!deviceIndices.length){status.textContent="Selecione pelo menos um dispositivo em Aplicação em Grupo.";return;}post({action:"rgb-stop-animation",deviceIndices});};
 function receive(e){const d=e.data||{};
- if(d.action==="rgb-devices"){const previous=ds.value;devices=(d.devices||[]).filter((v,i,a)=>a.findIndex(x=>x.name.trim().toLowerCase()===v.name.trim().toLowerCase())===i);ds.innerHTML="";group.replaceChildren();devices.forEach((v,i)=>{ds.add(new Option(v.name,v.index));const l=document.createElement("label"),c=document.createElement("input");c.type="checkbox";c.value=v.index;c.checked=i===0;l.append(c,document.createTextNode(" "+v.name));group.append(l);});if(!devices.length){ds.add(new Option("Nenhum dispositivo detectado",""));group.textContent="Nenhum dispositivo RGB detectado pelo OpenRGB.";}else if(devices.some(v=>String(v.index)===previous)){ds.value=previous;}zones();}
+ if(d.action==="rgb-devices"){
+  const previous=ds.value,checked=new Set([...group.querySelectorAll('input[type="checkbox"]:checked')].map(x=>Number(x.value)));
+  devices=Array.isArray(d.devices)?d.devices:[];
+  ds.replaceChildren();group.replaceChildren();
+  devices.forEach((v,i)=>{
+   ds.add(new Option(v.name,v.index));
+   const l=document.createElement("label"),c=document.createElement("input");
+   c.type="checkbox";c.value=v.index;c.checked=checked.has(Number(v.index))||(!checked.size&&i===0);
+   l.append(c,document.createTextNode(" "+v.name));group.append(l);
+  });
+  if(!devices.length){ds.add(new Option("Nenhum dispositivo detectado",""));group.textContent="Nenhum dispositivo RGB detectado pelo OpenRGB. Verifique se o servidor SDK está ativo."; }
+  else if(devices.some(v=>String(v.index)===previous)){ds.value=previous;}else{ds.selectedIndex=0;}
+  const list=document.getElementById("rgbDetectedDevices"),count=document.getElementById("rgbDeviceCount");
+  if(count)count.textContent=devices.length+" dispositivo(s) detectado(s)";
+  if(list){list.replaceChildren();if(!devices.length){const empty=document.createElement("div");empty.className="device-card-item";empty.textContent="Nenhum dispositivo RGB detectado pelo OpenRGB.";list.append(empty);}else devices.forEach(v=>{const card=document.createElement("div");card.className="device-card-item";const info=document.createElement("div");info.className="device-info";const name=document.createElement("h4");name.textContent=v.name;const details=document.createElement("p");details.textContent=(v.vendor||"Fabricante não informado")+" • "+(v.ledCount??0)+" LED(s) • "+(v.zoneCount??(v.zones||[]).length)+" zona(s)";const zonesText=document.createElement("span");zonesText.textContent=(v.zones||[]).length?"Zonas: "+v.zones.map(z=>z.name+" ("+z.ledCount+")").join(" • "):"Sem zonas informadas";info.append(name,details,zonesText);const pill=document.createElement("div");pill.className="openrgb-pill";pill.textContent="OPENRGB";card.append(info,pill);list.append(card);});}
+  zones();
+ }
  else if(d.action==="rgb-result"||d.action==="host-error"){if(d.action==="host-error"&&calibrationPreviewInFlight){calibrationPreviewInFlight=false;calibrationPreviewPending=false;}const s=document.getElementById("rgbStatusText");if(s)s.textContent=d.message;const b=document.getElementById("rgbApplyOne");if(b){b.disabled=false;b.textContent="Aplicar cor";}const cs=document.getElementById("mouseCalibrationStatus");if(cs&&d.action==="host-error")cs.textContent="Erro: "+d.message;}
  else if(d.action==="rgb-device-calibration"&&Number(ds.value)===Number(d.deviceIndex)){document.getElementById("mouseCalRed").value=d.red;document.getElementById("mouseCalGreen").value=d.green;document.getElementById("mouseCalBlue").value=d.blue;updateMouseCalibrationLabels();const name=document.getElementById("calibrationDeviceName");if(name)name.textContent=d.deviceName;document.getElementById("mouseCalibrationStatus").textContent="Perfil carregado para "+d.deviceName+".";}
  else if(d.action==="rgb-device-calibration-preview-applied"){calibrationPreviewInFlight=false;document.getElementById("mouseCalibrationStatus").textContent=d.message||"Prévia atualizada.";flushMouseCalibrationPreview();}
