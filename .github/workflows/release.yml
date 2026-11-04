@@ -102,7 +102,7 @@ jobs:
         continue-on-error: true
 
       - name: Pack installer and update packages
-        run: vpk pack --packId masterhub04.master-rgb --packVersion ${{ env.VERSION }} --packDir publish/app --mainExe "MASTER HUB.exe" --packTitle "MASTER HUB" --outputDir publish/releases --msi --instLocation Either
+        run: vpk pack --packId masterhub04.master-rgb --packVersion ${{ env.VERSION }} --packDir publish/app --mainExe "MASTER HUB.exe" --packTitle "MASTER HUB" --outputDir publish/releases --msi --instLocation Either --icon Assets/master-rgb.ico --instWelcome Installer/WELCOME.txt
 
       - name: Publish GitHub Release
         run: vpk upload github --repoUrl https://github.com/${{ github.repository }} --token ${{ secrets.GITHUB_TOKEN }} --outputDir publish/releases --publish --releaseName "MASTER HUB ${{ env.VERSION }}" --tag v${{ env.VERSION }}

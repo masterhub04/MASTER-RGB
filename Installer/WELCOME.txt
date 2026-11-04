@@ -1,0 +1,11 @@
+Bem-vindo ao instalador do MASTER HUB.
+
+O MASTER HUB permite controlar e sincronizar dispositivos RGB.
+
+Este assistente instala o MASTER HUB no Windows. Selecione o tipo de instalação e siga as instruções apresentadas.
+
+O MASTER HUB utiliza Velopack para instalar e receber atualizações. Para preservar as atualizações, não mova manualmente os arquivos instalados.
+
+Se o aplicativo apresentar problemas, abra "MASTER HUB - Manutencao.exe" na pasta do aplicativo para procurar atualizações, reparar ou desinstalar.
+
+Clique em Avançar para continuar.
