@@ -333,8 +333,8 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            started.TrySetException(ex);
-            SendHtmlMessage(new { action = "host-error", message = $"Falha ao executar Rainbow em {device.Name}: {ex.Message}" });
+            if (!started.TrySetException(ex))
+                SendHtmlMessage(new { action = "host-error", message = $"Falha ao executar Rainbow em {device.Name}: {ex.Message}" });
         }
         finally
         {
