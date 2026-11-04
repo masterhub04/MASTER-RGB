@@ -325,7 +325,7 @@ public partial class MainWindow : Window
         }
         catch (OperationCanceledException)
         {
-            started.TrySetCanceled(cancellation.Token);
+            started.TrySetCanceled();
         }
         catch (Exception ex)
         {
