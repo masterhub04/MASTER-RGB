@@ -352,6 +352,9 @@ public partial class MainWindow : Window
         CancellationTokenSource cancellation,
         TaskCompletionSource<bool> started)
     {
+        // Yield once so the caller can register the cancellation/task pair before
+        // a fast connection failure reaches this method's finally block.
+        await Task.Yield();
         try
         {
             await _openRgb.StreamDeviceFramesAsync(
@@ -513,7 +516,7 @@ public partial class MainWindow : Window
 
         var colorZones = (wasAnimating
             ? device.Zones.Select((item, index) => (ZoneIndex: index, Zone: item,
-                LedCount: GetConfiguredLedCount(device, new ZoneRow(index, item.Name, item.LedCount))))
+                LedCount: index == zoneIndex ? ledCount : GetConfiguredLedCount(device, new ZoneRow(index, item.Name, item.LedCount))))
             : new[] { (ZoneIndex: zoneIndex, Zone: zone, LedCount: ledCount) })
             .Where(item => item.LedCount > 0)
             .Select(item =>
