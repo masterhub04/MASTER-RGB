@@ -272,40 +272,41 @@ public partial class MainWindow : Window
         }
         else
         {
-            // Coloca o controlador em modo direto uma única vez antes da animação.
-            // Reenviar SetCustomMode a cada quadro pode reiniciar o efeito no hardware.
-            await _openRgb.PrepareZoneForEffectsAsync(deviceIndex, token);
             _ = Task.Run(async () =>
             {
-                int frame = 0;
                 var random = new Random();
-                while (!token.IsCancellationRequested)
+                try
                 {
-                    var colors = new (byte Red, byte Green, byte Blue)[ledCount];
-                    double phase = frame * 0.16;
-                    for (int i = 0; i < ledCount; i++)
+                    await _openRgb.StreamZoneFramesAsync(deviceIndex, zoneIndex, frame =>
                     {
-                        double t = (phase + i * 0.22) % (Math.PI * 2);
-                        double factor = 1;
-                        (byte r, byte g, byte bl) = (baseR, baseG, baseB);
-                        switch (effect.ToLowerInvariant())
+                        var colors = new (byte Red, byte Green, byte Blue)[ledCount];
+                        double phase = frame * 0.16;
+                        for (int i = 0; i < ledCount; i++)
                         {
-                            case "pulse": case "breathing": factor = 0.08 + 0.92 * (0.5 + 0.5 * Math.Sin(phase)); break;
-                            case "rainbow": case "cycle": (r, g, bl) = HsvToRgb((frame * 4 + i * 360 / Math.Max(1, ledCount)) % 360, 1, 1); break;
-                            case "wave": factor = 0.08 + 0.92 * (0.5 + 0.5 * Math.Sin(t)); break;
-                            case "strobe": factor = frame % 8 < 4 ? 1 : 0.03; break;
-                            case "comet": factor = Math.Pow(Math.Max(0, 1 - Math.Abs((i - (frame % Math.Max(1, ledCount))) / Math.Max(1.0, ledCount / 5.0))), 2); break;
-                            case "fire": (r, g, bl) = ((byte)Math.Min(255, baseR + random.Next(0, 70)), (byte)(baseG * (0.25 + random.NextDouble() * 0.5)), (byte)(baseB * 0.1)); break;
-                            case "ocean": (r, g, bl) = ((byte)(baseR * 0.1), (byte)Math.Min(255, baseG + 30), (byte)Math.Min(255, baseB + 50)); factor = 0.45 + 0.55 * (0.5 + 0.5 * Math.Sin(t)); break;
-                            case "sparkle": factor = random.NextDouble() > 0.82 ? 1 : 0.12; break;
+                            double t = (phase + i * 0.22) % (Math.PI * 2);
+                            double factor = 1;
+                            (byte r, byte g, byte bl) = (baseR, baseG, baseB);
+                            switch (effect.ToLowerInvariant())
+                            {
+                                case "pulse": case "breathing": factor = 0.08 + 0.92 * (0.5 + 0.5 * Math.Sin(phase)); break;
+                                case "rainbow": case "cycle": (r, g, bl) = HsvToRgb((frame * 4 + i * 360 / Math.Max(1, ledCount)) % 360, 1, 1); break;
+                                case "wave": factor = 0.08 + 0.92 * (0.5 + 0.5 * Math.Sin(t)); break;
+                                case "strobe": factor = frame % 8 < 4 ? 1 : 0.03; break;
+                                case "comet": factor = Math.Pow(Math.Max(0, 1 - Math.Abs((i - (frame % Math.Max(1, ledCount))) / Math.Max(1.0, ledCount / 5.0))), 2); break;
+                                case "fire": (r, g, bl) = ((byte)Math.Min(255, baseR + random.Next(0, 70)), (byte)(baseG * (0.25 + random.NextDouble() * 0.5)), (byte)(baseB * 0.1)); break;
+                                case "ocean": (r, g, bl) = ((byte)(baseR * 0.1), (byte)Math.Min(255, baseG + 30), (byte)Math.Min(255, baseB + 50)); factor = 0.45 + 0.55 * (0.5 + 0.5 * Math.Sin(t)); break;
+                                case "sparkle": factor = random.NextDouble() > 0.82 ? 1 : 0.12; break;
+                            }
+                            colors[i] = ((byte)Math.Clamp(r * factor, 0, 255), (byte)Math.Clamp(g * factor, 0, 255), (byte)Math.Clamp(bl * factor, 0, 255));
                         }
-                        colors[i] = ((byte)Math.Clamp(r * factor, 0, 255), (byte)Math.Clamp(g * factor, 0, 255), (byte)Math.Clamp(bl * factor, 0, 255));
-                    }
-                    try { await _openRgb.ApplyZoneFrameAsync(deviceIndex, zoneIndex, colors, token); }
-                    catch (OperationCanceledException) when (token.IsCancellationRequested) { break; }
-                    catch (Exception ex) { System.Diagnostics.Debug.WriteLine("RGB effect: " + ex.Message); break; }
-                    frame++;
-                    try { await Task.Delay(100, token); } catch (OperationCanceledException) { break; }
+                        return colors;
+                    }, 100, token);
+                }
+                catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+                catch (Exception ex)
+                {
+                    SendHtmlMessage(new { action = "rgb-result", ok = false, message = $"Falha ao transmitir efeito para {device.Name} / {zone.Name}: {ex.Message}" });
+                    System.Diagnostics.Debug.WriteLine("RGB effect stream: " + ex);
                 }
             }, token);
         }
