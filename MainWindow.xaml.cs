@@ -267,11 +267,13 @@ public partial class MainWindow : Window
         if (zoneIndex < 0 || zoneIndex >= device.Zones.Count)
             throw new InvalidOperationException("Zona não encontrada. Atualize a lista.");
 
-        var zone = device.Zones[zoneIndex];
-        if (zone.LedCount < 1)
+        var zoneRow = device.Zones[zoneIndex];
+        if (zoneRow.LedCount < 1)
             throw new InvalidOperationException("A zona selecionada não possui LEDs controláveis.");
 
-        var zoneRow = new ZoneRow(zoneIndex, zone.Name, zone.LedCount);
+        // DeviceRow.Zones is the UI projection (ZoneRow); the streaming API needs
+        // the original OpenRgbZone from SourceZones.
+        var zone = device.SourceZones[zoneIndex];
         StopRgbEffect(device, zoneRow);
         if (ledCount != zone.LedCount)
             await _openRgb.ResizeZoneAsync(deviceIndex, zoneIndex, ledCount);
@@ -360,15 +362,16 @@ public partial class MainWindow : Window
         double chroma = value * saturation;
         double x = chroma * (1.0 - Math.Abs((hue / 60.0 % 2.0) - 1.0));
         double match = value - chroma;
-        (double r, double g, double b) = hue switch
+        (double r, double g, double b) channels = hue switch
         {
-            < 60 => (chroma, x, 0),
-            < 120 => (x, chroma, 0),
-            < 180 => (0, chroma, x),
-            < 240 => (0, x, chroma),
-            < 300 => (x, 0, chroma),
-            _ => (chroma, 0, x)
+            < 60 => (chroma, x, 0.0),
+            < 120 => (x, chroma, 0.0),
+            < 180 => (0.0, chroma, x),
+            < 240 => (0.0, x, chroma),
+            < 300 => (x, 0.0, chroma),
+            _ => (chroma, 0.0, x)
         };
+        var (r, g, b) = channels;
         return (
             (byte)Math.Clamp(Math.Round((r + match) * 255.0), 0, 255),
             (byte)Math.Clamp(Math.Round((g + match) * 255.0), 0, 255),
