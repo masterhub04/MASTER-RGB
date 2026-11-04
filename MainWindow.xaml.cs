@@ -1062,7 +1062,7 @@ public partial class MainWindow : Window
                     ? "Sem zonas informadas"
                     : "Zonas: " + string.Join(" • ", device.Zones.Select(z => $"{z.Name} ({z.LedCount})"));
 
-                var row = new DeviceRow(device.Index, device.Name, details, zones, device.Zones, device.Modes, device.ActiveMode, device.ProtocolVersion);
+                var row = new DeviceRow(device.Index, device.Name, vendor, device.LedCount, device.ZoneCount, details, zones, device.Zones, device.Modes, device.ActiveMode, device.ProtocolVersion);
                 _devices.Add(row);
                 _selectableDevices.Add(row);
                 _displayDevices.Add(new DeviceDisplayRow(device.Name, details, zones, "OPENRGB"));
@@ -1710,10 +1710,13 @@ public partial class MainWindow : Window
     }
 
     private sealed record DeviceDisplayRow(string Name, string Details, string ZonesText, string Status);
-    private sealed class DeviceRow(int index, string name, string details, string zonesText, IReadOnlyList<OpenRgbZone> sourceZones, IReadOnlyList<OpenRgbMode> modes, int activeMode, uint protocolVersion)
+    private sealed class DeviceRow(int index, string name, string vendor, int ledCount, int zoneCount, string details, string zonesText, IReadOnlyList<OpenRgbZone> sourceZones, IReadOnlyList<OpenRgbMode> modes, int activeMode, uint protocolVersion)
     {
         public int Index { get; } = index;
         public string Name { get; } = name;
+        public string Vendor { get; } = vendor;
+        public int LedCount { get; } = ledCount;
+        public int ZoneCount { get; } = zoneCount;
         public string Details { get; } = details;
         public string ZonesText { get; } = zonesText;
         public IReadOnlyList<OpenRgbZone> SourceZones { get; } = sourceZones;
