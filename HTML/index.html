@@ -1296,6 +1296,7 @@
 const post = p => { if (window.chrome && window.chrome.webview) window.chrome.webview.postMessage(p); };
 let devices = [];
 const ds=document.getElementById("rgbDeviceSelect"), zs=document.getElementById("rgbZoneSelect"), leds=document.getElementById("rgbLedCount"), rememberLeds=document.getElementById("rgbRememberLedCount"), hex=document.getElementById("hexInputVal"), bright=document.getElementById("brightnessRange"), group=document.getElementById("rgbGroupDevices");
+window.refreshHtmlRgbDevices=()=>{const count=document.getElementById("rgbDeviceCount");if(count)count.textContent="Atualizando dispositivos...";post({action:"rgb-refresh-devices"});};
 function selectedDevice(){return devices.find(x=>x.index===Number(ds.value));}
 function loadSelectedDeviceCalibration(){
  const device=selectedDevice(),name=document.getElementById("calibrationDeviceName"),status=document.getElementById("mouseCalibrationStatus");
@@ -1494,6 +1495,7 @@ window.refreshHtmlRgbDevices=()=>post({action:"rgb-refresh-devices"});
     const clean=document.getElementById("optimizeCleanStatus");if(clean)clean.textContent="Erro: "+d.message;
    }
   });
+  post({action:"rgb-get-devices"});
   const v=document.getElementById("view-optimize");if(v)new MutationObserver(()=>{if(v.classList.contains("active"))window.optimizeTab("startup");}).observe(v,{attributes:true,attributeFilter:["class"]});
  })();
  </script>
