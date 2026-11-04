@@ -286,6 +286,10 @@ public partial class MainWindow : Window
         {
             await started.Task.WaitAsync(TimeSpan.FromSeconds(10));
         }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
         catch
         {
             StopRgbEffect(device, zoneRow);
