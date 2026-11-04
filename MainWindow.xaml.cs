@@ -101,6 +101,15 @@ public partial class MainWindow : Window
             HtmlInterface.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
             HtmlInterface.CoreWebView2.Settings.IsZoomControlEnabled = false;
             HtmlInterface.CoreWebView2.WebMessageReceived += HtmlInterface_WebMessageReceived;
+            HtmlInterface.CoreWebView2.NavigationCompleted += async (_, _) =>
+            {
+                try
+                {
+                    if (_devices.Count == 0) await DetectOpenRgbDevicesAsync();
+                    await SendRgbDevicesToHtmlAsync();
+                }
+                catch (Exception ex) { System.Diagnostics.Debug.WriteLine("Falha ao sincronizar dispositivos RGB com a interface: " + ex.Message); }
+            };
 
             string htmlPath = System.IO.Path.Combine(AppContext.BaseDirectory, "HTML", "index.html");
             if (!File.Exists(htmlPath))
