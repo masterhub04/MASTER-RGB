@@ -272,6 +272,9 @@ public partial class MainWindow : Window
         }
         else
         {
+            // Coloca o controlador em modo direto uma única vez antes da animação.
+            // Reenviar SetCustomMode a cada quadro pode reiniciar o efeito no hardware.
+            await _openRgb.PrepareZoneForEffectsAsync(deviceIndex, token);
             _ = Task.Run(async () =>
             {
                 int frame = 0;
