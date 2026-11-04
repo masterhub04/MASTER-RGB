@@ -148,6 +148,7 @@ public partial class MainWindow : Window
                 case "rgb-refresh-devices": await DetectOpenRgbDevicesAsync(); await SendRgbDevicesToHtmlAsync(); break;
                 case "rgb-run-diagnostic": RunDiagnostic_Click(this, new RoutedEventArgs()); break;
                 case "rgb-apply-color": await ApplyHtmlRgbColorAsync(root); break;
+                case "rgb-save-zone-led-count": SaveZoneLedCountPreference(root); break;
                 case "rgb-apply-group": await ApplyHtmlRgbGroupAsync(root); break;
                 case "rgb-get-device-calibration": SendDeviceCalibrationToHtml(root); break;
                 case "rgb-save-device-calibration": SaveDeviceCalibrationFromHtml(root); break;
@@ -185,11 +186,39 @@ public partial class MainWindow : Window
             if (_devices.Count == 0) await DetectOpenRgbDevicesAsync();
             var devices = _devices.Select(d => new {
                 index = d.Index, name = d.Name,
-                zones = d.Zones.Select((z, i) => new { index = i, name = z.Name, ledCount = GetConfiguredLedCount(d, new ZoneRow(i, z.Name, z.LedCount)) })
+                zones = d.Zones.Select((z, i) => { var zone = new ZoneRow(i, z.Name, z.LedCount); return new { index = i, name = z.Name, ledCount = GetConfiguredLedCount(d, zone), hasCustomLedCount = _zoneLedOverrides.ContainsKey(GetZoneKey(d, zone)) }; })
             }).ToArray();
             SendHtmlMessage(new { action = "rgb-devices", devices });
         }
         catch (Exception ex) { SendHtmlMessage(new { action = "host-error", message = ex.Message }); }
+    }
+
+    private void SaveZoneLedCountPreference(JsonElement root)
+    {
+        int deviceIndex = root.GetProperty("deviceIndex").GetInt32();
+        int zoneIndex = root.GetProperty("zoneIndex").GetInt32();
+        bool remember = root.GetProperty("remember").GetBoolean();
+        int ledCount = root.TryGetProperty("ledCount", out var countValue) ? countValue.GetInt32() : 0;
+        var device = _devices.FirstOrDefault(d => d.Index == deviceIndex)
+            ?? throw new InvalidOperationException("Dispositivo não encontrado. Atualize a lista.");
+        if (zoneIndex < 0 || zoneIndex >= device.Zones.Count)
+            throw new InvalidOperationException("Zona não encontrada. Atualize a lista.");
+        var zone = device.Zones[zoneIndex];
+        string key = GetZoneKey(device, new ZoneRow(zoneIndex, zone.Name, zone.LedCount));
+        if (remember)
+        {
+            if (ledCount < 1 || ledCount > ushort.MaxValue)
+                throw new InvalidOperationException("Informe uma quantidade entre 1 e 65535 LEDs.");
+            _zoneLedOverrides[key] = ledCount;
+        }
+        else
+        {
+            _zoneLedOverrides.Remove(key);
+        }
+        SaveUserSettings();
+        SendHtmlMessage(new { action = "rgb-zone-led-count-saved", message = remember
+            ? $"Quantidade padrão de {ledCount} LEDs salva para {zone.Name}."
+            : $"Quantidade personalizada de {zone.Name} será temporária." });
     }
 
     private async Task ApplyHtmlRgbColorAsync(JsonElement root)
@@ -209,6 +238,11 @@ public partial class MainWindow : Window
         byte green = (byte)Math.Round(((rgb >> 8) & 0xFF) * brightness / 100.0);
         byte blue = (byte)Math.Round((rgb & 0xFF) * brightness / 100.0);
         (red, green, blue) = ApplyControllerColorQuirks(device.Name, zone.Name, red, green, blue);
+        bool rememberLedCount = root.TryGetProperty("rememberLedCount", out var rememberValue) && rememberValue.GetBoolean();
+        string zoneKey = GetZoneKey(device, new ZoneRow(zoneIndex, zone.Name, zone.LedCount));
+        if (rememberLedCount) _zoneLedOverrides[zoneKey] = ledCount;
+        else _zoneLedOverrides.Remove(zoneKey);
+        SaveUserSettings();
         if (ledCount != zone.LedCount)
             await _openRgb.ResizeZoneAsync(deviceIndex, zoneIndex, ledCount);
         await _openRgb.ApplyDeviceZonesColorAsync(deviceIndex, new[] { (ZoneIndex: zoneIndex, LedCount: ledCount, Red: red, Green: green, Blue: blue) });
