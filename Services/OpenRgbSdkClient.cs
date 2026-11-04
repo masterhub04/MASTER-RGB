@@ -176,7 +176,6 @@ public sealed class OpenRgbSdkClient
         await SendPacketAsync(stream, 0, SetClientName, Encoding.UTF8.GetBytes("MASTER RGB\0"), timeout.Token);
         await SendPacketAsync(stream, (uint)deviceIndex, SetCustomMode, Array.Empty<byte>(), timeout.Token);
         await Task.Delay(500, timeout.Token);
-        onStarted?.Invoke();
 
         int frame = 0;
         while (!timeout.IsCancellationRequested)
@@ -197,6 +196,7 @@ public sealed class OpenRgbSdkClient
             }
 
             await SendPacketAsync(stream, (uint)deviceIndex, UpdateZoneLeds, payload, timeout.Token);
+            if (frame == 0) onStarted?.Invoke();
             frame++;
             await Task.Delay(frameDelayMs, timeout.Token);
         }
