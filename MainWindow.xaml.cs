@@ -244,7 +244,7 @@ public partial class MainWindow : Window
         if (modeIndex < 0 || modeIndex >= device.Modes.Count)
             throw new InvalidOperationException($"O dispositivo {device.Name} não possui esse modo. Atualize a lista de dispositivos.");
         var mode = device.Modes[modeIndex];
-        await _openRgb.ApplyNativeModeAsync(deviceIndex, modeIndex, mode, brightness);
+        await _openRgb.ApplyNativeModeAsync(deviceIndex, modeIndex, mode, device.ProtocolVersion, brightness);
         SendHtmlMessage(new { action = "rgb-result", ok = true,
             message = $"Modo nativo “{mode.Name}” enviado ao OpenRGB para {device.Name}. A velocidade e as cores seguem a configuração desse modo no controlador." });
     }
