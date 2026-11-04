@@ -937,6 +937,22 @@ public partial class MainWindow : Window
         SaveUserSettings();
     }
 
+    private static System.Drawing.Icon GetApplicationTrayIcon()
+    {
+        try
+        {
+            var executablePath = Environment.ProcessPath;
+            if (!string.IsNullOrWhiteSpace(executablePath))
+                return System.Drawing.Icon.ExtractAssociatedIcon(executablePath)
+                    ?? System.Drawing.SystemIcons.Application;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine("Falha ao carregar o ícone da bandeja: " + ex.Message);
+        }
+        return System.Drawing.SystemIcons.Application;
+    }
+
     private void ConfigureTrayIcon()
     {
         if (!_minimizeToTray)
@@ -947,7 +963,7 @@ public partial class MainWindow : Window
 
         _trayIcon ??= new Forms.NotifyIcon
         {
-            Icon = System.Drawing.SystemIcons.Application,
+            Icon = GetApplicationTrayIcon(),
             Text = "MASTER HUB",
             Visible = true
         };
