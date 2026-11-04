@@ -92,6 +92,7 @@ public partial class MainWindow : Window
 
         // O mecanismo OpenRGB continua sendo iniciado pelo código nativo.
         await DetectOpenRgbDevicesAsync(forceRefresh: false);
+        await SendRgbDevicesToHtmlAsync();
         if (_startWithWindows) { try { ConfigureWindowsStartup(true, _startMinimized); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); } }
         await ApplySavedMouseColorAsync();
     }
@@ -305,6 +306,7 @@ public partial class MainWindow : Window
                 await _openRgb.ResizeZoneAsync(target.Device.Index, target.ZoneIndex, target.LedCount);
         }
 
+        long synchronizedStart = System.Diagnostics.Stopwatch.GetTimestamp() + (System.Diagnostics.Stopwatch.Frequency * 3 / 4);
         var starts = new List<Task>();
         foreach (var device in selected)
         {
@@ -342,7 +344,7 @@ public partial class MainWindow : Window
             _ => effect
         };
         SendHtmlMessage(new { action = "rgb-result", ok = true,
-            message = $"{effectLabel} iniciado em {selected.Count} dispositivo(s), cobrindo {targets.Count} zona(s). A animação está sendo enviada em tempo real." });
+            message = $"{effectLabel} sincronizado em {selected.Count} dispositivo(s), cobrindo {targets.Count} zona(s)." });
     }
 
     private async Task RunRgbDeviceEffectAsync(
@@ -371,6 +373,7 @@ public partial class MainWindow : Window
                     }).ToArray();
                 },
                 33,
+                synchronizedStart,
                 cancellation.Token,
                 () => started.TrySetResult(true));
         }
@@ -1068,7 +1071,7 @@ public partial class MainWindow : Window
     private async Task DetectOpenRgbDevicesAsync(bool forceRefresh = true)
     {
         await _deviceDetectionLock.WaitAsync();
-        if (!forceRefresh && _hasCompletedInitialDetection)
+        if (!forceRefresh && _devices.Count > 0)
         {
             _deviceDetectionLock.Release();
             return;
