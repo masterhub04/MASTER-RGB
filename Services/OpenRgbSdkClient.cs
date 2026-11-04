@@ -153,6 +153,51 @@ public sealed class OpenRgbSdkClient
         await Task.Delay(500, timeout.Token);
     }
 
+    public async Task StreamZoneFramesAsync(
+        int deviceIndex,
+        int zoneIndex,
+        Func<int, IReadOnlyList<(byte Red, byte Green, byte Blue)>> frameFactory,
+        int frameDelayMs,
+        CancellationToken cancellationToken = default)
+    {
+        if (deviceIndex < 0 || zoneIndex < 0) throw new ArgumentOutOfRangeException("Índice de dispositivo ou zona inválido.");
+        ArgumentNullException.ThrowIfNull(frameFactory);
+        if (frameDelayMs < 16 || frameDelayMs > 5000) throw new ArgumentOutOfRangeException(nameof(frameDelayMs));
+
+        using var client = new TcpClient { NoDelay = true };
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(Timeout.InfiniteTimeSpan);
+        await client.ConnectAsync("127.0.0.1", Port, timeout.Token);
+        using NetworkStream stream = client.GetStream();
+
+        await SendPacketAsync(stream, 0, SetClientName, Encoding.UTF8.GetBytes("MASTER RGB\\0"), timeout.Token);
+        await SendPacketAsync(stream, (uint)deviceIndex, SetCustomMode, Array.Empty<byte>(), timeout.Token);
+        await Task.Delay(500, timeout.Token);
+
+        int frame = 0;
+        while (!timeout.IsCancellationRequested)
+        {
+            var colors = frameFactory(frame);
+            if (colors.Count < 1 || colors.Count > ushort.MaxValue)
+                throw new InvalidOperationException("Quantidade de LEDs inválida para o efeito.");
+
+            byte[] payload = new byte[10 + (colors.Count * 4)];
+            BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(0, 4), (uint)payload.Length);
+            BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(4, 4), (uint)zoneIndex);
+            BinaryPrimitives.WriteUInt16LittleEndian(payload.AsSpan(8, 2), (ushort)colors.Count);
+            for (int i = 0; i < colors.Count; i++)
+            {
+                var color = colors[i];
+                uint packed = (uint)color.Red | ((uint)color.Green << 8) | ((uint)color.Blue << 16);
+                BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(10 + (i * 4), 4), packed);
+            }
+
+            await SendPacketAsync(stream, (uint)deviceIndex, UpdateZoneLeds, payload, timeout.Token);
+            frame++;
+            await Task.Delay(frameDelayMs, timeout.Token);
+        }
+    }
+
     public async Task ApplyZoneFrameAsync(int deviceIndex, int zoneIndex, IReadOnlyList<(byte Red, byte Green, byte Blue)> colors, CancellationToken cancellationToken = default)
     {
         if (deviceIndex < 0 || zoneIndex < 0) throw new ArgumentOutOfRangeException("Índice de dispositivo ou zona inválido.");
