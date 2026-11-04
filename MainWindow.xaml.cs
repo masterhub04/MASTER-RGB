@@ -150,6 +150,8 @@ public partial class MainWindow : Window
                 case "rgb-run-diagnostic": RunDiagnostic_Click(this, new RoutedEventArgs()); break;
                 case "rgb-apply-color": await ApplyHtmlRgbColorAsync(root); break;
                 case "rgb-apply-effect": await ApplyHtmlRgbEffectAsync(root); break;
+                case "rgb-apply-animation": await ApplyHtmlRgbAnimationAsync(root); break;
+                case "rgb-stop-animation": StopHtmlRgbAnimation(root); break;
                 case "rgb-save-zone-led-count": SaveZoneLedCountPreference(root); break;
                 case "rgb-apply-group": await ApplyHtmlRgbGroupAsync(root); break;
                 case "rgb-get-device-calibration": SendDeviceCalibrationToHtml(root); break;
@@ -228,10 +230,7 @@ public partial class MainWindow : Window
     {
         string key = GetZoneKey(device, zone);
         if (_rgbEffectCancellations.Remove(key, out var active))
-        {
             active.Cancel();
-            active.Dispose();
-        }
     }
 
     private async Task ApplyHtmlRgbEffectAsync(JsonElement root)
@@ -244,9 +243,146 @@ public partial class MainWindow : Window
         if (modeIndex < 0 || modeIndex >= device.Modes.Count)
             throw new InvalidOperationException($"O dispositivo {device.Name} não possui esse modo. Atualize a lista de dispositivos.");
         var mode = device.Modes[modeIndex];
+        foreach (var zone in device.Zones.Select((z, i) => new ZoneRow(i, z.Name, z.LedCount)))
+            StopRgbEffect(device, zone);
         await _openRgb.ApplyNativeModeAsync(deviceIndex, modeIndex, mode, device.ProtocolVersion, brightness);
         SendHtmlMessage(new { action = "rgb-result", ok = true,
             message = $"Modo nativo “{mode.Name}” enviado ao OpenRGB para {device.Name}. A velocidade e as cores seguem a configuração desse modo no controlador." });
+    }
+
+    private async Task ApplyHtmlRgbAnimationAsync(JsonElement root)
+    {
+        int deviceIndex = root.GetProperty("deviceIndex").GetInt32();
+        int zoneIndex = root.GetProperty("zoneIndex").GetInt32();
+        int ledCount = root.GetProperty("ledCount").GetInt32();
+        string effect = root.GetProperty("effect").GetString() ?? "";
+
+        if (!effect.Equals("rainbow", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Efeito animado não reconhecido.");
+        if (ledCount < 1 || ledCount > ushort.MaxValue)
+            throw new InvalidOperationException("A quantidade de LEDs deve ficar entre 1 e 65535.");
+
+        var device = _devices.FirstOrDefault(d => d.Index == deviceIndex)
+            ?? throw new InvalidOperationException("Dispositivo não encontrado. Atualize a lista.");
+        if (zoneIndex < 0 || zoneIndex >= device.Zones.Count)
+            throw new InvalidOperationException("Zona não encontrada. Atualize a lista.");
+
+        var zone = device.Zones[zoneIndex];
+        if (zone.LedCount < 1)
+            throw new InvalidOperationException("A zona selecionada não possui LEDs controláveis.");
+
+        var zoneRow = new ZoneRow(zoneIndex, zone.Name, zone.LedCount);
+        StopRgbEffect(device, zoneRow);
+        if (ledCount != zone.LedCount)
+            await _openRgb.ResizeZoneAsync(deviceIndex, zoneIndex, ledCount);
+
+        string key = GetZoneKey(device, zoneRow);
+        var cancellation = new CancellationTokenSource();
+        _rgbEffectCancellations[key] = cancellation;
+        var started = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        _ = RunRgbEffectAsync(device, zoneIndex, zone, ledCount, key, cancellation, started);
+        try
+        {
+            await started.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        }
+        catch
+        {
+            StopRgbEffect(device, zoneRow);
+            throw;
+        }
+
+        SendHtmlMessage(new { action = "rgb-result", ok = true,
+            message = $"Rainbow iniciado em {device.Name} / {zone.Name} ({ledCount} LEDs). A animação está sendo enviada em tempo real." });
+    }
+
+    private async Task RunRgbEffectAsync(
+        DeviceRow device,
+        int zoneIndex,
+        OpenRgbZone zone,
+        int ledCount,
+        string key,
+        CancellationTokenSource cancellation,
+        TaskCompletionSource<bool> started)
+    {
+        try
+        {
+            await _openRgb.StreamZoneFramesAsync(
+                device.Index,
+                zoneIndex,
+                frame =>
+                {
+                    var colors = CreateRainbowFrame(ledCount, frame);
+                    return colors.Select(color =>
+                    {
+                        var adjusted = ApplyControllerColorQuirks(device.Name, zone.Name, color.Red, color.Green, color.Blue);
+                        return (Red: adjusted.red, Green: adjusted.green, Blue: adjusted.blue);
+                    }).ToArray();
+                },
+                33,
+                cancellation.Token,
+                () => started.TrySetResult(true));
+        }
+        catch (OperationCanceledException)
+        {
+            started.TrySetCanceled(cancellation.Token);
+        }
+        catch (Exception ex)
+        {
+            started.TrySetException(ex);
+            SendHtmlMessage(new { action = "host-error", message = $"Falha ao executar Rainbow em {device.Name}: {ex.Message}" });
+        }
+        finally
+        {
+            if (_rgbEffectCancellations.TryGetValue(key, out var active) && ReferenceEquals(active, cancellation))
+                _rgbEffectCancellations.Remove(key);
+            cancellation.Dispose();
+        }
+    }
+
+    private static IReadOnlyList<(byte Red, byte Green, byte Blue)> CreateRainbowFrame(int ledCount, int frame)
+    {
+        var colors = new (byte Red, byte Green, byte Blue)[ledCount];
+        for (int led = 0; led < ledCount; led++)
+        {
+            double hue = ((led * 360.0 / ledCount) + (frame * 3.0)) % 360.0;
+            colors[led] = HsvToRgb(hue, 1.0, 1.0);
+        }
+        return colors;
+    }
+
+    private static (byte Red, byte Green, byte Blue) HsvToRgb(double hue, double saturation, double value)
+    {
+        double chroma = value * saturation;
+        double x = chroma * (1.0 - Math.Abs((hue / 60.0 % 2.0) - 1.0));
+        double match = value - chroma;
+        (double r, double g, double b) = hue switch
+        {
+            < 60 => (chroma, x, 0),
+            < 120 => (x, chroma, 0),
+            < 180 => (0, chroma, x),
+            < 240 => (0, x, chroma),
+            < 300 => (x, 0, chroma),
+            _ => (chroma, 0, x)
+        };
+        return (
+            (byte)Math.Clamp(Math.Round((r + match) * 255.0), 0, 255),
+            (byte)Math.Clamp(Math.Round((g + match) * 255.0), 0, 255),
+            (byte)Math.Clamp(Math.Round((b + match) * 255.0), 0, 255));
+    }
+
+    private void StopHtmlRgbAnimation(JsonElement root)
+    {
+        int deviceIndex = root.GetProperty("deviceIndex").GetInt32();
+        int zoneIndex = root.GetProperty("zoneIndex").GetInt32();
+        var device = _devices.FirstOrDefault(d => d.Index == deviceIndex)
+            ?? throw new InvalidOperationException("Dispositivo não encontrado. Atualize a lista.");
+        if (zoneIndex < 0 || zoneIndex >= device.Zones.Count)
+            throw new InvalidOperationException("Zona não encontrada. Atualize a lista.");
+        var zone = device.Zones[zoneIndex];
+        StopRgbEffect(device, new ZoneRow(zoneIndex, zone.Name, zone.LedCount));
+        SendHtmlMessage(new { action = "rgb-result", ok = true,
+            message = $"Efeito interrompido em {device.Name} / {zone.Name}. A última cor permanece aplicada." });
     }
 
     private async Task ApplyHtmlRgbColorAsync(JsonElement root)
