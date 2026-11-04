@@ -207,6 +207,7 @@ public sealed class OpenRgbSdkClient
         IReadOnlyList<(int ZoneIndex, int LedCount)> zones,
         Func<int, int, IReadOnlyList<(byte Red, byte Green, byte Blue)>> frameFactory,
         int frameDelayMs,
+        long synchronizedStartTimestamp,
         CancellationToken cancellationToken = default,
         Action? onStarted = null)
     {
@@ -217,40 +218,66 @@ public sealed class OpenRgbSdkClient
         if (frameDelayMs < 16 || frameDelayMs > 5000) throw new ArgumentOutOfRangeException(nameof(frameDelayMs));
 
         using var client = new TcpClient { NoDelay = true };
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(Timeout.InfiniteTimeSpan);
-        await client.ConnectAsync("127.0.0.1", Port, timeout.Token);
+        await client.ConnectAsync("127.0.0.1", Port, cancellationToken);
         using NetworkStream stream = client.GetStream();
 
-        await SendPacketAsync(stream, 0, SetClientName, Encoding.UTF8.GetBytes("MASTER RGB\0"), timeout.Token);
-        await SendPacketAsync(stream, (uint)deviceIndex, SetCustomMode, Array.Empty<byte>(), timeout.Token);
-        await Task.Delay(500, timeout.Token);
+        await SendPacketAsync(stream, 0, SetClientName, Encoding.UTF8.GetBytes("MASTER RGB\\0"), cancellationToken);
+        await SendPacketAsync(stream, (uint)deviceIndex, SetCustomMode, Array.Empty<byte>(), cancellationToken);
 
-        int frame = 0;
-        while (!timeout.IsCancellationRequested)
+        // All selected controllers wait for the same timestamp before their first frame.
+        while (true)
         {
-            foreach (var zone in zones)
-            {
-                var colors = frameFactory(zone.ZoneIndex, frame);
-                if (colors.Count != zone.LedCount)
-                    throw new InvalidOperationException($"O efeito retornou {colors.Count} LEDs para a zona {zone.ZoneIndex}, mas são esperados {zone.LedCount}.");
+            cancellationToken.ThrowIfCancellationRequested();
+            long ticksRemaining = synchronizedStartTimestamp - System.Diagnostics.Stopwatch.GetTimestamp();
+            if (ticksRemaining <= 0) break;
+            double msRemaining = ticksRemaining * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+            await Task.Delay(TimeSpan.FromMilliseconds(Math.Min(msRemaining, 100)), cancellationToken);
+        }
 
-                byte[] payload = new byte[10 + (colors.Count * 4)];
-                BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(0, 4), (uint)payload.Length);
-                BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(4, 4), (uint)zone.ZoneIndex);
-                BinaryPrimitives.WriteUInt16LittleEndian(payload.AsSpan(8, 2), (ushort)colors.Count);
-                for (int i = 0; i < colors.Count; i++)
+        long frameTicks = Math.Max(1, (long)(System.Diagnostics.Stopwatch.Frequency * (frameDelayMs / 1000.0)));
+        int lastFrame = -1;
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            long elapsed = System.Diagnostics.Stopwatch.GetTimestamp() - synchronizedStartTimestamp;
+            int frame = (int)Math.Max(0, elapsed / frameTicks);
+            if (frame != lastFrame)
+            {
+                // Skip obsolete frames instead of building a backlog when a controller is slower.
+                foreach (var zone in zones)
                 {
-                    var color = colors[i];
-                    uint packed = (uint)color.Red | ((uint)color.Green << 8) | ((uint)color.Blue << 16);
-                    BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(10 + (i * 4), 4), packed);
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var colors = frameFactory(zone.ZoneIndex, frame);
+                    if (colors.Count != zone.LedCount)
+                        throw new InvalidOperationException($"O efeito retornou {colors.Count} LEDs para a zona {zone.ZoneIndex}, mas são esperados {zone.LedCount}.");
+
+                    byte[] payload = new byte[10 + (colors.Count * 4)];
+                    BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(0, 4), (uint)payload.Length);
+                    BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(4, 4), (uint)zone.ZoneIndex);
+                    BinaryPrimitives.WriteUInt16LittleEndian(payload.AsSpan(8, 2), (ushort)colors.Count);
+                    for (int i = 0; i < colors.Count; i++)
+                    {
+                        var color = colors[i];
+                        uint packed = (uint)color.Red | ((uint)color.Green << 8) | ((uint)color.Blue << 16);
+                        BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(10 + (i * 4), 4), packed);
+                    }
+                    await SendPacketAsync(stream, (uint)deviceIndex, UpdateZoneLeds, payload, cancellationToken);
                 }
-                await SendPacketAsync(stream, (uint)deviceIndex, UpdateZoneLeds, payload, timeout.Token);
-                if (frame == 0 && zone.ZoneIndex == zones[0].ZoneIndex) onStarted?.Invoke();
+                if (lastFrame < 0) onStarted?.Invoke();
+                lastFrame = frame;
             }
 
-            frame++;
-            await Task.Delay(frameDelayMs, timeout.Token);
+            long nextFrame = synchronizedStartTimestamp + ((long)(lastFrame + 1) * frameTicks);
+            long waitTicks = nextFrame - System.Diagnostics.Stopwatch.GetTimestamp();
+            if (waitTicks > 0)
+            {
+                double waitMs = waitTicks * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+                await Task.Delay(TimeSpan.FromMilliseconds(Math.Max(1, waitMs)), cancellationToken);
+            }
+            else
+            {
+                await Task.Yield();
+            }
         }
     }
 
