@@ -291,7 +291,7 @@ public partial class MainWindow : Window
                             case "rainbow": case "cycle": (r, g, bl) = HsvToRgb((frame * 4 + i * 360 / Math.Max(1, ledCount)) % 360, 1, 1); break;
                             case "wave": factor = 0.08 + 0.92 * (0.5 + 0.5 * Math.Sin(t)); break;
                             case "strobe": factor = frame % 8 < 4 ? 1 : 0.03; break;
-                            case "comet": factor = Math.Pow(Math.Max(0, 1 - Math.Abs((i - (frame % Math.Max(1, ledCount))) / Math.Max(1.0, ledCount / 5.0)), 1), 2); break;
+                            case "comet": factor = Math.Pow(Math.Max(0, 1 - Math.Abs((i - (frame % Math.Max(1, ledCount))) / Math.Max(1.0, ledCount / 5.0))), 2); break;
                             case "fire": (r, g, bl) = ((byte)Math.Min(255, baseR + random.Next(0, 70)), (byte)(baseG * (0.25 + random.NextDouble() * 0.5)), (byte)(baseB * 0.1)); break;
                             case "ocean": (r, g, bl) = ((byte)(baseR * 0.1), (byte)Math.Min(255, baseG + 30), (byte)Math.Min(255, baseB + 50)); factor = 0.45 + 0.55 * (0.5 + 0.5 * Math.Sin(t)); break;
                             case "sparkle": factor = random.NextDouble() > 0.82 ? 1 : 0.12; break;
@@ -316,8 +316,8 @@ public partial class MainWindow : Window
         double m = value - c;
         (double r, double g, double b) = hue switch
         {
-            < 60 => (c, x, 0), < 120 => (x, c, 0), < 180 => (0, c, x),
-            < 240 => (0, x, c), < 300 => (x, 0, c), _ => (c, 0, x)
+            < 60 => (c, x, 0d), < 120 => (x, c, 0d), < 180 => (0d, c, x),
+            < 240 => (0d, x, c), < 300 => (x, 0d, c), _ => (c, 0d, x)
         };
         return ((byte)((r + m) * 255), (byte)((g + m) * 255), (byte)((b + m) * 255));
     }
