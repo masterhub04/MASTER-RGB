@@ -37,7 +37,6 @@ public partial class MainWindow : Window
     private readonly Dictionary<int, CancellationTokenSource> _rgbEffectCancellations = new();
     private readonly Dictionary<int, Task> _rgbEffectTasks = new();
     private readonly SemaphoreSlim _deviceDetectionLock = new(1, 1);
-    private bool _hasCompletedInitialDetection;
     private readonly OpenRgbEngineHost _openRgbEngine = new();
     private readonly ObservableCollection<DeviceRow> _devices = new();
     private readonly ObservableCollection<DeviceRow> _selectableDevices = new();
@@ -306,7 +305,7 @@ public partial class MainWindow : Window
                 await _openRgb.ResizeZoneAsync(target.Device.Index, target.ZoneIndex, target.LedCount);
         }
 
-        long synchronizedStart = System.Diagnostics.Stopwatch.GetTimestamp() + (System.Diagnostics.Stopwatch.Frequency * 3 / 4);
+        long synchronizedStart = System.Diagnostics.Stopwatch.GetTimestamp() + (System.Diagnostics.Stopwatch.Frequency / 3);
         var starts = new List<Task>();
         foreach (var device in selected)
         {
@@ -1138,7 +1137,6 @@ public partial class MainWindow : Window
         finally
         {
             ConnectButtonState(false);
-            _hasCompletedInitialDetection = true;
             _deviceDetectionLock.Release();
         }
     }
