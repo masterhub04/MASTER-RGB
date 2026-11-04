@@ -198,7 +198,8 @@ public partial class MainWindow : Window
         {
             if (_devices.Count == 0) await DetectOpenRgbDevicesAsync();
             var devices = _devices.Select(d => new {
-                index = d.Index, name = d.Name,
+                index = d.Index, name = d.Name, vendor = d.Vendor,
+                ledCount = d.LedCount, zoneCount = d.ZoneCount,
                 modes = d.Modes.Select((mode, i) => new { index = i, name = mode.Name, active = i == d.ActiveMode }).ToArray(),
                 zones = d.Zones.Select((z, i) => { var zone = new ZoneRow(i, z.Name, z.LedCount); return new { index = i, name = z.Name, ledCount = GetConfiguredLedCount(d, zone), defaultLedCount = IsMsiArgbHeader(d, zone) ? 8 : z.LedCount, hasCustomLedCount = _zoneLedOverrides.ContainsKey(GetZoneKey(d, zone)) }; })
             }).ToArray();
