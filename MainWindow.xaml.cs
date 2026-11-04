@@ -302,8 +302,18 @@ public partial class MainWindow : Window
             throw;
         }
 
+        string effectLabel = effect.ToLowerInvariant() switch
+        {
+            "rainbow" => "Rainbow",
+            "color-cycle" => "Color Cycle",
+            "breathing" => "Breathing",
+            "wave" => "Wave",
+            "scanner" => "Scanner",
+            "strobe" => "Strobe",
+            _ => effect
+        };
         SendHtmlMessage(new { action = "rgb-result", ok = true,
-            message = $"Rainbow iniciado em {selected.Count} dispositivo(s), cobrindo {targets.Count} zona(s). A animação está sendo enviada em tempo real." });
+            message = $"{effectLabel} iniciado em {selected.Count} dispositivo(s), cobrindo {targets.Count} zona(s). A animação está sendo enviada em tempo real." });
     }
 
     private async Task RunRgbEffectAsync(
@@ -438,17 +448,20 @@ public partial class MainWindow : Window
             }
         }
 
-        await Task.Delay(150);
-        foreach (var device in selected)
+        if (stopped > 0)
         {
-            var zones = device.SourceZones.Select((zone, index) =>
+            await Task.Delay(150);
+            foreach (var device in selected)
             {
-                var row = new ZoneRow(index, zone.Name, zone.LedCount);
-                return (ZoneIndex: index, LedCount: GetConfiguredLedCount(device, row),
-                    Red: (byte)0, Green: (byte)0, Blue: (byte)0);
-            }).Where(zone => zone.LedCount > 0).ToArray();
-            if (zones.Length > 0)
-                await _openRgb.ApplyDeviceZonesColorAsync(device.Index, zones);
+                var zones = device.SourceZones.Select((zone, index) =>
+                {
+                    var row = new ZoneRow(index, zone.Name, zone.LedCount);
+                    return (ZoneIndex: index, LedCount: GetConfiguredLedCount(device, row),
+                        Red: (byte)0, Green: (byte)0, Blue: (byte)0);
+                }).Where(zone => zone.LedCount > 0).ToArray();
+                if (zones.Length > 0)
+                    await _openRgb.ApplyDeviceZonesColorAsync(device.Index, zones);
+            }
         }
 
         SendHtmlMessage(new { action = "rgb-result", ok = true,
