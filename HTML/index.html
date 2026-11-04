@@ -669,21 +669,12 @@
                                         Salvar esta quantidade como padrão para esta zona
                                     </label>
                                     <div style="margin-top:14px;">
-                                        <label for="rgbZoneEffect" style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-dim);margin-bottom:6px;">Efeito dos LEDs desta zona</label>
+                                        <label for="rgbZoneEffect" style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-dim);margin-bottom:6px;">Modos nativos do OpenRGB</label>
                                         <select class="select-box" id="rgbZoneEffect">
-                                            <option value="static">Estático</option>
-                                            <option value="pulse">Pulso</option>
-                                            <option value="rainbow">Rainbow</option>
-                                            <option value="wave">Onda de cores</option>
-                                            <option value="cycle">Ciclo de cores</option>
-                                            <option value="breathing">Respiração</option>
-                                            <option value="strobe">Strobo</option>
-                                            <option value="comet">Cometa</option>
-                                            <option value="fire">Fogo</option>
-                                            <option value="ocean">Oceano</option>
-                                            <option value="sparkle">Brilho aleatório</option>
+                                            <option value="">Selecione um modo do dispositivo</option>
                                         </select>
-                                        <button class="btn-outline" style="width:100%;margin-top:8px;" onclick="applyHtmlRgbEffect()">Aplicar efeito na zona</button>
+                                        <button class="btn-outline" style="width:100%;margin-top:8px;" onclick="applyHtmlRgbEffect()">Aplicar modo nativo</button>
+                                        <span style="font-size:10px;color:var(--text-dim);display:block;margin-top:6px;">A lista mostra somente os efeitos que o próprio controlador disponibiliza no OpenRGB.</span>
                                     </div>
                                     <span style="font-size: 10px; color: var(--text-dim); margin-top: 7px; display: block;">O efeito será aplicado somente à zona selecionada.</span>
                                 </div>
@@ -1306,10 +1297,11 @@ function loadSelectedDeviceCalibration(){
  if(status)status.textContent="Carregando calibração de "+device.name+"...";
  post({action:"rgb-get-device-calibration",deviceIndex:device.index});
 }
-function zones(){const d=selectedDevice();zs.innerHTML="";if(!d||!d.zones.length){zs.add(new Option("Nenhuma zona disponível",""));leds.value=0;rememberLeds.checked=false;loadSelectedDeviceCalibration();return;}d.zones.forEach(z=>zs.add(new Option(z.name+" • "+z.ledCount+" LED(s)",z.index)));count();loadSelectedDeviceCalibration();}
+function renderNativeModes(){const d=selectedDevice(),select=document.getElementById("rgbZoneEffect");select.replaceChildren();select.add(new Option("Selecione um modo do dispositivo",""));if(!d||!d.modes||!d.modes.length){select.add(new Option("Este dispositivo não informa modos nativos",""));select.disabled=true;return;}select.disabled=false;d.modes.forEach(mode=>{const label=mode.name+(mode.active?" • ativo":"");select.add(new Option(label,mode.index));});if(d.modes.some(mode=>mode.active))select.value=String(d.modes.find(mode=>mode.active).index);}
+function zones(){const d=selectedDevice();zs.innerHTML="";renderNativeModes();if(!d||!d.zones.length){zs.add(new Option("Nenhuma zona disponível",""));leds.value=0;rememberLeds.checked=false;loadSelectedDeviceCalibration();return;}d.zones.forEach(z=>zs.add(new Option(z.name+" • "+z.ledCount+" LED(s)",z.index)));count();loadSelectedDeviceCalibration();}
 function count(){const d=selectedDevice(),z=d&&d.zones.find(x=>x.index===Number(zs.value));if(z){leds.value=z.hasCustomLedCount?z.ledCount:z.defaultLedCount;rememberLeds.checked=!!z.hasCustomLedCount;}}
 function saveZoneLedCountPreference(){const d=selectedDevice(),z=d&&d.zones.find(x=>x.index===Number(zs.value));if(!d||!z)return;const value=Number(leds.value);if(rememberLeds.checked&&(!Number.isInteger(value)||value<1||value>65535)){document.getElementById("rgbStatusText").textContent="Informe uma quantidade entre 1 e 65535 LEDs.";rememberLeds.checked=false;return;}z.hasCustomLedCount=rememberLeds.checked;if(rememberLeds.checked)z.ledCount=value;post({action:"rgb-save-zone-led-count",deviceIndex:d.index,zoneIndex:z.index,remember:rememberLeds.checked,ledCount:value});}
-function applyHtmlRgbEffect(){const d=selectedDevice(),z=d&&d.zones.find(x=>x.index===Number(zs.value));if(!d||!z){document.getElementById("rgbStatusText").textContent="Selecione um dispositivo e uma zona.";return;}const value=Number(leds.value);if(!Number.isInteger(value)||value<1||value>65535){document.getElementById("rgbStatusText").textContent="Informe uma quantidade entre 1 e 65535 LEDs.";return;}post({action:"rgb-apply-effect",deviceIndex:d.index,zoneIndex:z.index,ledCount:value,effect:document.getElementById("rgbZoneEffect").value,hex:hex.value,brightness:Number(bright.value),rememberLedCount:rememberLeds.checked});}
+function applyHtmlRgbEffect(){const d=selectedDevice();if(!d){document.getElementById("rgbStatusText").textContent="Selecione um dispositivo.";return;}const modeIndex=Number(document.getElementById("rgbZoneEffect").value);if(!Number.isInteger(modeIndex)||!d.modes||!d.modes[modeIndex]){document.getElementById("rgbStatusText").textContent="Selecione um modo nativo disponível para este dispositivo.";return;}post({action:"rgb-apply-effect",deviceIndex:d.index,modeIndex,brightness:Number(bright.value)});}
 function receive(e){const d=e.data||{};
  if(d.action==="rgb-devices"){const previous=ds.value;devices=(d.devices||[]).filter((v,i,a)=>a.findIndex(x=>x.name.trim().toLowerCase()===v.name.trim().toLowerCase())===i);ds.innerHTML="";group.replaceChildren();devices.forEach((v,i)=>{ds.add(new Option(v.name,v.index));const l=document.createElement("label"),c=document.createElement("input");c.type="checkbox";c.value=v.index;c.checked=i===0;l.append(c,document.createTextNode(" "+v.name));group.append(l);});if(!devices.length){ds.add(new Option("Nenhum dispositivo detectado",""));group.textContent="Nenhum dispositivo RGB detectado pelo OpenRGB.";}else if(devices.some(v=>String(v.index)===previous)){ds.value=previous;}zones();}
  else if(d.action==="rgb-result"||d.action==="host-error"){if(d.action==="host-error"&&calibrationPreviewInFlight){calibrationPreviewInFlight=false;calibrationPreviewPending=false;}const s=document.getElementById("rgbStatusText");if(s)s.textContent=d.message;const b=document.getElementById("rgbApplyOne");if(b){b.disabled=false;b.textContent="Aplicar cor";}const cs=document.getElementById("mouseCalibrationStatus");if(cs&&d.action==="host-error")cs.textContent="Erro: "+d.message;}
