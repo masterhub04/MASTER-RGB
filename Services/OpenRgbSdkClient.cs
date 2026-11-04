@@ -139,6 +139,20 @@ public sealed class OpenRgbSdkClient
         return ApplyDeviceZonesColorAsync(deviceIndex, coloredZones, cancellationToken);
     }
 
+    public async Task PrepareZoneForEffectsAsync(int deviceIndex, CancellationToken cancellationToken = default)
+    {
+        if (deviceIndex < 0) throw new ArgumentOutOfRangeException(nameof(deviceIndex));
+        using var client = new TcpClient { NoDelay = true };
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(8));
+        await client.ConnectAsync("127.0.0.1", Port, timeout.Token);
+        using NetworkStream stream = client.GetStream();
+        await SendPacketAsync(stream, 0, SetClientName, Encoding.UTF8.GetBytes("MASTER RGB\\0"), timeout.Token);
+        await SendPacketAsync(stream, (uint)deviceIndex, SetCustomMode, Array.Empty<byte>(), timeout.Token);
+        // Aguarda o controlador concluir a troca para o modo de controle direto.
+        await Task.Delay(500, timeout.Token);
+    }
+
     public async Task ApplyZoneFrameAsync(int deviceIndex, int zoneIndex, IReadOnlyList<(byte Red, byte Green, byte Blue)> colors, CancellationToken cancellationToken = default)
     {
         if (deviceIndex < 0 || zoneIndex < 0) throw new ArgumentOutOfRangeException("Índice de dispositivo ou zona inválido.");
@@ -149,7 +163,6 @@ public sealed class OpenRgbSdkClient
         await client.ConnectAsync("127.0.0.1", Port, timeout.Token);
         using NetworkStream stream = client.GetStream();
         await SendPacketAsync(stream, 0, SetClientName, Encoding.UTF8.GetBytes("MASTER RGB\\0"), timeout.Token);
-        await SendPacketAsync(stream, (uint)deviceIndex, SetCustomMode, Array.Empty<byte>(), timeout.Token);
         uint packedColor;
         byte[] payload = new byte[10 + (colors.Count * 4)];
         BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(0, 4), (uint)payload.Length);
