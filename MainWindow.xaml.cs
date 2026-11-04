@@ -34,6 +34,7 @@ public partial class MainWindow : Window
     private readonly BoostGameService _boostGame = new();
     private readonly OptimizeSystemService _optimizeSystem = new();
     private readonly OpenRgbSdkClient _openRgb = new();
+    private CancellationTokenSource? _rgbEffectCancellation;
     private readonly OpenRgbEngineHost _openRgbEngine = new();
     private readonly ObservableCollection<DeviceRow> _devices = new();
     private readonly ObservableCollection<DeviceRow> _selectableDevices = new();
@@ -76,7 +77,7 @@ public partial class MainWindow : Window
         ConfigureTrayIcon();
         Loaded += MainWindow_Loaded;
         Closing += MainWindow_Closing;
-        Closed += (_, _) => { MasterMicView.Shutdown(); _trayIcon?.Dispose(); _openRgbEngine.Dispose(); };
+        Closed += (_, _) => { _rgbEffectCancellation?.Cancel(); _rgbEffectCancellation?.Dispose(); MasterMicView.Shutdown(); _trayIcon?.Dispose(); _openRgbEngine.Dispose(); };
     }
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -148,6 +149,7 @@ public partial class MainWindow : Window
                 case "rgb-refresh-devices": await DetectOpenRgbDevicesAsync(); await SendRgbDevicesToHtmlAsync(); break;
                 case "rgb-run-diagnostic": RunDiagnostic_Click(this, new RoutedEventArgs()); break;
                 case "rgb-apply-color": await ApplyHtmlRgbColorAsync(root); break;
+                case "rgb-apply-effect": await ApplyHtmlRgbEffectAsync(root); break;
                 case "rgb-save-zone-led-count": SaveZoneLedCountPreference(root); break;
                 case "rgb-apply-group": await ApplyHtmlRgbGroupAsync(root); break;
                 case "rgb-get-device-calibration": SendDeviceCalibrationToHtml(root); break;
@@ -219,6 +221,91 @@ public partial class MainWindow : Window
         SendHtmlMessage(new { action = "rgb-zone-led-count-saved", message = remember
             ? $"Quantidade padrão de {ledCount} LEDs salva para {zone.Name}."
             : $"Quantidade personalizada de {zone.Name} será temporária." });
+    }
+
+    private async Task ApplyHtmlRgbEffectAsync(JsonElement root)
+    {
+        int deviceIndex = root.GetProperty("deviceIndex").GetInt32();
+        int zoneIndex = root.GetProperty("zoneIndex").GetInt32();
+        int ledCount = root.GetProperty("ledCount").GetInt32();
+        string effect = root.GetProperty("effect").GetString() ?? "static";
+        string hex = root.GetProperty("hex").GetString()?.Trim().TrimStart('#') ?? "00F0FF";
+        int brightness = root.TryGetProperty("brightness", out var b) ? Math.Clamp(b.GetInt32(), 0, 100) : 100;
+        if (hex.Length != 6 || !uint.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint rgb))
+            throw new InvalidOperationException("Cor inválida. Use #RRGGBB.");
+        var device = _devices.FirstOrDefault(d => d.Index == deviceIndex) ?? throw new InvalidOperationException("Dispositivo não encontrado.");
+        if (zoneIndex < 0 || zoneIndex >= device.Zones.Count) throw new InvalidOperationException("Zona não encontrada.");
+        var zone = device.Zones[zoneIndex];
+        if (ledCount < 1 || ledCount > ushort.MaxValue || zone.LedCount < 1) throw new InvalidOperationException("Quantidade de LEDs inválida.");
+        string[] supported = { "static", "pulse", "rainbow", "wave", "cycle", "breathing", "strobe", "comet", "fire", "ocean", "sparkle" };
+        if (!supported.Contains(effect, StringComparer.OrdinalIgnoreCase)) throw new InvalidOperationException("Efeito não reconhecido.");
+        _rgbEffectCancellation?.Cancel();
+        _rgbEffectCancellation?.Dispose();
+        _rgbEffectCancellation = new CancellationTokenSource();
+        var token = _rgbEffectCancellation.Token;
+        if (ledCount != zone.LedCount) await _openRgb.ResizeZoneAsync(deviceIndex, zoneIndex, ledCount, token);
+        bool remember = root.TryGetProperty("rememberLedCount", out var rememberValue) && rememberValue.GetBoolean();
+        string key = GetZoneKey(device, new ZoneRow(zoneIndex, zone.Name, zone.LedCount));
+        if (remember) _zoneLedOverrides[key] = ledCount; else _zoneLedOverrides.Remove(key);
+        SaveUserSettings();
+        byte baseR = (byte)Math.Round(((rgb >> 16) & 255) * brightness / 100.0);
+        byte baseG = (byte)Math.Round(((rgb >> 8) & 255) * brightness / 100.0);
+        byte baseB = (byte)Math.Round((rgb & 255) * brightness / 100.0);
+        (baseR, baseG, baseB) = ApplyControllerColorQuirks(device.Name, zone.Name, baseR, baseG, baseB);
+        if (effect.Equals("static", StringComparison.OrdinalIgnoreCase))
+        {
+            await _openRgb.ApplyZoneColorAsync(deviceIndex, zoneIndex, ledCount, baseR, baseG, baseB, token);
+        }
+        else
+        {
+            _ = Task.Run(async () =>
+            {
+                int frame = 0;
+                var random = new Random();
+                while (!token.IsCancellationRequested)
+                {
+                    var colors = new (byte Red, byte Green, byte Blue)[ledCount];
+                    double phase = frame * 0.16;
+                    for (int i = 0; i < ledCount; i++)
+                    {
+                        double t = (phase + i * 0.22) % (Math.PI * 2);
+                        double factor = 1;
+                        (byte r, byte g, byte bl) = (baseR, baseG, baseB);
+                        switch (effect.ToLowerInvariant())
+                        {
+                            case "pulse": case "breathing": factor = 0.08 + 0.92 * (0.5 + 0.5 * Math.Sin(phase)); break;
+                            case "rainbow": case "cycle": (r, g, bl) = HsvToRgb((frame * 4 + i * 360 / Math.Max(1, ledCount)) % 360, 1, 1); break;
+                            case "wave": factor = 0.08 + 0.92 * (0.5 + 0.5 * Math.Sin(t)); break;
+                            case "strobe": factor = frame % 8 < 4 ? 1 : 0.03; break;
+                            case "comet": factor = Math.Pow(Math.Max(0, 1 - Math.Abs((i - (frame % Math.Max(1, ledCount))) / Math.Max(1.0, ledCount / 5.0)), 1), 2); break;
+                            case "fire": (r, g, bl) = ((byte)Math.Min(255, baseR + random.Next(0, 70)), (byte)(baseG * (0.25 + random.NextDouble() * 0.5)), (byte)(baseB * 0.1)); break;
+                            case "ocean": (r, g, bl) = ((byte)(baseR * 0.1), (byte)Math.Min(255, baseG + 30), (byte)Math.Min(255, baseB + 50)); factor = 0.45 + 0.55 * (0.5 + 0.5 * Math.Sin(t)); break;
+                            case "sparkle": factor = random.NextDouble() > 0.82 ? 1 : 0.12; break;
+                        }
+                        colors[i] = ((byte)Math.Clamp(r * factor, 0, 255), (byte)Math.Clamp(g * factor, 0, 255), (byte)Math.Clamp(bl * factor, 0, 255));
+                    }
+                    try { await _openRgb.ApplyZoneFrameAsync(deviceIndex, zoneIndex, colors, token); }
+                    catch (OperationCanceledException) when (token.IsCancellationRequested) { break; }
+                    catch (Exception ex) { System.Diagnostics.Debug.WriteLine("RGB effect: " + ex.Message); break; }
+                    frame++;
+                    try { await Task.Delay(100, token); } catch (OperationCanceledException) { break; }
+                }
+            }, token);
+        }
+        SendHtmlMessage(new { action = "rgb-result", ok = true, message = $"Efeito {effect} aplicado em {device.Name} / {zone.Name}." });
+    }
+
+    private static (byte Red, byte Green, byte Blue) HsvToRgb(double hue, double saturation, double value)
+    {
+        double c = value * saturation;
+        double x = c * (1 - Math.Abs((hue / 60 % 2) - 1));
+        double m = value - c;
+        (double r, double g, double b) = hue switch
+        {
+            < 60 => (c, x, 0), < 120 => (x, c, 0), < 180 => (0, c, x),
+            < 240 => (0, x, c), < 300 => (x, 0, c), _ => (c, 0, x)
+        };
+        return ((byte)((r + m) * 255), (byte)((g + m) * 255), (byte)((b + m) * 255));
     }
 
     private async Task ApplyHtmlRgbColorAsync(JsonElement root)
