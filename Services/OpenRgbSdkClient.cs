@@ -6,9 +6,10 @@ using System.Text;
 namespace MasterRgb.Services;
 
 public sealed record OpenRgbZone(string Name, int LedCount);
+public sealed record OpenRgbMode(string Name, int Value, uint Flags, uint SpeedMin, uint SpeedMax, uint BrightnessMin, uint BrightnessMax, uint ColorsMin, uint ColorsMax, uint Speed, uint Brightness, uint Direction, uint ColorMode, IReadOnlyList<uint> Colors);
 public sealed record OpenRgbDevice(
     int Index, string Name, string Vendor, string Description, string Version,
-    int ZoneCount, int LedCount, IReadOnlyList<OpenRgbZone> Zones, int DeviceType, uint ProtocolVersion, string RawDataHex);
+    int ZoneCount, int LedCount, IReadOnlyList<OpenRgbZone> Zones, IReadOnlyList<OpenRgbMode> Modes, int ActiveMode, int DeviceType, uint ProtocolVersion, string RawDataHex);
 
 public sealed class OpenRgbSdkClient
 {
@@ -21,6 +22,7 @@ public sealed class OpenRgbSdkClient
     private const uint ResizeZone = 1000;
     private const uint UpdateZoneLeds = 1051;
     private const uint SetCustomMode = 1100;
+    private const uint UpdateMode = 1101;
     private const uint ClientProtocolVersion = 5;
 
     public async Task<IReadOnlyList<OpenRgbDevice>> ReadDevicesAsync(CancellationToken cancellationToken = default)
@@ -170,7 +172,7 @@ public sealed class OpenRgbSdkClient
         await client.ConnectAsync("127.0.0.1", Port, timeout.Token);
         using NetworkStream stream = client.GetStream();
 
-        await SendPacketAsync(stream, 0, SetClientName, Encoding.UTF8.GetBytes("MASTER RGB\\0"), timeout.Token);
+        await SendPacketAsync(stream, 0, SetClientName, Encoding.UTF8.GetBytes("MASTER RGB\0"), timeout.Token);
         await SendPacketAsync(stream, (uint)deviceIndex, SetCustomMode, Array.Empty<byte>(), timeout.Token);
         await Task.Delay(500, timeout.Token);
 
@@ -196,6 +198,79 @@ public sealed class OpenRgbSdkClient
             frame++;
             await Task.Delay(frameDelayMs, timeout.Token);
         }
+    }
+
+    public async Task ApplyNativeModeAsync(int deviceIndex, int modeIndex, OpenRgbMode mode, int brightnessPercent, CancellationToken cancellationToken = default)
+    {
+        if (deviceIndex < 0 || modeIndex < 0) throw new ArgumentOutOfRangeException("Índice do dispositivo ou modo inválido.");
+        ArgumentNullException.ThrowIfNull(mode);
+        if (mode.Name.Length == 0) throw new InvalidOperationException("O modo selecionado não possui nome válido.");
+
+        uint brightness = (uint)Math.Clamp(brightnessPercent, 0, 100);
+        var modeData = new List<byte>();
+        byte[] name = Encoding.UTF8.GetBytes(mode.Name + "\0");
+        if (name.Length > ushort.MaxValue) throw new InvalidOperationException("Nome do modo excede o limite do protocolo.");
+        AddUInt16(modeData, (ushort)name.Length);
+        modeData.AddRange(name);
+        AddInt32(modeData, mode.Value);
+        AddUInt32(modeData, mode.Flags);
+        AddUInt32(modeData, mode.SpeedMin);
+        AddUInt32(modeData, mode.SpeedMax);
+        if (ClientProtocolVersion >= 3)
+        {
+            AddUInt32(modeData, mode.BrightnessMin);
+            AddUInt32(modeData, mode.BrightnessMax);
+        }
+        AddUInt32(modeData, mode.ColorsMin);
+        AddUInt32(modeData, mode.ColorsMax);
+        AddUInt32(modeData, mode.Speed);
+        if (ClientProtocolVersion >= 3)
+        {
+            uint selectedBrightness = (mode.Flags & (1u << 4)) != 0
+                ? Math.Clamp(brightness, mode.BrightnessMin, mode.BrightnessMax)
+                : mode.Brightness;
+            AddUInt32(modeData, selectedBrightness);
+        }
+        AddUInt32(modeData, mode.Direction);
+        AddUInt32(modeData, mode.ColorMode);
+        if (mode.Colors.Count > ushort.MaxValue) throw new InvalidOperationException("Quantidade de cores do modo excede o limite do protocolo.");
+        AddUInt16(modeData, (ushort)mode.Colors.Count);
+        foreach (uint color in mode.Colors) AddUInt32(modeData, color);
+
+        byte[] payload = new byte[8 + modeData.Count];
+        BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(0, 4), (uint)payload.Length);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(4, 4), modeIndex);
+        modeData.CopyTo(payload, 8);
+
+        using var client = new TcpClient { NoDelay = true };
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(8));
+        await client.ConnectAsync("127.0.0.1", Port, timeout.Token);
+        using NetworkStream stream = client.GetStream();
+        await SendPacketAsync(stream, 0, SetClientName, Encoding.UTF8.GetBytes("MASTER RGB\0"), timeout.Token);
+        await SendPacketAsync(stream, (uint)deviceIndex, UpdateMode, payload, timeout.Token);
+        await Task.Delay(250, timeout.Token);
+    }
+
+    private static void AddUInt16(List<byte> target, ushort value)
+    {
+        Span<byte> bytes = stackalloc byte[2];
+        BinaryPrimitives.WriteUInt16LittleEndian(bytes, value);
+        target.AddRange(bytes.ToArray());
+    }
+
+    private static void AddUInt32(List<byte> target, uint value)
+    {
+        Span<byte> bytes = stackalloc byte[4];
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes, value);
+        target.AddRange(bytes.ToArray());
+    }
+
+    private static void AddInt32(List<byte> target, int value)
+    {
+        Span<byte> bytes = stackalloc byte[4];
+        BinaryPrimitives.WriteInt32LittleEndian(bytes, value);
+        target.AddRange(bytes.ToArray());
     }
 
     public async Task ApplyZoneFrameAsync(int deviceIndex, int zoneIndex, IReadOnlyList<(byte Red, byte Green, byte Blue)> colors, CancellationToken cancellationToken = default)
@@ -278,18 +353,30 @@ public sealed class OpenRgbSdkClient
         _ = reader.String16(); // location
 
         ushort modeCount = reader.UInt16();
-        _ = reader.Int32(); // active mode
+        int activeMode = reader.Int32();
+        var modes = new List<OpenRgbMode>(modeCount);
         for (int i = 0; i < modeCount; i++)
         {
-            _ = reader.String16();
-            reader.Skip(4 * 4); // value, flags, speed min/max
-            if (protocol >= 3) reader.Skip(8); // brightness min/max
-            reader.Skip(4 * 2); // colors min/max
-            reader.Skip(4); // speed
-            if (protocol >= 3) reader.Skip(4); // brightness
-            reader.Skip(4 * 2); // direction, color mode
-            ushort modeColors = reader.UInt16();
-            reader.Skip(modeColors * 4);
+            string modeName = reader.String16();
+            int modeValue = reader.Int32();
+            uint modeFlags = reader.UInt32();
+            uint speedMin = reader.UInt32();
+            uint speedMax = reader.UInt32();
+            uint brightnessMin = protocol >= 3 ? reader.UInt32() : 0;
+            uint brightnessMax = protocol >= 3 ? reader.UInt32() : 0;
+            uint colorsMin = reader.UInt32();
+            uint colorsMax = reader.UInt32();
+            uint speed = reader.UInt32();
+            uint brightness = protocol >= 3 ? reader.UInt32() : 100;
+            uint direction = reader.UInt32();
+            uint colorMode = reader.UInt32();
+            ushort modeColorCount = reader.UInt16();
+            var modeColors = new List<uint>(modeColorCount);
+            for (int colorIndex = 0; colorIndex < modeColorCount; colorIndex++)
+                modeColors.Add(reader.UInt32());
+            modes.Add(new OpenRgbMode(modeName, modeValue, modeFlags, speedMin, speedMax,
+                brightnessMin, brightnessMax, colorsMin, colorsMax, speed, brightness,
+                direction, colorMode, modeColors));
         }
 
         ushort zoneCount = reader.UInt16();
@@ -328,7 +415,7 @@ public sealed class OpenRgbSdkClient
             for (int i = 0; i < alternateNames; i++) _ = reader.String16();
             reader.Skip(4); // controller flags
         }
-        return new OpenRgbDevice((int)index, name, vendor, description, version, zoneCount, ledCount, zones, type, protocol, Convert.ToHexString(payload));
+        return new OpenRgbDevice((int)index, name, vendor, description, version, zoneCount, ledCount, zones, modes, activeMode, type, protocol, Convert.ToHexString(payload));
     }
 
     private static async Task<Packet> ReadExpectedAsync(NetworkStream stream, uint expectedId, CancellationToken token)
