@@ -34,7 +34,9 @@ public partial class MainWindow : Window
     private readonly BoostGameService _boostGame = new();
     private readonly OptimizeSystemService _optimizeSystem = new();
     private readonly OpenRgbSdkClient _openRgb = new();
-    private readonly Dictionary<string, CancellationTokenSource> _rgbEffectCancellations = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<int, CancellationTokenSource> _rgbEffectCancellations = new();
+    private readonly Dictionary<int, Task> _rgbEffectTasks = new();
+    private readonly SemaphoreSlim _deviceDetectionLock = new(1, 1);
     private readonly OpenRgbEngineHost _openRgbEngine = new();
     private readonly ObservableCollection<DeviceRow> _devices = new();
     private readonly ObservableCollection<DeviceRow> _selectableDevices = new();
@@ -77,7 +79,7 @@ public partial class MainWindow : Window
         ConfigureTrayIcon();
         Loaded += MainWindow_Loaded;
         Closing += MainWindow_Closing;
-        Closed += (_, _) => { foreach (var effect in _rgbEffectCancellations.Values) { effect.Cancel(); effect.Dispose(); } _rgbEffectCancellations.Clear(); MasterMicView.Shutdown(); _trayIcon?.Dispose(); _openRgbEngine.Dispose(); };
+        Closed += (_, _) => { foreach (var effect in _rgbEffectCancellations.Values) effect.Cancel(); _rgbEffectCancellations.Clear(); _rgbEffectTasks.Clear(); MasterMicView.Shutdown(); _trayIcon?.Dispose(); _openRgbEngine.Dispose(); };
     }
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -105,7 +107,7 @@ public partial class MainWindow : Window
             {
                 try
                 {
-                    if (_devices.Count == 0) await DetectOpenRgbDevicesAsync();
+                    if (_devices.Count == 0) await DetectOpenRgbDevicesAsync(forceRefresh: false);
                     await SendRgbDevicesToHtmlAsync();
                 }
                 catch (Exception ex) { System.Diagnostics.Debug.WriteLine("Falha ao sincronizar dispositivos RGB com a interface: " + ex.Message); }
@@ -196,7 +198,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            if (_devices.Count == 0) await DetectOpenRgbDevicesAsync();
+            if (_devices.Count == 0) await DetectOpenRgbDevicesAsync(forceRefresh: false);
             var devices = _devices.Select(d => new {
                 index = d.Index, name = d.Name, vendor = d.Vendor,
                 ledCount = d.LedCount, zoneCount = d.ZoneCount,
@@ -236,11 +238,23 @@ public partial class MainWindow : Window
             : $"Quantidade personalizada de {zone.Name} será temporária." });
     }
 
-    private void StopRgbEffect(DeviceRow device, ZoneRow zone)
+    private async Task StopRgbEffectAsync(DeviceRow device)
     {
-        string key = GetZoneKey(device, zone);
-        if (_rgbEffectCancellations.Remove(key, out var active))
-            active.Cancel();
+        if (!_rgbEffectCancellations.Remove(device.Index, out var cancellation))
+            return;
+
+        _rgbEffectTasks.Remove(device.Index, out var runningTask);
+        cancellation.Cancel();
+        if (runningTask is not null)
+        {
+            try { await runningTask; }
+            catch (OperationCanceledException) { }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Falha ao encerrar efeito em {device.Name}: {ex.Message}"); }
+        }
+        else
+        {
+            cancellation.Dispose();
+        }
     }
 
     private async Task ApplyHtmlRgbEffectAsync(JsonElement root)
@@ -252,9 +266,8 @@ public partial class MainWindow : Window
             ?? throw new InvalidOperationException("Dispositivo não encontrado. Atualize a lista.");
         if (modeIndex < 0 || modeIndex >= device.Modes.Count)
             throw new InvalidOperationException($"O dispositivo {device.Name} não possui esse modo. Atualize a lista de dispositivos.");
+        await StopRgbEffectAsync(device);
         var mode = device.Modes[modeIndex];
-        foreach (var zone in device.Zones.Select((z, i) => new ZoneRow(i, z.Name, z.LedCount)))
-            StopRgbEffect(device, zone);
         await _openRgb.ApplyNativeModeAsync(deviceIndex, modeIndex, mode, device.ProtocolVersion, brightness);
         SendHtmlMessage(new { action = "rgb-result", ok = true,
             message = $"Modo nativo “{mode.Name}” enviado ao OpenRGB para {device.Name}. A velocidade e as cores seguem a configuração desse modo no controlador." });
@@ -282,23 +295,28 @@ public partial class MainWindow : Window
         if (targets.Count == 0)
             throw new InvalidOperationException("Os dispositivos selecionados não possuem zonas com LEDs controláveis.");
 
+        foreach (var device in selected)
+            await StopRgbEffectAsync(device);
+
         foreach (var target in targets)
         {
-            StopRgbEffect(target.Device, target.Row);
             if (target.LedCount != target.Zone.LedCount)
                 await _openRgb.ResizeZoneAsync(target.Device.Index, target.ZoneIndex, target.LedCount);
         }
 
         var starts = new List<Task>();
-        foreach (var target in targets)
+        foreach (var device in selected)
         {
-            string key = GetZoneKey(target.Device, target.Row);
+            var deviceZones = targets.Where(t => t.Device.Index == device.Index)
+                .Select(t => (ZoneIndex: t.ZoneIndex, LedCount: t.LedCount)).ToArray();
+            if (deviceZones.Length == 0) continue;
+
             var cancellation = new CancellationTokenSource();
-            _rgbEffectCancellations[key] = cancellation;
             var started = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var runningTask = RunRgbDeviceEffectAsync(device, deviceZones, effect, cancellation, started);
+            _rgbEffectCancellations[device.Index] = cancellation;
+            _rgbEffectTasks[device.Index] = runningTask;
             starts.Add(started.Task);
-            _ = RunRgbEffectAsync(target.Device, target.ZoneIndex, target.Zone, target.LedCount,
-                effect, key, cancellation, started);
         }
 
         try
@@ -307,8 +325,8 @@ public partial class MainWindow : Window
         }
         catch
         {
-            foreach (var target in targets)
-                StopRgbEffect(target.Device, target.Row);
+            foreach (var device in selected)
+                await StopRgbEffectAsync(device);
             throw;
         }
 
@@ -326,24 +344,22 @@ public partial class MainWindow : Window
             message = $"{effectLabel} iniciado em {selected.Count} dispositivo(s), cobrindo {targets.Count} zona(s). A animação está sendo enviada em tempo real." });
     }
 
-    private async Task RunRgbEffectAsync(
+    private async Task RunRgbDeviceEffectAsync(
         DeviceRow device,
-        int zoneIndex,
-        OpenRgbZone zone,
-        int ledCount,
+        IReadOnlyList<(int ZoneIndex, int LedCount)> zones,
         string effect,
-        string key,
         CancellationTokenSource cancellation,
         TaskCompletionSource<bool> started)
     {
         try
         {
-            await _openRgb.StreamZoneFramesAsync(
+            await _openRgb.StreamDeviceFramesAsync(
                 device.Index,
-                zoneIndex,
-                frame =>
+                zones,
+                (zoneIndex, frame) =>
                 {
-                    var colors = CreateEffectFrame(effect, ledCount, frame);
+                    var zone = device.SourceZones[zoneIndex];
+                    var colors = CreateEffectFrame(effect, zones.First(z => z.ZoneIndex == zoneIndex).LedCount, frame);
                     return colors.Select(color =>
                     {
                         var adjusted = ApplyControllerColorQuirks(device.Name, zone.Name, color.Red, color.Green, color.Blue);
@@ -361,12 +377,15 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             if (!started.TrySetException(ex))
-                SendHtmlMessage(new { action = "host-error", message = $"Falha ao executar Rainbow em {device.Name}: {ex.Message}" });
+                SendHtmlMessage(new { action = "host-error", message = $"Falha ao executar {effect} em {device.Name}: {ex.Message}" });
         }
         finally
         {
-            if (_rgbEffectCancellations.TryGetValue(key, out var active) && ReferenceEquals(active, cancellation))
-                _rgbEffectCancellations.Remove(key);
+            if (_rgbEffectCancellations.TryGetValue(device.Index, out var active) && ReferenceEquals(active, cancellation))
+            {
+                _rgbEffectCancellations.Remove(device.Index);
+                _rgbEffectTasks.Remove(device.Index);
+            }
             cancellation.Dispose();
         }
     }
@@ -447,35 +466,24 @@ public partial class MainWindow : Window
         int stopped = 0;
         foreach (var device in selected)
         {
-            foreach (var zone in device.SourceZones.Select((z, i) => new ZoneRow(i, z.Name, z.LedCount)))
-            {
-                string key = GetZoneKey(device, zone);
-                if (_rgbEffectCancellations.Remove(key, out var active))
-                {
-                    active.Cancel();
-                    stopped++;
-                }
-            }
+            if (_rgbEffectCancellations.ContainsKey(device.Index)) stopped++;
+            await StopRgbEffectAsync(device);
         }
 
-        if (stopped > 0)
+        foreach (var device in selected)
         {
-            await Task.Delay(150);
-            foreach (var device in selected)
+            var zones = device.SourceZones.Select((zone, index) =>
             {
-                var zones = device.SourceZones.Select((zone, index) =>
-                {
-                    var row = new ZoneRow(index, zone.Name, zone.LedCount);
-                    return (ZoneIndex: index, LedCount: GetConfiguredLedCount(device, row),
-                        Red: (byte)0, Green: (byte)0, Blue: (byte)0);
-                }).Where(zone => zone.LedCount > 0).ToArray();
-                if (zones.Length > 0)
-                    await _openRgb.ApplyDeviceZonesColorAsync(device.Index, zones);
-            }
+                var row = new ZoneRow(index, zone.Name, zone.LedCount);
+                return (ZoneIndex: index, LedCount: GetConfiguredLedCount(device, row),
+                    Red: (byte)0, Green: (byte)0, Blue: (byte)0);
+            }).Where(zone => zone.LedCount > 0).ToArray();
+            if (zones.Length > 0)
+                await _openRgb.ApplyDeviceZonesColorAsync(device.Index, zones);
         }
 
         SendHtmlMessage(new { action = "rgb-result", ok = true,
-            message = $"Efeito encerrado e LEDs apagados nos dispositivos selecionados. {stopped} zona(s) tiveram a animação cancelada." });
+            message = $"Efeito encerrado e LEDs apagados nos dispositivos selecionados. {stopped} dispositivo(s) tiveram a animação cancelada." });
     }
 
     private async Task ApplyHtmlRgbColorAsync(JsonElement root)
@@ -490,7 +498,7 @@ public partial class MainWindow : Window
         var device = _devices.FirstOrDefault(d => d.Index == deviceIndex) ?? throw new InvalidOperationException("Dispositivo não encontrado. Atualize a lista.");
         if (zoneIndex < 0 || zoneIndex >= device.Zones.Count) throw new InvalidOperationException("Zona não encontrada. Atualize a lista.");
         var zone = device.Zones[zoneIndex];
-        StopRgbEffect(device, new ZoneRow(zoneIndex, zone.Name, zone.LedCount));
+        await StopRgbEffectAsync(device);
         if (ledCount < 1 || ledCount > ushort.MaxValue || zone.LedCount < 1) throw new InvalidOperationException("Quantidade de LEDs inválida para a zona.");
         byte red = (byte)Math.Round(((rgb >> 16) & 0xFF) * brightness / 100.0);
         byte green = (byte)Math.Round(((rgb >> 8) & 0xFF) * brightness / 100.0);
@@ -520,6 +528,7 @@ public partial class MainWindow : Window
         byte red = (byte)Math.Round(((rgb >> 16) & 0xFF) * brightness / 100.0);
         byte green = (byte)Math.Round(((rgb >> 8) & 0xFF) * brightness / 100.0);
         byte blue = (byte)Math.Round((rgb & 0xFF) * brightness / 100.0);
+        foreach (var device in selected) await StopRgbEffectAsync(device);
         var batches = selected.Select(device =>
         {
             var zones = device.Zones.Select((zone, zoneIndex) =>
@@ -605,6 +614,7 @@ public partial class MainWindow : Window
             Math.Clamp(root.GetProperty("green").GetInt32(), 0, 255),
             Math.Clamp(root.GetProperty("blue").GetInt32(), 0, 255));
         int brightness = root.TryGetProperty("brightness", out var value) ? Math.Clamp(value.GetInt32(), 0, 100) : 100;
+        await StopRgbEffectAsync(device);
 
         var zones = device.Zones.Select((zone, index) =>
         {
@@ -1035,8 +1045,14 @@ public partial class MainWindow : Window
         await DetectOpenRgbDevicesAsync();
     }
 
-    private async Task DetectOpenRgbDevicesAsync()
+    private async Task DetectOpenRgbDevicesAsync(bool forceRefresh = true)
     {
+        await _deviceDetectionLock.WaitAsync();
+        if (!forceRefresh && _devices.Count > 0)
+        {
+            _deviceDetectionLock.Release();
+            return;
+        }
         ConnectButtonState(true);
         EngineStatusText.Text = "Iniciando mecanismo OpenRGB SDK...";
         EngineStatusText.Foreground = Brushes.LightSkyBlue;
@@ -1099,6 +1115,7 @@ public partial class MainWindow : Window
         finally
         {
             ConnectButtonState(false);
+            _deviceDetectionLock.Release();
         }
     }
 
