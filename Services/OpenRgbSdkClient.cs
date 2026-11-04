@@ -139,6 +139,31 @@ public sealed class OpenRgbSdkClient
         return ApplyDeviceZonesColorAsync(deviceIndex, coloredZones, cancellationToken);
     }
 
+    public async Task ApplyZoneFrameAsync(int deviceIndex, int zoneIndex, IReadOnlyList<(byte Red, byte Green, byte Blue)> colors, CancellationToken cancellationToken = default)
+    {
+        if (deviceIndex < 0 || zoneIndex < 0) throw new ArgumentOutOfRangeException("Índice de dispositivo ou zona inválido.");
+        if (colors.Count < 1 || colors.Count > ushort.MaxValue) throw new InvalidOperationException("Quantidade de LEDs inválida para o efeito.");
+        using var client = new TcpClient { NoDelay = true };
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(3));
+        await client.ConnectAsync("127.0.0.1", Port, timeout.Token);
+        using NetworkStream stream = client.GetStream();
+        await SendPacketAsync(stream, 0, SetClientName, Encoding.UTF8.GetBytes("MASTER RGB\\0"), timeout.Token);
+        await SendPacketAsync(stream, (uint)deviceIndex, SetCustomMode, Array.Empty<byte>(), timeout.Token);
+        uint packedColor;
+        byte[] payload = new byte[10 + (colors.Count * 4)];
+        BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(0, 4), (uint)payload.Length);
+        BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(4, 4), (uint)zoneIndex);
+        BinaryPrimitives.WriteUInt16LittleEndian(payload.AsSpan(8, 2), (ushort)colors.Count);
+        for (int i = 0; i < colors.Count; i++)
+        {
+            var c = colors[i];
+            packedColor = (uint)c.Red | ((uint)c.Green << 8) | ((uint)c.Blue << 16);
+            BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(10 + (i * 4), 4), packedColor);
+        }
+        await SendPacketAsync(stream, (uint)deviceIndex, UpdateZoneLeds, payload, timeout.Token);
+    }
+
     public async Task ApplyZoneColorAsync(int deviceIndex, int zoneIndex, int ledCount, byte red, byte green, byte blue, CancellationToken cancellationToken = default)
     {
         if (deviceIndex < 0 || zoneIndex < 0) throw new ArgumentOutOfRangeException("Índice de dispositivo ou zona inválido.");
