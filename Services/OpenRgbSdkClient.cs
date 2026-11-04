@@ -160,7 +160,8 @@ public sealed class OpenRgbSdkClient
         int zoneIndex,
         Func<int, IReadOnlyList<(byte Red, byte Green, byte Blue)>> frameFactory,
         int frameDelayMs,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Action? onStarted = null)
     {
         if (deviceIndex < 0 || zoneIndex < 0) throw new ArgumentOutOfRangeException("Índice de dispositivo ou zona inválido.");
         ArgumentNullException.ThrowIfNull(frameFactory);
@@ -175,6 +176,7 @@ public sealed class OpenRgbSdkClient
         await SendPacketAsync(stream, 0, SetClientName, Encoding.UTF8.GetBytes("MASTER RGB\0"), timeout.Token);
         await SendPacketAsync(stream, (uint)deviceIndex, SetCustomMode, Array.Empty<byte>(), timeout.Token);
         await Task.Delay(500, timeout.Token);
+        onStarted?.Invoke();
 
         int frame = 0;
         while (!timeout.IsCancellationRequested)
