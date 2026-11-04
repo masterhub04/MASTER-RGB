@@ -315,7 +315,13 @@ public partial class MainWindow : Window
 
             var cancellation = new CancellationTokenSource();
             var started = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            var runningTask = RunRgbDeviceEffectAsync(device, deviceZones, effect, cancellation, started);
+            var runningTask = RunRgbDeviceEffectAsync(
+                device,
+                deviceZones,
+                effect,
+                synchronizedStart,
+                cancellation,
+                started);
             _rgbEffectCancellations[device.Index] = cancellation;
             _rgbEffectTasks[device.Index] = runningTask;
             starts.Add(started.Task);
@@ -350,6 +356,7 @@ public partial class MainWindow : Window
         DeviceRow device,
         IReadOnlyList<(int ZoneIndex, int LedCount)> zones,
         string effect,
+        long synchronizedStart,
         CancellationTokenSource cancellation,
         TaskCompletionSource<bool> started)
     {
