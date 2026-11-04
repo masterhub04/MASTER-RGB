@@ -37,6 +37,7 @@ public partial class MainWindow : Window
     private readonly Dictionary<int, CancellationTokenSource> _rgbEffectCancellations = new();
     private readonly Dictionary<int, Task> _rgbEffectTasks = new();
     private readonly SemaphoreSlim _deviceDetectionLock = new(1, 1);
+    private bool _hasCompletedInitialDetection;
     private readonly OpenRgbEngineHost _openRgbEngine = new();
     private readonly ObservableCollection<DeviceRow> _devices = new();
     private readonly ObservableCollection<DeviceRow> _selectableDevices = new();
@@ -90,7 +91,7 @@ public partial class MainWindow : Window
         await InitializeHtmlInterfaceAsync();
 
         // O mecanismo OpenRGB continua sendo iniciado pelo código nativo.
-        await DetectOpenRgbDevicesAsync();
+        await DetectOpenRgbDevicesAsync(forceRefresh: false);
         if (_startWithWindows) { try { ConfigureWindowsStartup(true, _startMinimized); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); } }
         await ApplySavedMouseColorAsync();
     }
@@ -498,20 +499,36 @@ public partial class MainWindow : Window
         var device = _devices.FirstOrDefault(d => d.Index == deviceIndex) ?? throw new InvalidOperationException("Dispositivo não encontrado. Atualize a lista.");
         if (zoneIndex < 0 || zoneIndex >= device.Zones.Count) throw new InvalidOperationException("Zona não encontrada. Atualize a lista.");
         var zone = device.Zones[zoneIndex];
+        bool wasAnimating = _rgbEffectCancellations.ContainsKey(device.Index);
         await StopRgbEffectAsync(device);
         if (ledCount < 1 || ledCount > ushort.MaxValue || zone.LedCount < 1) throw new InvalidOperationException("Quantidade de LEDs inválida para a zona.");
         byte red = (byte)Math.Round(((rgb >> 16) & 0xFF) * brightness / 100.0);
         byte green = (byte)Math.Round(((rgb >> 8) & 0xFF) * brightness / 100.0);
         byte blue = (byte)Math.Round((rgb & 0xFF) * brightness / 100.0);
-        (red, green, blue) = ApplyControllerColorQuirks(device.Name, zone.Name, red, green, blue);
         bool rememberLedCount = root.TryGetProperty("rememberLedCount", out var rememberValue) && rememberValue.GetBoolean();
         string zoneKey = GetZoneKey(device, new ZoneRow(zoneIndex, zone.Name, zone.LedCount));
         if (rememberLedCount) _zoneLedOverrides[zoneKey] = ledCount;
         else _zoneLedOverrides.Remove(zoneKey);
         SaveUserSettings();
-        if (ledCount != zone.LedCount)
-            await _openRgb.ResizeZoneAsync(deviceIndex, zoneIndex, ledCount);
-        await _openRgb.ApplyDeviceZonesColorAsync(deviceIndex, new[] { (ZoneIndex: zoneIndex, LedCount: ledCount, Red: red, Green: green, Blue: blue) });
+
+        var colorZones = (wasAnimating
+            ? device.Zones.Select((item, index) => (ZoneIndex: index, Zone: item,
+                LedCount: GetConfiguredLedCount(device, new ZoneRow(index, item.Name, item.LedCount))))
+            : new[] { (ZoneIndex: zoneIndex, Zone: zone, LedCount: ledCount) })
+            .Where(item => item.LedCount > 0)
+            .Select(item =>
+            {
+                var adjusted = ApplyControllerColorQuirks(device.Name, item.Zone.Name, red, green, blue);
+                return (ZoneIndex: item.ZoneIndex, LedCount: item.LedCount,
+                    Red: adjusted.red, Green: adjusted.green, Blue: adjusted.blue);
+            }).ToArray();
+
+        foreach (var target in colorZones)
+        {
+            if (target.LedCount != device.Zones[target.ZoneIndex].LedCount)
+                await _openRgb.ResizeZoneAsync(deviceIndex, target.ZoneIndex, target.LedCount);
+        }
+        await _openRgb.ApplyDeviceZonesColorAsync(deviceIndex, colorZones);
         if (IsLogitechG203(device)) { _lastMouseColorHex = "#" + hex.ToUpperInvariant(); _lastMouseColorBrightness = brightness; _hasSavedMouseColor = true; SaveUserSettings(); }
         SendHtmlMessage(new { action = "rgb-result", ok = true, message = $"Cor #{hex.ToUpperInvariant()} enviada para {device.Name} / {zone.Name}." });
     }
@@ -1048,7 +1065,7 @@ public partial class MainWindow : Window
     private async Task DetectOpenRgbDevicesAsync(bool forceRefresh = true)
     {
         await _deviceDetectionLock.WaitAsync();
-        if (!forceRefresh && _devices.Count > 0)
+        if (!forceRefresh && _hasCompletedInitialDetection)
         {
             _deviceDetectionLock.Release();
             return;
@@ -1115,6 +1132,7 @@ public partial class MainWindow : Window
         finally
         {
             ConnectButtonState(false);
+            _hasCompletedInitialDetection = true;
             _deviceDetectionLock.Release();
         }
     }
