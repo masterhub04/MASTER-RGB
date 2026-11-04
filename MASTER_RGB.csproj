@@ -10,7 +10,7 @@
     <RootNamespace>MasterRgb</RootNamespace>
     <Version>0.9.11</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <ApplicationIcon>Assets\\master-rgb.ico</ApplicationIcon>
+    <ApplicationIcon>Assets\\master-hub.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="Maintenance/**/*.cs" />
@@ -24,7 +24,7 @@
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
   </ItemGroup>
   <ItemGroup>
-    <Resource Include="Assets\\master-rgb.ico" />
+    <Resource Include="Assets\\master-hub.ico" />
     <Content Include="HTML/index.html" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

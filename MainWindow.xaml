@@ -4,7 +4,7 @@
         xmlns:controls="clr-namespace:MasterRgb.Controls"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
-        Title="MASTER HUB" Icon="Assets/master-rgb.ico" Height="780" Width="1240"
+        Title="MASTER HUB" Icon="Assets/master-hub.ico" Height="780" Width="1240"
         MinHeight="640" MinWidth="900" WindowStyle="None" ResizeMode="CanResize"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource BgBrush}"
