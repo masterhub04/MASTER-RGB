@@ -150,7 +150,7 @@ public partial class MainWindow : Window
                 case "rgb-run-diagnostic": RunDiagnostic_Click(this, new RoutedEventArgs()); break;
                 case "rgb-apply-color": await ApplyHtmlRgbColorAsync(root); break;
                 case "rgb-apply-effect": await ApplyHtmlRgbEffectAsync(root); break;
-                case "rgb-apply-animation": await ApplyHtmlRgbAnimationAsync(root); break;
+                case "rgb-apply-animation": SendHtmlMessage(new { action = "rgb-result", ok = true, message = "Comando Rainbow recebido pelo MASTER RGB. Preparando o controlador..." }); await ApplyHtmlRgbAnimationAsync(root); break;
                 case "rgb-stop-animation": StopHtmlRgbAnimation(root); break;
                 case "rgb-save-zone-led-count": SaveZoneLedCountPreference(root); break;
                 case "rgb-apply-group": await ApplyHtmlRgbGroupAsync(root); break;
