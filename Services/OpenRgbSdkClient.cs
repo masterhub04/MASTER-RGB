@@ -90,7 +90,7 @@ public sealed class OpenRgbSdkClient
         timeout.CancelAfter(TimeSpan.FromSeconds(8));
         await client.ConnectAsync("127.0.0.1", Port, timeout.Token);
         using NetworkStream stream = client.GetStream();
-        await SendPacketAsync(stream, 0, SetClientName, Encoding.UTF8.GetBytes("MASTER RGB\\0"), timeout.Token);
+        await SendPacketAsync(stream, 0, SetClientName, Encoding.UTF8.GetBytes("MASTER RGB\0"), timeout.Token);
         byte[] payload = new byte[8];
         BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(0, 4), (uint)zoneIndex);
         BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(4, 4), (uint)newLedCount);
