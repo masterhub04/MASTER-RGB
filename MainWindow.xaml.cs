@@ -262,7 +262,7 @@ public partial class MainWindow : Window
         if (selected.Count == 0)
             throw new InvalidOperationException("Selecione pelo menos um dispositivo em Aplicação em Grupo.");
 
-        var targets = selected.SelectMany(device => device.Zones.Select((zone, zoneIndex) =>
+        var targets = selected.SelectMany(device => device.SourceZones.Select((zone, zoneIndex) =>
         {
             var row = new ZoneRow(zoneIndex, zone.Name, zone.LedCount);
             return (Device: device, ZoneIndex: zoneIndex, Zone: zone, LedCount: GetConfiguredLedCount(device, row), Row: row);
