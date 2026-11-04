@@ -200,7 +200,7 @@ public sealed class OpenRgbSdkClient
         }
     }
 
-    public async Task ApplyNativeModeAsync(int deviceIndex, int modeIndex, OpenRgbMode mode, int brightnessPercent, CancellationToken cancellationToken = default)
+    public async Task ApplyNativeModeAsync(int deviceIndex, int modeIndex, OpenRgbMode mode, uint protocolVersion, int brightnessPercent, CancellationToken cancellationToken = default)
     {
         if (deviceIndex < 0 || modeIndex < 0) throw new ArgumentOutOfRangeException("Índice do dispositivo ou modo inválido.");
         ArgumentNullException.ThrowIfNull(mode);
@@ -216,7 +216,7 @@ public sealed class OpenRgbSdkClient
         AddUInt32(modeData, mode.Flags);
         AddUInt32(modeData, mode.SpeedMin);
         AddUInt32(modeData, mode.SpeedMax);
-        if (ClientProtocolVersion >= 3)
+        if (protocolVersion >= 3)
         {
             AddUInt32(modeData, mode.BrightnessMin);
             AddUInt32(modeData, mode.BrightnessMax);
@@ -224,7 +224,7 @@ public sealed class OpenRgbSdkClient
         AddUInt32(modeData, mode.ColorsMin);
         AddUInt32(modeData, mode.ColorsMax);
         AddUInt32(modeData, mode.Speed);
-        if (ClientProtocolVersion >= 3)
+        if (protocolVersion >= 3)
         {
             uint selectedBrightness = (mode.Flags & (1u << 4)) != 0
                 ? Math.Clamp(brightness, mode.BrightnessMin, mode.BrightnessMax)
