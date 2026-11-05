@@ -881,6 +881,7 @@
                 <div class="boost-nav-item" data-optimize-tab="services" onclick="optimizeTab('services')">⚙ Serviços do Windows</div>
                 <div class="boost-nav-item" data-optimize-tab="hardware" onclick="optimizeTab('hardware')">▣ Análise de hardware</div>
                 <div class="boost-nav-item" data-optimize-tab="ai" onclick="optimizeTab('ai')">◈ IA do Windows</div>
+                <div class="boost-nav-item" data-optimize-tab="apps" onclick="optimizeTab('apps')">▦ Desinstalar aplicativos</div>
                 <div class="boost-nav-item" data-optimize-tab="cleanup" onclick="optimizeTab('cleanup')">⌫ Limpeza do sistema</div>
                 <div class="boost-nav-item" onclick="switchView('hub')">← Aplicativos</div>
             </div></div><div class="sdk-status-box"><h5>OPTIMIZE SYSTEM</h5><p>Manutenção segura do Windows</p></div>
@@ -895,6 +896,7 @@
  <button type="button" class="hardware-tile" data-hardware-kind="ram" onclick="optimizeSelectHardware('ram')"><div class="hardware-symbol"><svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="3"><rect x="8" y="32" width="84" height="34" rx="4"/><rect x="17" y="40" width="13" height="17" rx="2"/><rect x="35" y="40" width="13" height="17" rx="2"/><rect x="53" y="40" width="13" height="17" rx="2"/><rect x="71" y="40" width="12" height="17" rx="2"/><path d="M17 66v8m12-8v8m12-8v8m12-8v8m12-8v8m12-8v8"/></svg></div><span>MEMÓRIA RAM</span><strong id="hardwareRamCard">Aguardando análise</strong><small>Ver cada pente instalado</small></button>
  <button type="button" class="hardware-tile" data-hardware-kind="storage" onclick="optimizeSelectHardware('storage')"><div class="hardware-symbol"><svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="3"><rect x="14" y="20" width="72" height="60" rx="6"/><circle cx="50" cy="48" r="21"/><circle cx="50" cy="48" r="6"/><path d="M50 48l23 15M23 72h12M65 72h12"/></svg></div><span>ARMAZENAMENTO</span><strong id="hardwareStorageCard">Aguardando análise</strong><small>Ver todos os SSDs e HDs</small></button>
  </div><div id="hardwareDetailsPanel" class="hardware-detail-panel" hidden><div class="hardware-detail-head"><h3 id="hardwareDetailsTitle">Detalhes</h3><button type="button" class="btn-outline" onclick="optimizeSelectHardware(null)">✕ Fechar</button></div><div id="hardwarePartsList" class="hardware-parts-list"></div><div id="optimizeHardwareSummary" class="boost-list"></div></div><div id="optimizeHardwareFindings" class="boost-list"></div><h3 style="margin-top:22px">Checklist de otimizações da BIOS</h3><p>Recomendações para consulta manual. O Windows não consegue confirmar todas as opções do firmware; nenhuma alteração é aplicada automaticamente.</p><div id="optimizeHardwareBios" class="boost-list"></div><p id="optimizeHardwareStatus" class="optimize-warning"></p></div></section>
+            <section class="optimize-tab" id="optimize-tab-apps"><div class="boost-panel"><h3>Desinstalação de aplicativos</h3><p>Filtre pela unidade de instalação registrada. Programas sem localização informada ficam em “Unidade desconhecida”. Os assistentes oficiais são executados um por vez.</p><div class="boost-actions" style="display:flex;gap:10px;flex-wrap:wrap"><select id="optimizeAppsDrive" onchange="optimizeRenderApps()"><option value="all">Todas as unidades</option></select><input id="optimizeAppsSearch" placeholder="Buscar aplicativo" oninput="optimizeRenderApps()"><button class="btn-outline" onclick="optimizeLoadApps()">Atualizar</button></div><div class="boost-actions" style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn-outline" onclick="optimizeSelectVisibleApps(true)">Marcar visíveis</button><button class="btn-outline" onclick="optimizeSelectVisibleApps(false)">Desmarcar visíveis</button><button id="optimizeAppsUninstallBtn" class="btn-glow" onclick="optimizeUninstallApps()" disabled>Desinstalar selecionados (0)</button></div><div id="optimizeAppsList" class="boost-list">Carregando...</div><p id="optimizeAppsStatus" class="optimize-warning"></p></div></section>
             <section class="optimize-tab" id="optimize-tab-ai"><div class="boost-panel"><h3>Recursos de IA do Windows</h3><p>Controle políticas específicas do Copilot clássico e do Recall. Outros aplicativos e recursos de IA do Windows não são desativados automaticamente. Algumas alterações exigem administrador e reinicialização.</p><div class="boost-actions"><button class="btn-outline" onclick="optimizeLoadAi()">↻ Atualizar estado</button></div><div id="optimizeAiList" class="boost-list">Carregando...</div><p id="optimizeAiStatus">As configurações anteriores são guardadas para restauração. Políticas corporativas podem prevalecer.</p></div></section>
             <section class="optimize-tab" id="optimize-tab-cleanup"><div class="boost-panel"><h3>Limpeza de arquivos temporários</h3><p>Analise temporários do usuário e do Windows, caches de sistema, relatórios de falhas e a Lixeira. Arquivos em uso ou sem permissão serão ignorados.</p><div class="boost-clean-summary"><strong id="optimizeCleanSize">-- MB</strong><span id="optimizeCleanCount">Aguardando análise</span></div><div class="boost-actions"><button class="btn-outline" onclick="optimizeCleanPreview()">Analisar espaço</button><button class="btn-glow" id="optimizeCleanBtn" onclick="optimizeCleanRun()" disabled>Limpar selecionados</button></div><div id="optimizeCleanFolders" class="boost-list"><p>Pressione “Analisar espaço” para listar os locais e seus tamanhos.</p></div><p id="optimizeCleanStatus"></p></div></section>
         </main></div>
@@ -1442,14 +1444,14 @@ window.refreshHtmlRgbDevices=()=>post({action:"rgb-refresh-devices"});
  <script>
  (() => {
   const post=(action,data={})=>{if(window.chrome&&window.chrome.webview)window.chrome.webview.postMessage({action,...data});};
-  const titles={startup:["INICIALIZAÇÃO","Gerencie os aplicativos iniciados com o Windows."],services:["SERVIÇOS DO WINDOWS","Gerencie serviços opcionais sem abrir o console Serviços."],hardware:["ANÁLISE DE HARDWARE","Diagnóstico personalizado e recomendações para seu computador."],ai:["IA DO WINDOWS","Controle recursos de IA opcionais e restaure as políticas anteriores."],cleanup:["LIMPEZA DO SISTEMA","Veja o espaço ocupado por cada local antes de limpar."]};
+  const titles={startup:["INICIALIZAÇÃO","Gerencie os aplicativos iniciados com o Windows."],services:["SERVIÇOS DO WINDOWS","Gerencie serviços opcionais sem abrir o console Serviços."],apps:["DESINSTALAÇÃO DE APLICATIVOS","Filtre por unidade e selecione vários programas."],hardware:["ANÁLISE DE HARDWARE","Diagnóstico personalizado e recomendações para seu computador."],ai:["IA DO WINDOWS","Controle recursos de IA opcionais e restaure as políticas anteriores."],cleanup:["LIMPEZA DO SISTEMA","Veja o espaço ocupado por cada local antes de limpar."]};
   window.optimizeTab=tab=>{
    document.querySelectorAll("#view-optimize .optimize-tab").forEach(x=>x.classList.remove("active"));
    document.querySelectorAll("#view-optimize .boost-nav-item").forEach(x=>x.classList.toggle("active",x.dataset.optimizeTab===tab));
    document.getElementById("optimize-tab-"+tab).classList.add("active");
    document.getElementById("optimizePageTitle").textContent=titles[tab][0];
    document.getElementById("optimizePageDesc").textContent=titles[tab][1];
-   if(tab==="startup")window.optimizeLoadStartup();else if(tab==="services")window.optimizeLoadServices();else if(tab==="ai")window.optimizeLoadAi();else if(tab==="hardware"){}else window.optimizeCleanPreview();
+   if(tab==="startup")window.optimizeLoadStartup();else if(tab==="services")window.optimizeLoadServices();else if(tab==="ai")window.optimizeLoadAi();else if(tab==="hardware"){}else if(tab==="apps")window.optimizeLoadApps()else window.optimizeCleanPreview();
   };
   window.optimizeLoadStartup=()=>{document.getElementById("optimizeStartupList").textContent="Carregando...";post("optimize-startup-list");};
   let optimizeHardwareData=null;
@@ -1482,12 +1484,62 @@ window.refreshHtmlRgbDevices=()=>post({action:"rgb-refresh-devices"});
    document.getElementById("optimizeHardwareStatus").textContent="";
    post("optimize-hardware-analyze");
   };
+  let optimizeApps=[],optimizeSelectedApps=new Set(),optimizeAppsBusy=false;
+  window.optimizeLoadApps=()=>{document.getElementById("optimizeAppsStatus").textContent="Consultando aplicativos...";post("optimize-apps-list");};
+  window.optimizeRenderApps=()=>{
+   const list=document.getElementById("optimizeAppsList"),drive=document.getElementById("optimizeAppsDrive").value,search=document.getElementById("optimizeAppsSearch").value.toLowerCase();
+   list.replaceChildren();
+   const visible=optimizeApps.filter(x=>(drive==="all"||(drive==="unknown"?!x.hasKnownDrive:x.drive===drive))&&x.name.toLowerCase().includes(search));
+   visible.forEach(item=>{
+    const row=document.createElement("label");row.className="optimize-service-row";row.style.cursor="pointer";
+    const check=document.createElement("input");check.type="checkbox";check.checked=optimizeSelectedApps.has(item.id);check.disabled=optimizeAppsBusy;
+    check.onchange=()=>{if(check.checked)optimizeSelectedApps.add(item.id);else optimizeSelectedApps.delete(item.id);optimizeUpdateAppsButton();};
+    const info=document.createElement("div");info.className="optimize-row-info";info.style.flex="1";
+    const name=document.createElement("b");name.textContent=item.name;
+    const publisher=document.createElement("small");publisher.textContent=[item.publisher,item.version].filter(Boolean).join(" • ")||"Fabricante não informado";
+    const location=document.createElement("small");location.textContent=item.location||"Local de instalação não informado";
+    const unit=document.createElement("small");unit.textContent="Unidade: "+(item.drive||"Desconhecida");
+    info.append(name,publisher,location,unit);row.append(check,info);list.append(row);
+   });
+   if(!visible.length)list.textContent="Nenhum aplicativo encontrado.";
+   optimizeUpdateAppsButton();
+  };
+  function optimizeUpdateAppsButton(){const button=document.getElementById("optimizeAppsUninstallBtn");button.disabled=optimizeAppsBusy||!optimizeSelectedApps.size;button.textContent="Desinstalar selecionados ("+optimizeSelectedApps.size+")";}
+  window.optimizeSelectVisibleApps=select=>{
+   if(optimizeAppsBusy)return;
+   const drive=document.getElementById("optimizeAppsDrive").value,search=document.getElementById("optimizeAppsSearch").value.toLowerCase();
+   optimizeApps.filter(x=>(drive==="all"||(drive==="unknown"?!x.hasKnownDrive:x.drive===drive))&&x.name.toLowerCase().includes(search)).forEach(x=>{if(select)optimizeSelectedApps.add(x.id);else optimizeSelectedApps.delete(x.id);});
+   window.optimizeRenderApps();
+  };
+  window.optimizeUninstallApps=()=>{
+   if(optimizeAppsBusy||!optimizeSelectedApps.size)return;
+   const selected=optimizeApps.filter(x=>optimizeSelectedApps.has(x.id));
+   if(selected.length>50){alert("Selecione no máximo 50 aplicativos.");return;}
+   if(!confirm("Iniciar a desinstalação de "+selected.length+" aplicativo(s), um por vez? Cada programa pode pedir confirmação e autorização. Não é possível desfazer automaticamente."))return;
+   optimizeAppsBusy=true;optimizeUpdateAppsButton();document.getElementById("optimizeAppsStatus").textContent="Executando desinstaladores. Conclua cada assistente para continuar.";
+   post("optimize-apps-uninstall",{ids:selected.map(x=>x.id)});
+  };
   window.optimizeLoadAi=()=>{document.getElementById("optimizeAiList").textContent="Consultando políticas...";post("optimize-ai-list");};
   window.optimizeLoadServices=()=>{document.getElementById("optimizeServicesList").textContent="Consultando serviços...";post("optimize-services-list");};
   window.optimizeCleanPreview=()=>{document.getElementById("optimizeCleanStatus").textContent="Analisando os locais de limpeza...";document.getElementById("optimizeCleanFolders").textContent="Calculando tamanhos...";post("optimize-clean-preview");};
   window.optimizeCleanRun=()=>{if(!confirm("Confirma a limpeza dos locais listados, incluindo a Lixeira? Esta ação não pode ser desfeita."))return;document.getElementById("optimizeCleanBtn").disabled=true;post("optimize-clean-run");};
   if(window.chrome&&window.chrome.webview)window.chrome.webview.addEventListener("message",e=>{
    const d=e.data||{};
+   if(d.action==="optimize-apps-list"){
+    optimizeApps=d.data?.items||[];optimizeSelectedApps.clear();optimizeAppsBusy=false;
+    const select=document.getElementById("optimizeAppsDrive"),previous=select.value;select.replaceChildren();
+    select.add(new Option("Todas as unidades","all"));
+    (d.data?.drives||[]).forEach(drive=>select.add(new Option("Unidade "+drive,drive)));
+    select.add(new Option("Unidade desconhecida","unknown"));
+    if([...select.options].some(o=>o.value===previous))select.value=previous;
+    window.optimizeRenderApps();
+    document.getElementById("optimizeAppsStatus").textContent=optimizeApps.length+" aplicativo(s) encontrados. Alguns aplicativos da Microsoft Store podem não aparecer.";
+   }
+   if(d.action==="optimize-apps-result"){
+    optimizeAppsBusy=false;optimizeSelectedApps.clear();optimizeUpdateAppsButton();
+    const lines=(d.data||[]).map(x=>x.name+": "+x.status+" — "+x.message);
+    document.getElementById("optimizeAppsStatus").textContent=lines.join(" | ")||"Nenhum resultado.";
+   }
    if(d.action==="optimize-startup-list"){
     const el=document.getElementById("optimizeStartupList");if(!el)return;el.replaceChildren();
     (d.items||[]).forEach(item=>{const row=document.createElement("div");row.className="boost-start-item";const info=document.createElement("div"),name=document.createElement("b"),cmd=document.createElement("small");name.textContent=item.name+" • "+item.source;cmd.textContent=item.command;info.append(name,cmd);row.append(info);
