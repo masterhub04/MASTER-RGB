@@ -101,6 +101,12 @@ public sealed class AppUninstallService
                 }
                 if (!executable.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
                     throw new InvalidOperationException("Formato de desinstalador não suportado.");
+                if (Path.GetFileName(executable).Equals("msiexec.exe", StringComparison.OrdinalIgnoreCase))
+                {
+                    var trimmed = arguments.TrimStart();
+                    if (trimmed.StartsWith("/I", StringComparison.OrdinalIgnoreCase))
+                        arguments = "/X" + trimmed[2..];
+                }
                 var info = new ProcessStartInfo(executable, arguments) { UseShellExecute = true };
                 using var process = Process.Start(info) ?? throw new InvalidOperationException("Não foi possível iniciar o desinstalador.");
                 await process.WaitForExitAsync();
