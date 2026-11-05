@@ -172,7 +172,7 @@ public partial class MainWindow : Window
                 case "boost-dashboard": SendHtmlMessage(new { action = "boost-dashboard", data = _boostGame.GetDashboard() }); break;
                 case "optimize-startup-list": SendHtmlMessage(new { action = "optimize-startup-list", items = _optimizeSystem.GetStartupItems() }); break;
                 case "optimize-ai-list": SendHtmlMessage(new { action = "optimize-ai-list", items = _optimizeSystem.GetAiOptions() }); break;
-                case "optimize-ai-toggle": SendHtmlMessage(new { action = "optimize-ai-list", items = _optimizeSystem.SetAiOption(root.GetProperty("id").GetString() ?? "", root.GetProperty("disable").GetBoolean()) }); break;
+                case "optimize-ai-toggle": SendHtmlMessage(new { action = "optimize-ai-list", items = await Task.Run(() => _optimizeSystem.SetAiOptionWithElevation(root.GetProperty("id").GetString() ?? "", root.GetProperty("disable").GetBoolean())) }); break;
                 case "optimize-services-list": SendHtmlMessage(new { action = "optimize-services-list", items = _optimizeSystem.GetOptionalServices() }); break;
                 case "optimize-service-toggle": SendHtmlMessage(new { action = "optimize-services-list", items = _optimizeSystem.SetOptionalService(root.GetProperty("name").GetString() ?? "", root.GetProperty("disable").GetBoolean()) }); break;
                 case "optimize-startup-toggle": SendHtmlMessage(new { action = "optimize-startup-list", items = _optimizeSystem.ToggleStartup(root.GetProperty("id").GetString() ?? "", root.GetProperty("enabled").GetBoolean()) }); break;
