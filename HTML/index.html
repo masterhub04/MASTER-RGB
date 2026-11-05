@@ -1451,7 +1451,7 @@ window.refreshHtmlRgbDevices=()=>post({action:"rgb-refresh-devices"});
    document.getElementById("optimize-tab-"+tab).classList.add("active");
    document.getElementById("optimizePageTitle").textContent=titles[tab][0];
    document.getElementById("optimizePageDesc").textContent=titles[tab][1];
-   if(tab==="startup")window.optimizeLoadStartup();else if(tab==="services")window.optimizeLoadServices();else if(tab==="ai")window.optimizeLoadAi();else if(tab==="hardware"){}else if(tab==="apps")window.optimizeLoadApps()else window.optimizeCleanPreview();
+   if(tab==="startup")window.optimizeLoadStartup();else if(tab==="services")window.optimizeLoadServices();else if(tab==="ai")window.optimizeLoadAi();else if(tab==="hardware"){}else if(tab==="apps")window.optimizeLoadApps();else window.optimizeCleanPreview();
   };
   window.optimizeLoadStartup=()=>{document.getElementById("optimizeStartupList").textContent="Carregando...";post("optimize-startup-list");};
   let optimizeHardwareData=null;
