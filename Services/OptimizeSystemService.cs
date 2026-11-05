@@ -32,6 +32,39 @@ public sealed class OptimizeSystemService
         }).ToArray();
     }
 
+    public object SetAiOptionWithElevation(string id, bool disable)
+    {
+        if (!AiOptions.Any(x => x.Id.Equals(id, StringComparison.Ordinal)))
+            throw new InvalidOperationException("Opção de IA não permitida.");
+
+        using var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
+        var principal = new System.Security.Principal.WindowsPrincipal(identity);
+        if (principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator))
+            return SetAiOption(id, disable);
+
+        string executable = Environment.ProcessPath
+            ?? throw new InvalidOperationException("Não foi possível localizar o executável do MASTER HUB.");
+        var start = new ProcessStartInfo(executable)
+        {
+            UseShellExecute = true,
+            Verb = "runas",
+            Arguments = "--masterhub-ai-policy " + id + " " + (disable ? "disable" : "restore")
+        };
+        try
+        {
+            using var process = Process.Start(start)
+                ?? throw new InvalidOperationException("Não foi possível iniciar a operação administrativa.");
+            process.WaitForExit();
+            if (process.ExitCode != 0)
+                throw new InvalidOperationException("A operação administrativa falhou (código " + process.ExitCode + "). Nenhuma alteração foi confirmada.");
+        }
+        catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
+        {
+            throw new InvalidOperationException("Autorização de administrador cancelada.", ex);
+        }
+        return GetAiOptions();
+    }
+
     public object SetAiOption(string id, bool disable)
     {
         var option = AiOptions.FirstOrDefault(x => x.Id.Equals(id, StringComparison.Ordinal))
