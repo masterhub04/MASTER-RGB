@@ -10,6 +10,66 @@ public sealed class OptimizeSystemService
 {
     private const string StartupBackupKey = @"Software\MasterHub\OptimizeSystem\StartupBackup";
     private const string ServiceBackupKey = @"Software\MasterHub\OptimizeSystem\ServiceBackup";
+    private const string AiBackupKey = @"Software\MasterHub\OptimizeSystem\AiBackup";
+    private sealed record AiOption(string Id, string Name, string Description, RegistryHive Hive, string Path, string ValueName);
+    private static readonly AiOption[] AiOptions =
+    {
+        new("copilot", "Windows Copilot", "Política do Windows Copilot clássico. Não remove o aplicativo Copilot independente nem bloqueia todos os recursos de IA.", RegistryHive.CurrentUser, @"Software\Policies\Microsoft\Windows\WindowsCopilot", "TurnOffWindowsCopilot"),
+        new("recall", "Windows Recall", "Desativa a captura de snapshots do Recall por política de dispositivo, quando suportada. Exige administrador.", RegistryHive.LocalMachine, @"SOFTWARE\Policies\Microsoft\Windows\WindowsAI", "DisableAIDataAnalysis")
+    };
+
+    public object GetAiOptions()
+    {
+        using var backup = Registry.CurrentUser.OpenSubKey(AiBackupKey);
+        return AiOptions.Select(option =>
+        {
+            using var hive = RegistryKey.OpenBaseKey(option.Hive, RegistryView.Registry64);
+            using var key = hive.OpenSubKey(option.Path);
+            bool disabled = key?.GetValue(option.ValueName) is int value && value == 1;
+            bool managed = backup?.GetValue(option.Id + ".exists") is int;
+            return new { id = option.Id, name = option.Name, description = option.Description,
+                disabled, managed, requiresAdmin = option.Hive == RegistryHive.LocalMachine };
+        }).ToArray();
+    }
+
+    public object SetAiOption(string id, bool disable)
+    {
+        var option = AiOptions.FirstOrDefault(x => x.Id.Equals(id, StringComparison.Ordinal))
+            ?? throw new InvalidOperationException("Opção de IA não permitida.");
+        using var hive = RegistryKey.OpenBaseKey(option.Hive, RegistryView.Registry64);
+        using var backup = Registry.CurrentUser.CreateSubKey(AiBackupKey)
+            ?? throw new InvalidOperationException("Não foi possível guardar a configuração original.");
+        string prefix = option.Id + ".";
+        if (disable)
+        {
+            using var existing = hive.OpenSubKey(option.Path);
+            object? previous = existing?.GetValue(option.ValueName);
+            if (backup.GetValue(prefix + "exists") is null)
+            {
+                backup.SetValue(prefix + "exists", previous is null ? 0 : 1, RegistryValueKind.DWord);
+                if (previous is int oldValue)
+                    backup.SetValue(prefix + "value", oldValue, RegistryValueKind.DWord);
+                else if (previous is not null)
+                    throw new InvalidOperationException("A política existente usa um formato não suportado. Nenhuma alteração foi feita.");
+            }
+            using var key = hive.CreateSubKey(option.Path, true)
+                ?? throw new InvalidOperationException("Não foi possível abrir a política do Windows.");
+            key.SetValue(option.ValueName, 1, RegistryValueKind.DWord);
+        }
+        else
+        {
+            if (backup.GetValue(prefix + "exists") is not int existed)
+                throw new InvalidOperationException("Não há configuração anterior salva para restaurar.");
+            using var key = hive.OpenSubKey(option.Path, writable: true)
+                ?? throw new InvalidOperationException("A política do Windows não foi encontrada.");
+            if (existed == 0) key.DeleteValue(option.ValueName, false);
+            else key.SetValue(option.ValueName, (int)(backup.GetValue(prefix + "value") ?? 0), RegistryValueKind.DWord);
+            backup.DeleteValue(prefix + "exists", false);
+            backup.DeleteValue(prefix + "value", false);
+        }
+        return GetAiOptions();
+    }
+
     private const uint RecycleBinFlags = 0x00000001 | 0x00000002 | 0x00000004;
 
     private sealed record CleanupTarget(string Id, string Name, string Path, bool IsRecycleBin = false);
