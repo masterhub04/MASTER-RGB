@@ -879,6 +879,7 @@
             <div class="nav-section-title">Workspace</div><div class="nav-menu">
                 <div class="boost-nav-item active" data-optimize-tab="startup" onclick="optimizeTab('startup')">▤ Inicialização</div>
                 <div class="boost-nav-item" data-optimize-tab="services" onclick="optimizeTab('services')">⚙ Serviços do Windows</div>
+                <div class="boost-nav-item" data-optimize-tab="hardware" onclick="optimizeTab('hardware')">▣ Análise de hardware</div>
                 <div class="boost-nav-item" data-optimize-tab="ai" onclick="optimizeTab('ai')">◈ IA do Windows</div>
                 <div class="boost-nav-item" data-optimize-tab="cleanup" onclick="optimizeTab('cleanup')">⌫ Limpeza do sistema</div>
                 <div class="boost-nav-item" onclick="switchView('hub')">← Aplicativos</div>
@@ -887,6 +888,7 @@
             <div class="boost-header"><div><h2 id="optimizePageTitle">INICIALIZAÇÃO</h2><p id="optimizePageDesc">Gerencie os aplicativos iniciados com o Windows.</p></div><button class="btn-outline" onclick="switchView('hub')">← Voltar ao Hub</button></div>
             <section class="optimize-tab active" id="optimize-tab-startup"><div class="boost-panel"><h3>Programas que iniciam com o Windows</h3><p>Desative apenas aplicativos que você reconhece. Componentes críticos do Windows não são exibidos para alteração.</p><div id="optimizeStartupList" class="boost-list">Carregando...</div><button class="btn-outline" onclick="optimizeLoadStartup()">↻ Atualizar lista</button></div></section>
             <section class="optimize-tab" id="optimize-tab-services"><div class="boost-panel"><h3>Serviços opcionais do Windows</h3><p>Lista controlada de serviços que podem ser dispensáveis em alguns computadores. Confira a descrição antes de desativar: recursos como pesquisa, mapas e Xbox podem deixar de funcionar. Serviços essenciais não aparecem nesta lista.</p><div class="boost-actions"><button class="btn-outline" onclick="optimizeLoadServices()">↻ Atualizar serviços</button></div><div id="optimizeServicesList" class="boost-list">Carregando serviços...</div><p id="optimizeServicesStatus">Algumas alterações exigem executar o MASTER HUB como administrador. A configuração original é guardada para permitir restaurar.</p></div></section>
+            <section class="optimize-tab" id="optimize-tab-hardware"><div class="boost-panel"><h3>SMART HARDWARE ANALYZER</h3><p>Identifique o hardware e receba recomendações personalizadas de Windows, software e BIOS. A análise é somente leitura: nenhuma configuração é alterada automaticamente.</p><div class="boost-actions"><button class="btn-glow" onclick="optimizeAnalyzeHardware()">Analisar computador</button></div><div id="optimizeHardwareSummary" class="boost-list">Clique em “Analisar computador” para começar.</div><div id="optimizeHardwareFindings" class="boost-list"></div><p id="optimizeHardwareStatus" class="optimize-warning"></p></div></section>
             <section class="optimize-tab" id="optimize-tab-ai"><div class="boost-panel"><h3>Recursos de IA do Windows</h3><p>Controle políticas específicas do Copilot clássico e do Recall. Outros aplicativos e recursos de IA do Windows não são desativados automaticamente. Algumas alterações exigem administrador e reinicialização.</p><div class="boost-actions"><button class="btn-outline" onclick="optimizeLoadAi()">↻ Atualizar estado</button></div><div id="optimizeAiList" class="boost-list">Carregando...</div><p id="optimizeAiStatus">As configurações anteriores são guardadas para restauração. Políticas corporativas podem prevalecer.</p></div></section>
             <section class="optimize-tab" id="optimize-tab-cleanup"><div class="boost-panel"><h3>Limpeza de arquivos temporários</h3><p>Analise temporários do usuário e do Windows, caches de sistema, relatórios de falhas e a Lixeira. Arquivos em uso ou sem permissão serão ignorados.</p><div class="boost-clean-summary"><strong id="optimizeCleanSize">-- MB</strong><span id="optimizeCleanCount">Aguardando análise</span></div><div class="boost-actions"><button class="btn-outline" onclick="optimizeCleanPreview()">Analisar espaço</button><button class="btn-glow" id="optimizeCleanBtn" onclick="optimizeCleanRun()" disabled>Limpar selecionados</button></div><div id="optimizeCleanFolders" class="boost-list"><p>Pressione “Analisar espaço” para listar os locais e seus tamanhos.</p></div><p id="optimizeCleanStatus"></p></div></section>
         </main></div>
@@ -1431,16 +1433,22 @@ window.refreshHtmlRgbDevices=()=>post({action:"rgb-refresh-devices"});
  <script>
  (() => {
   const post=(action,data={})=>{if(window.chrome&&window.chrome.webview)window.chrome.webview.postMessage({action,...data});};
-  const titles={startup:["INICIALIZAÇÃO","Gerencie os aplicativos iniciados com o Windows."],services:["SERVIÇOS DO WINDOWS","Gerencie serviços opcionais sem abrir o console Serviços."],ai:["IA DO WINDOWS","Controle recursos de IA opcionais e restaure as políticas anteriores."],cleanup:["LIMPEZA DO SISTEMA","Veja o espaço ocupado por cada local antes de limpar."]};
+  const titles={startup:["INICIALIZAÇÃO","Gerencie os aplicativos iniciados com o Windows."],services:["SERVIÇOS DO WINDOWS","Gerencie serviços opcionais sem abrir o console Serviços."],hardware:["ANÁLISE DE HARDWARE","Diagnóstico personalizado e recomendações para seu computador."],ai:["IA DO WINDOWS","Controle recursos de IA opcionais e restaure as políticas anteriores."],cleanup:["LIMPEZA DO SISTEMA","Veja o espaço ocupado por cada local antes de limpar."]};
   window.optimizeTab=tab=>{
    document.querySelectorAll("#view-optimize .optimize-tab").forEach(x=>x.classList.remove("active"));
    document.querySelectorAll("#view-optimize .boost-nav-item").forEach(x=>x.classList.toggle("active",x.dataset.optimizeTab===tab));
    document.getElementById("optimize-tab-"+tab).classList.add("active");
    document.getElementById("optimizePageTitle").textContent=titles[tab][0];
    document.getElementById("optimizePageDesc").textContent=titles[tab][1];
-   if(tab==="startup")window.optimizeLoadStartup();else if(tab==="services")window.optimizeLoadServices();else if(tab==="ai")window.optimizeLoadAi();else window.optimizeCleanPreview();
+   if(tab==="startup")window.optimizeLoadStartup();else if(tab==="services")window.optimizeLoadServices();else if(tab==="ai")window.optimizeLoadAi();else if(tab==="hardware"){}else window.optimizeCleanPreview();
   };
   window.optimizeLoadStartup=()=>{document.getElementById("optimizeStartupList").textContent="Carregando...";post("optimize-startup-list");};
+  window.optimizeAnalyzeHardware=()=>{
+   document.getElementById("optimizeHardwareSummary").textContent="Analisando hardware e configurações...";
+   document.getElementById("optimizeHardwareFindings").replaceChildren();
+   document.getElementById("optimizeHardwareStatus").textContent="";
+   post("optimize-hardware-analyze");
+  };
   window.optimizeLoadAi=()=>{document.getElementById("optimizeAiList").textContent="Consultando políticas...";post("optimize-ai-list");};
   window.optimizeLoadServices=()=>{document.getElementById("optimizeServicesList").textContent="Consultando serviços...";post("optimize-services-list");};
   window.optimizeCleanPreview=()=>{document.getElementById("optimizeCleanStatus").textContent="Analisando os locais de limpeza...";document.getElementById("optimizeCleanFolders").textContent="Calculando tamanhos...";post("optimize-clean-preview");};
@@ -1452,6 +1460,15 @@ window.refreshHtmlRgbDevices=()=>post({action:"rgb-refresh-devices"});
     (d.items||[]).forEach(item=>{const row=document.createElement("div");row.className="boost-start-item";const info=document.createElement("div"),name=document.createElement("b"),cmd=document.createElement("small");name.textContent=item.name+" • "+item.source;cmd.textContent=item.command;info.append(name,cmd);row.append(info);
      if(item.canToggle){const btn=document.createElement("button");btn.className="btn-outline";btn.textContent="Desativar";btn.onclick=()=>{if(confirm("Desativar "+item.name+" da inicialização?"))post("optimize-startup-toggle",{id:item.id,enabled:false});};row.append(btn);}else{const tag=document.createElement("small");tag.textContent="Somente leitura";row.append(tag);}el.append(row);
     });if(!el.children.length)el.textContent="Nenhum item encontrado.";
+   }
+   if(d.action==="optimize-hardware-result"){
+    const h=d.data?.hardware||{}, summary=document.getElementById("optimizeHardwareSummary");
+    summary.replaceChildren();
+    const fields=[["Processador",h.cpu],["Placa de vídeo",h.gpu],["Placa-mãe",h.board],["BIOS",h.bios],["Windows",h.os],["RAM",h.ramGb+" GB (livre: "+h.freeRamGb+" GB)"],["Memória",h.memorySpeed+" MT/s configurados"],["Disco",h.diskModel],["Espaço livre no Windows",h.diskFreeGb+" GB ("+h.diskFreePct+"%)"]];
+    fields.forEach(([name,value])=>{const row=document.createElement("div");row.className="optimize-service-row";const label=document.createElement("b");label.textContent=name;const detail=document.createElement("small");detail.textContent=String(value??"Não disponível");row.append(label,detail);summary.append(row);});
+    const findings=document.getElementById("optimizeHardwareFindings");findings.replaceChildren();
+    (d.data?.findings||[]).forEach(f=>{const row=document.createElement("div");row.className="optimize-service-row";const info=document.createElement("div");info.className="optimize-row-info";const title=document.createElement("b");title.textContent=(f.severity==="high"?"● Prioridade alta • ":f.severity==="medium"?"● Atenção • ":"ℹ ")+f.category+" • "+f.title;const desc=document.createElement("small");desc.textContent=f.description;const action=document.createElement("small");action.textContent="Recomendação: "+f.recommendation;const impact=document.createElement("small");impact.textContent="Benefício possível: "+f.impact;info.append(title,desc,action,impact);row.append(info);findings.append(row);});
+    document.getElementById("optimizeHardwareStatus").textContent=d.data?.disclaimer||"";
    }
    if(d.action==="optimize-ai-list"){
     const el=document.getElementById("optimizeAiList");if(!el)return;el.replaceChildren();
@@ -1513,6 +1530,7 @@ window.refreshHtmlRgbDevices=()=>post({action:"rgb-refresh-devices"});
    }
    if(d.action==="host-error"){
     const status=document.getElementById("optimizeServicesStatus");if(status)status.textContent="Erro: "+d.message;
+    const hardware=document.getElementById("optimizeHardwareStatus");if(hardware)hardware.textContent="Erro: "+d.message;
     const ai=document.getElementById("optimizeAiStatus");if(ai)ai.textContent="Erro: "+d.message;
     const clean=document.getElementById("optimizeCleanStatus");if(clean)clean.textContent="Erro: "+d.message;
    }
