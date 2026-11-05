@@ -879,6 +879,7 @@
             <div class="nav-section-title">Workspace</div><div class="nav-menu">
                 <div class="boost-nav-item active" data-optimize-tab="startup" onclick="optimizeTab('startup')">▤ Inicialização</div>
                 <div class="boost-nav-item" data-optimize-tab="services" onclick="optimizeTab('services')">⚙ Serviços do Windows</div>
+                <div class="boost-nav-item" data-optimize-tab="ai" onclick="optimizeTab('ai')">◈ IA do Windows</div>
                 <div class="boost-nav-item" data-optimize-tab="cleanup" onclick="optimizeTab('cleanup')">⌫ Limpeza do sistema</div>
                 <div class="boost-nav-item" onclick="switchView('hub')">← Aplicativos</div>
             </div></div><div class="sdk-status-box"><h5>OPTIMIZE SYSTEM</h5><p>Manutenção segura do Windows</p></div>
@@ -886,6 +887,7 @@
             <div class="boost-header"><div><h2 id="optimizePageTitle">INICIALIZAÇÃO</h2><p id="optimizePageDesc">Gerencie os aplicativos iniciados com o Windows.</p></div><button class="btn-outline" onclick="switchView('hub')">← Voltar ao Hub</button></div>
             <section class="optimize-tab active" id="optimize-tab-startup"><div class="boost-panel"><h3>Programas que iniciam com o Windows</h3><p>Desative apenas aplicativos que você reconhece. Componentes críticos do Windows não são exibidos para alteração.</p><div id="optimizeStartupList" class="boost-list">Carregando...</div><button class="btn-outline" onclick="optimizeLoadStartup()">↻ Atualizar lista</button></div></section>
             <section class="optimize-tab" id="optimize-tab-services"><div class="boost-panel"><h3>Serviços opcionais do Windows</h3><p>Lista controlada de serviços que podem ser dispensáveis em alguns computadores. Confira a descrição antes de desativar: recursos como pesquisa, mapas e Xbox podem deixar de funcionar. Serviços essenciais não aparecem nesta lista.</p><div class="boost-actions"><button class="btn-outline" onclick="optimizeLoadServices()">↻ Atualizar serviços</button></div><div id="optimizeServicesList" class="boost-list">Carregando serviços...</div><p id="optimizeServicesStatus">Algumas alterações exigem executar o MASTER HUB como administrador. A configuração original é guardada para permitir restaurar.</p></div></section>
+            <section class="optimize-tab" id="optimize-tab-ai"><div class="boost-panel"><h3>Recursos de IA do Windows</h3><p>Controle políticas específicas do Copilot clássico e do Recall. Outros aplicativos e recursos de IA do Windows não são desativados automaticamente. Algumas alterações exigem administrador e reinicialização.</p><div class="boost-actions"><button class="btn-outline" onclick="optimizeLoadAi()">↻ Atualizar estado</button></div><div id="optimizeAiList" class="boost-list">Carregando...</div><p id="optimizeAiStatus">As configurações anteriores são guardadas para restauração. Políticas corporativas podem prevalecer.</p></div></section>
             <section class="optimize-tab" id="optimize-tab-cleanup"><div class="boost-panel"><h3>Limpeza de arquivos temporários</h3><p>Analise temporários do usuário e do Windows, caches de sistema, relatórios de falhas e a Lixeira. Arquivos em uso ou sem permissão serão ignorados.</p><div class="boost-clean-summary"><strong id="optimizeCleanSize">-- MB</strong><span id="optimizeCleanCount">Aguardando análise</span></div><div class="boost-actions"><button class="btn-outline" onclick="optimizeCleanPreview()">Analisar espaço</button><button class="btn-glow" id="optimizeCleanBtn" onclick="optimizeCleanRun()" disabled>Limpar selecionados</button></div><div id="optimizeCleanFolders" class="boost-list"><p>Pressione “Analisar espaço” para listar os locais e seus tamanhos.</p></div><p id="optimizeCleanStatus"></p></div></section>
         </main></div>
     </div>
@@ -1429,16 +1431,17 @@ window.refreshHtmlRgbDevices=()=>post({action:"rgb-refresh-devices"});
  <script>
  (() => {
   const post=(action,data={})=>{if(window.chrome&&window.chrome.webview)window.chrome.webview.postMessage({action,...data});};
-  const titles={startup:["INICIALIZAÇÃO","Gerencie os aplicativos iniciados com o Windows."],services:["SERVIÇOS DO WINDOWS","Gerencie serviços opcionais sem abrir o console Serviços."],cleanup:["LIMPEZA DO SISTEMA","Veja o espaço ocupado por cada local antes de limpar."]};
+  const titles={startup:["INICIALIZAÇÃO","Gerencie os aplicativos iniciados com o Windows."],services:["SERVIÇOS DO WINDOWS","Gerencie serviços opcionais sem abrir o console Serviços."],ai:["IA DO WINDOWS","Controle recursos de IA opcionais e restaure as políticas anteriores."],cleanup:["LIMPEZA DO SISTEMA","Veja o espaço ocupado por cada local antes de limpar."]};
   window.optimizeTab=tab=>{
    document.querySelectorAll("#view-optimize .optimize-tab").forEach(x=>x.classList.remove("active"));
    document.querySelectorAll("#view-optimize .boost-nav-item").forEach(x=>x.classList.toggle("active",x.dataset.optimizeTab===tab));
    document.getElementById("optimize-tab-"+tab).classList.add("active");
    document.getElementById("optimizePageTitle").textContent=titles[tab][0];
    document.getElementById("optimizePageDesc").textContent=titles[tab][1];
-   if(tab==="startup")window.optimizeLoadStartup();else if(tab==="services")window.optimizeLoadServices();else window.optimizeCleanPreview();
+   if(tab==="startup")window.optimizeLoadStartup();else if(tab==="services")window.optimizeLoadServices();else if(tab==="ai")window.optimizeLoadAi();else window.optimizeCleanPreview();
   };
   window.optimizeLoadStartup=()=>{document.getElementById("optimizeStartupList").textContent="Carregando...";post("optimize-startup-list");};
+  window.optimizeLoadAi=()=>{document.getElementById("optimizeAiList").textContent="Consultando políticas...";post("optimize-ai-list");};
   window.optimizeLoadServices=()=>{document.getElementById("optimizeServicesList").textContent="Consultando serviços...";post("optimize-services-list");};
   window.optimizeCleanPreview=()=>{document.getElementById("optimizeCleanStatus").textContent="Analisando os locais de limpeza...";document.getElementById("optimizeCleanFolders").textContent="Calculando tamanhos...";post("optimize-clean-preview");};
   window.optimizeCleanRun=()=>{if(!confirm("Confirma a limpeza dos locais listados, incluindo a Lixeira? Esta ação não pode ser desfeita."))return;document.getElementById("optimizeCleanBtn").disabled=true;post("optimize-clean-run");};
@@ -1449,6 +1452,24 @@ window.refreshHtmlRgbDevices=()=>post({action:"rgb-refresh-devices"});
     (d.items||[]).forEach(item=>{const row=document.createElement("div");row.className="boost-start-item";const info=document.createElement("div"),name=document.createElement("b"),cmd=document.createElement("small");name.textContent=item.name+" • "+item.source;cmd.textContent=item.command;info.append(name,cmd);row.append(info);
      if(item.canToggle){const btn=document.createElement("button");btn.className="btn-outline";btn.textContent="Desativar";btn.onclick=()=>{if(confirm("Desativar "+item.name+" da inicialização?"))post("optimize-startup-toggle",{id:item.id,enabled:false});};row.append(btn);}else{const tag=document.createElement("small");tag.textContent="Somente leitura";row.append(tag);}el.append(row);
     });if(!el.children.length)el.textContent="Nenhum item encontrado.";
+   }
+   if(d.action==="optimize-ai-list"){
+    const el=document.getElementById("optimizeAiList");if(!el)return;el.replaceChildren();
+    (d.items||[]).forEach(item=>{
+     const row=document.createElement("div");row.className="optimize-service-row";
+     const info=document.createElement("div");info.className="optimize-row-info";
+     const name=document.createElement("b");name.textContent=item.name;
+     const desc=document.createElement("small");desc.textContent=item.description;
+     const state=document.createElement("small");state.textContent=(item.disabled?"Política: desativado":"Política: não desativado")+(item.requiresAdmin?" • requer administrador":"");
+     info.append(name,desc,state);row.append(info);
+     const btn=document.createElement("button");btn.className="btn-outline";
+     btn.textContent=item.disabled?(item.managed?"Restaurar":"Desativado externamente"):"Desativar";
+     btn.disabled=item.disabled&&!item.managed;
+     btn.onclick=()=>{const disable=!item.disabled;const msg=(disable?"Desativar ":"Restaurar ")+item.name+"? A mudança pode exigir reinicialização e não abrange todos os recursos de IA.";if(confirm(msg)){btn.disabled=true;post("optimize-ai-toggle",{id:item.id,disable});}};
+     row.append(btn);el.append(row);
+    });
+    if(!el.children.length)el.textContent="Nenhuma política disponível.";
+    document.getElementById("optimizeAiStatus").textContent="Estado atualizado. Reinicie o Windows caso a alteração não seja aplicada imediatamente.";
    }
    if(d.action==="optimize-services-list"){
     const el=document.getElementById("optimizeServicesList");el.replaceChildren();
@@ -1492,6 +1513,7 @@ window.refreshHtmlRgbDevices=()=>post({action:"rgb-refresh-devices"});
    }
    if(d.action==="host-error"){
     const status=document.getElementById("optimizeServicesStatus");if(status)status.textContent="Erro: "+d.message;
+    const ai=document.getElementById("optimizeAiStatus");if(ai)ai.textContent="Erro: "+d.message;
     const clean=document.getElementById("optimizeCleanStatus");if(clean)clean.textContent="Erro: "+d.message;
    }
   });
