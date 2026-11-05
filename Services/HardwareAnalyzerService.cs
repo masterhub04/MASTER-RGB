@@ -94,6 +94,18 @@ public sealed class HardwareAnalyzerService
         Add("info", "BIOS", "Revisão de BIOS e drivers", $"Placa-mãe: {board}. BIOS detectada: {bios}.",
             "Consulte exclusivamente o site do fabricante para verificar BIOS, chipset e drivers compatíveis. Não atualize BIOS automaticamente; faça backup e siga o procedimento oficial.", "Compatibilidade, segurança e estabilidade, conforme o caso.");
 
+        var ramSticks = new List<object>();
+        try
+        {
+            using var search = new ManagementObjectSearcher("SELECT Manufacturer,PartNumber,DeviceLocator,Capacity,Speed FROM Win32_PhysicalMemory");
+            foreach (ManagementObject part in search.Get())
+            {
+                ramSticks.Add(new { manufacturer = Convert.ToString(part["Manufacturer"]), model = Convert.ToString(part["PartNumber"]), slot = Convert.ToString(part["DeviceLocator"]), bytes = Convert.ToString(part["Capacity"]), speed = Convert.ToString(part["Speed"]) });
+                part.Dispose();
+            }
+        }
+        catch { }
+
         // A maioria das opções de firmware não tem API de leitura padronizada no Windows.
         // Nunca inferir que XMP/EXPO ou ReBAR estão ativos somente pela presença do hardware.
         var biosChecks = new List<object>();
@@ -185,6 +197,7 @@ public sealed class HardwareAnalyzerService
         {
             hardware = new { cpu, gpu, board, bios, os, ramGb, freeRamGb, memorySpeed, memoryRatedSpeed, diskModel, diskFreeGb, diskFreePct },
             findings,
+            ramSticks,
             biosChecks,
             disclaimer = "Análise somente leitura baseada em informações fornecidas pelo Windows. Não detecta todas as temperaturas, falhas físicas, configurações de BIOS ou gargalos de jogos."
         };
