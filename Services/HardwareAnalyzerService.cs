@@ -106,6 +106,40 @@ public sealed class HardwareAnalyzerService
         }
         catch { }
 
+        var videoCards = new List<object>();
+        var storageDevices = new List<object>();
+        var processors = new List<object>();
+        try
+        {
+            using var search = new ManagementObjectSearcher("SELECT Name,AdapterRAM,DriverVersion FROM Win32_VideoController");
+            foreach (ManagementObject part in search.Get())
+            {
+                videoCards.Add(new { name = Convert.ToString(part["Name"]), vramBytes = Convert.ToString(part["AdapterRAM"]), driver = Convert.ToString(part["DriverVersion"]) });
+                part.Dispose();
+            }
+        }
+        catch { }
+        try
+        {
+            using var search = new ManagementObjectSearcher("SELECT Model,Size,InterfaceType,MediaType FROM Win32_DiskDrive");
+            foreach (ManagementObject part in search.Get())
+            {
+                storageDevices.Add(new { model = Convert.ToString(part["Model"]), bytes = Convert.ToString(part["Size"]), interfaceType = Convert.ToString(part["InterfaceType"]), mediaType = Convert.ToString(part["MediaType"]) });
+                part.Dispose();
+            }
+        }
+        catch { }
+        try
+        {
+            using var search = new ManagementObjectSearcher("SELECT Name,NumberOfCores,NumberOfLogicalProcessors FROM Win32_Processor");
+            foreach (ManagementObject part in search.Get())
+            {
+                processors.Add(new { name = Convert.ToString(part["Name"]), cores = Convert.ToString(part["NumberOfCores"]), threads = Convert.ToString(part["NumberOfLogicalProcessors"]) });
+                part.Dispose();
+            }
+        }
+        catch { }
+
         // A maioria das opções de firmware não tem API de leitura padronizada no Windows.
         // Nunca inferir que XMP/EXPO ou ReBAR estão ativos somente pela presença do hardware.
         var biosChecks = new List<object>();
@@ -197,7 +231,7 @@ public sealed class HardwareAnalyzerService
         {
             hardware = new { cpu, gpu, board, bios, os, ramGb, freeRamGb, memorySpeed, memoryRatedSpeed, diskModel, diskFreeGb, diskFreePct },
             findings,
-            ramSticks,
+            ramSticks, videoCards, storageDevices, processors,
             biosChecks,
             disclaimer = "Análise somente leitura baseada em informações fornecidas pelo Windows. Não detecta todas as temperaturas, falhas físicas, configurações de BIOS ou gargalos de jogos."
         };
