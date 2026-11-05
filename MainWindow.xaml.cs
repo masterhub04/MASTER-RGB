@@ -33,6 +33,7 @@ public partial class MainWindow : Window
     private FrameworkElement? _currentPage;
     private readonly BoostGameService _boostGame = new();
     private readonly OptimizeSystemService _optimizeSystem = new();
+    private readonly HardwareAnalyzerService _hardwareAnalyzer = new();
     private readonly OpenRgbSdkClient _openRgb = new();
     private readonly Dictionary<int, CancellationTokenSource> _rgbEffectCancellations = new();
     private readonly Dictionary<int, Task> _rgbEffectTasks = new();
@@ -171,6 +172,7 @@ public partial class MainWindow : Window
                 case "rgb-apply-device-calibration": await ApplyHtmlDeviceCalibrationAsync(root); break;
                 case "boost-dashboard": SendHtmlMessage(new { action = "boost-dashboard", data = _boostGame.GetDashboard() }); break;
                 case "optimize-startup-list": SendHtmlMessage(new { action = "optimize-startup-list", items = _optimizeSystem.GetStartupItems() }); break;
+                case "optimize-hardware-analyze": SendHtmlMessage(new { action = "optimize-hardware-result", data = await Task.Run(() => _hardwareAnalyzer.Analyze()) }); break;
                 case "optimize-ai-list": SendHtmlMessage(new { action = "optimize-ai-list", items = _optimizeSystem.GetAiOptions() }); break;
                 case "optimize-ai-toggle": SendHtmlMessage(new { action = "optimize-ai-list", items = await Task.Run(() => _optimizeSystem.SetAiOptionWithElevation(root.GetProperty("id").GetString() ?? "", root.GetProperty("disable").GetBoolean())) }); break;
                 case "optimize-services-list": SendHtmlMessage(new { action = "optimize-services-list", items = _optimizeSystem.GetOptionalServices() }); break;
