@@ -34,6 +34,7 @@ public partial class MainWindow : Window
     private readonly BoostGameService _boostGame = new();
     private readonly OptimizeSystemService _optimizeSystem = new();
     private readonly HardwareAnalyzerService _hardwareAnalyzer = new();
+    private readonly AppUninstallService _appUninstaller = new();
     private readonly OpenRgbSdkClient _openRgb = new();
     private readonly Dictionary<int, CancellationTokenSource> _rgbEffectCancellations = new();
     private readonly Dictionary<int, Task> _rgbEffectTasks = new();
@@ -171,6 +172,13 @@ public partial class MainWindow : Window
                 case "rgb-save-device-calibration": SaveDeviceCalibrationFromHtml(root); break;
                 case "rgb-apply-device-calibration": await ApplyHtmlDeviceCalibrationAsync(root); break;
                 case "boost-dashboard": SendHtmlMessage(new { action = "boost-dashboard", data = _boostGame.GetDashboard() }); break;
+                case "optimize-apps-list": SendHtmlMessage(new { action = "optimize-apps-list", data = await Task.Run(() => _appUninstaller.List()) }); break;
+                case "optimize-apps-uninstall":
+                    {
+                        var ids = root.GetProperty("ids").EnumerateArray().Select(x => x.GetString() ?? "").ToArray();
+                        SendHtmlMessage(new { action = "optimize-apps-result", data = await _appUninstaller.UninstallSelectedAsync(ids) });
+                        break;
+                    }
                 case "optimize-startup-list": SendHtmlMessage(new { action = "optimize-startup-list", items = _optimizeSystem.GetStartupItems() }); break;
                 case "optimize-hardware-analyze": SendHtmlMessage(new { action = "optimize-hardware-result", data = await Task.Run(() => _hardwareAnalyzer.Analyze()) }); break;
                 case "optimize-ai-list": SendHtmlMessage(new { action = "optimize-ai-list", items = _optimizeSystem.GetAiOptions() }); break;
