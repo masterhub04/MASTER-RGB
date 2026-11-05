@@ -36,38 +36,54 @@ public sealed class OptimizeSystemService
     {
         var option = AiOptions.FirstOrDefault(x => x.Id.Equals(id, StringComparison.Ordinal))
             ?? throw new InvalidOperationException("Opção de IA não permitida.");
-        using var hive = RegistryKey.OpenBaseKey(option.Hive, RegistryView.Registry64);
-        using var backup = Registry.CurrentUser.CreateSubKey(AiBackupKey)
-            ?? throw new InvalidOperationException("Não foi possível guardar a configuração original.");
         string prefix = option.Id + ".";
-        if (disable)
+        try
         {
-            using var existing = hive.OpenSubKey(option.Path);
-            object? previous = existing?.GetValue(option.ValueName);
-            if (backup.GetValue(prefix + "exists") is null)
+            using var hive = RegistryKey.OpenBaseKey(option.Hive, RegistryView.Registry64);
+            using var backup = Registry.CurrentUser.CreateSubKey(AiBackupKey)
+                ?? throw new InvalidOperationException("Não foi possível acessar o histórico de configurações.");
+            if (disable)
             {
-                backup.SetValue(prefix + "exists", previous is null ? 0 : 1, RegistryValueKind.DWord);
-                if (previous is int oldValue)
-                    backup.SetValue(prefix + "value", oldValue, RegistryValueKind.DWord);
-                else if (previous is not null)
-                    throw new InvalidOperationException("A política existente usa um formato não suportado. Nenhuma alteração foi feita.");
+                using var existing = hive.OpenSubKey(option.Path);
+                object? previous = existing?.GetValue(option.ValueName);
+                if (previous is not null && previous is not int)
+                    throw new InvalidOperationException("A política existente tem um formato incompatível e não será alterada.");
+
+                // Testar a permissão antes de gravar o backup: falhas de acesso não
+                // devem marcar uma configuração como modificada pelo MASTER HUB.
+                using var key = hive.CreateSubKey(option.Path, true)
+                    ?? throw new InvalidOperationException("Não foi possível abrir a política do Windows.");
+                if (backup.GetValue(prefix + "exists") is null)
+                {
+                    backup.SetValue(prefix + "exists", previous is null ? 0 : 1, RegistryValueKind.DWord);
+                    if (previous is int oldValue)
+                        backup.SetValue(prefix + "value", oldValue, RegistryValueKind.DWord);
+                }
+                key.SetValue(option.ValueName, 1, RegistryValueKind.DWord);
             }
-            using var key = hive.CreateSubKey(option.Path, true)
-                ?? throw new InvalidOperationException("Não foi possível abrir a política do Windows.");
-            key.SetValue(option.ValueName, 1, RegistryValueKind.DWord);
+            else
+            {
+                if (backup.GetValue(prefix + "exists") is not int existed)
+                    throw new InvalidOperationException("Não há configuração anterior salva para restaurar.");
+                using var key = hive.OpenSubKey(option.Path, writable: true)
+                    ?? throw new InvalidOperationException("A política do Windows não foi encontrada.");
+                if (existed == 0) key.DeleteValue(option.ValueName, false);
+                else key.SetValue(option.ValueName, (int)(backup.GetValue(prefix + "value") ?? 0), RegistryValueKind.DWord);
+                backup.DeleteValue(prefix + "exists", false);
+                backup.DeleteValue(prefix + "value", false);
+            }
+            return GetAiOptions();
         }
-        else
+        catch (UnauthorizedAccessException ex)
         {
-            if (backup.GetValue(prefix + "exists") is not int existed)
-                throw new InvalidOperationException("Não há configuração anterior salva para restaurar.");
-            using var key = hive.OpenSubKey(option.Path, writable: true)
-                ?? throw new InvalidOperationException("A política do Windows não foi encontrada.");
-            if (existed == 0) key.DeleteValue(option.ValueName, false);
-            else key.SetValue(option.ValueName, (int)(backup.GetValue(prefix + "value") ?? 0), RegistryValueKind.DWord);
-            backup.DeleteValue(prefix + "exists", false);
-            backup.DeleteValue(prefix + "value", false);
+            throw new InvalidOperationException(option.Hive == RegistryHive.LocalMachine
+                ? "Permissão negada pelo Windows. Feche o MASTER HUB e inicie-o como administrador para alterar esta política."
+                : "Permissão negada na chave de políticas do usuário. Tente iniciar o MASTER HUB como administrador; se persistir, a chave pode estar protegida por uma política do Windows.", ex);
         }
-        return GetAiOptions();
+        catch (System.Security.SecurityException ex)
+        {
+            throw new InvalidOperationException("O Windows bloqueou o acesso à política. Verifique as permissões de administrador e as políticas do dispositivo.", ex);
+        }
     }
 
     private const uint RecycleBinFlags = 0x00000001 | 0x00000002 | 0x00000004;
