@@ -1,4 +1,5 @@
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Management;
 using Microsoft.Win32;
 
@@ -7,6 +8,10 @@ namespace MasterRgb.Services;
 /// <summary>Diagnóstico somente leitura. Nunca altera BIOS, drivers ou políticas.</summary>
 public sealed class HardwareAnalyzerService
 {
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetFirmwareType(out uint firmwareType);
+
     private static string Wmi(string query, string field)
     {
         try
@@ -143,8 +148,8 @@ public sealed class HardwareAnalyzerService
         // A maioria das opções de firmware não tem API de leitura padronizada no Windows.
         // Nunca inferir que XMP/EXPO ou ReBAR estão ativos somente pela presença do hardware.
         var biosChecks = new List<object>();
-        void BiosCheck(string name, string state, string recommendation, string reason, string steps, string caution)
-            => biosChecks.Add(new { name, state, recommendation, reason, steps, caution });
+        void BiosCheck(string name, string state, string recommendation, string reason, string steps, string caution, string status = "unknown")
+            => biosChecks.Add(new { name, state, recommendation, reason, steps, caution, status });
 
         bool intel = cpu.Contains("Intel", StringComparison.OrdinalIgnoreCase);
         bool amd = cpu.Contains("AMD", StringComparison.OrdinalIgnoreCase) || cpu.Contains("Ryzen", StringComparison.OrdinalIgnoreCase);
@@ -152,24 +157,49 @@ public sealed class HardwareAnalyzerService
         string firmware = "Não foi possível verificar";
         try
         {
-            using var firmwareKey = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Control");
-            firmware = firmwareKey?.GetValue("PEFirmwareType") switch
-            {
-                1 => "BIOS legado detectado",
-                2 => "UEFI detectado",
-                _ => "Não foi possível verificar"
-            };
+            if (GetFirmwareType(out uint type))
+                firmware = type switch { 2 => "UEFI detectado", 1 => "BIOS legado detectado", _ => "Não foi possível verificar" };
         }
         catch { }
 
-        string memoryObservation = int.TryParse(memorySpeed, out var configuredMt) && int.TryParse(memoryRatedSpeed, out var ratedMt)
-            ? $"Windows informa {configuredMt} MT/s configurados e {ratedMt} MT/s como velocidade do módulo. Isso não confirma o estado do perfil."
-            : "O Windows não forneceu velocidades suficientes para comparar os módulos.";
+        // Win32_Processor expõe o estado da virtualização do firmware em vários sistemas.
+        string virtualizationRaw = Wmi("SELECT VirtualizationFirmwareEnabled FROM Win32_Processor", "VirtualizationFirmwareEnabled");
+        string virtualization = virtualizationRaw.Equals("True", StringComparison.OrdinalIgnoreCase)
+            ? "Ativada (informação do processador)"
+            : virtualizationRaw.Equals("False", StringComparison.OrdinalIgnoreCase)
+                ? "Desativada (informação do processador)"
+                : "Não foi possível verificar";
+
+        // Comparação por módulo, sem inferir estado de XMP/EXPO apenas pelo clock.
+        var speedPairs = new List<(int configured, int rated)>();
+        try
+        {
+            using var search = new ManagementObjectSearcher("SELECT Speed,ConfiguredClockSpeed FROM Win32_PhysicalMemory");
+            foreach (ManagementObject module in search.Get())
+            {
+                using (module)
+                {
+                    if (int.TryParse(Convert.ToString(module["Speed"]), out int ratedSpeed) &&
+                        int.TryParse(Convert.ToString(module["ConfiguredClockSpeed"]), out int configuredSpeed) &&
+                        ratedSpeed > 0 && configuredSpeed > 0)
+                        speedPairs.Add((configuredSpeed, ratedSpeed));
+                }
+            }
+        }
+        catch { }
+        bool memoryBelowRated = speedPairs.Any(x => x.configured < x.rated * .85);
+        string memoryObservation = speedPairs.Count > 0
+            ? "Módulos consultados: " + string.Join("; ", speedPairs.Select((x, i) => $"RAM {i + 1}: {x.configured} / {x.rated} MT/s (configurada / informada)")) +
+              ". Esses números não comprovam se XMP/EXPO está ativado."
+            : "Não foi possível comparar a frequência configurada de cada módulo.";
+        string memoryAdvice = memoryBelowRated
+            ? "VERIFICAR XMP/EXPO: ao menos um módulo está configurado abaixo da velocidade informada. Considere ATIVAR um perfil compatível após conferir suporte e estabilidade."
+            : "MANTER se estiver estável; confirme XMP/EXPO na BIOS antes de decidir alterar. Não há diferença expressiva entre as velocidades consultadas.";
         BiosCheck("XMP / EXPO / DOCP", "Não foi possível verificar",
-            "Verificar e considerar ATIVAR um perfil compatível, se a memória estiver abaixo do desempenho esperado.",
+            memoryAdvice,
             memoryObservation,
             "1. Consulte o manual da placa-mãe e a especificação da RAM. 2. Reinicie e entre no Setup (geralmente Del ou F2). 3. Abra OC / Ai Tweaker / Extreme Tweaker / Tweaker. 4. Localize XMP, EXPO ou DOCP; selecione um perfil suportado. 5. Salve com F10, reinicie e teste estabilidade.",
-            "Perfis de memória são overclock em muitas plataformas; podem causar falhas de boot, instabilidade ou exigir recuperação de configurações.");
+            "Perfis de memória são overclock em muitas plataformas; podem causar falhas de boot, instabilidade ou exigir recuperação de configurações.", memoryBelowRated ? "attention" : "unknown");
 
         BiosCheck("Resizable BAR / Smart Access Memory", "Não foi possível verificar",
             "Considerar ATIVAR somente se GPU, CPU, placa-mãe, firmware e driver forem compatíveis.",
@@ -187,7 +217,7 @@ public sealed class HardwareAnalyzerService
             firmware == "UEFI detectado" ? "MANTER o boot UEFI; não há motivo para mudar CSM apenas por desempenho." : "VERIFICAR compatibilidade antes de considerar DESATIVAR CSM para usar Resizable BAR.",
             "Resizable BAR frequentemente requer boot UEFI com CSM desativado; a mudança não é uma otimização universal de desempenho.",
             "1. No Windows, execute msinfo32 e confira Modo da BIOS. 2. Em Gerenciamento de Disco, confira se o disco de boot usa GPT. 3. Consulte o manual e confirme suporte UEFI da GPU. 4. Só então avalie Boot / CSM Support na BIOS; não altere se o Windows depender de boot legado.",
-            "Alterar CSM/Legacy/UEFI sem preparar a instalação pode impedir o Windows de iniciar.");
+            "Alterar CSM/Legacy/UEFI sem preparar a instalação pode impedir o Windows de iniciar.", firmware == "UEFI detectado" ? "good" : firmware == "BIOS legado detectado" ? "attention" : "unknown");
 
         BiosCheck("Turbo Boost / Precision Boost", "Não foi possível verificar",
             "Em geral, MANTER ATIVADO no perfil padrão do fabricante, se disponível.",
@@ -214,11 +244,11 @@ public sealed class HardwareAnalyzerService
             "1. Meça temperaturas sob carga com ferramenta de sensores confiável. 2. Entre na BIOS e procure Q-Fan / Smart Fan / Hardware Monitor. 3. Confira tipo PWM/DC e ajuste gradualmente a curva. 4. Teste temperatura e ruído após salvar.",
             "Nunca desative proteção térmica, ventoinha da CPU ou limite crítico de temperatura.");
 
-        BiosCheck("Virtualização (VT-x / SVM)", "Não foi possível verificar",
-            "MANTER conforme necessidade; não desativar só para tentar ganhar FPS.",
+        BiosCheck("Virtualização (VT-x / SVM)", virtualization,
+            virtualization.StartsWith("Desativada") ? "ATIVAR somente se você usa Hyper-V, WSL2, máquinas virtuais ou recursos que exigem virtualização; não há ganho universal de FPS." : "MANTER conforme necessidade; não desativar só para tentar ganhar FPS.",
             "É importante para Hyper-V, WSL2, máquinas virtuais e recursos de segurança; desativá-la não é otimização universal.",
             "1. Abra Gerenciador de Tarefas > Desempenho > CPU e veja Virtualização. 2. Se precisar alterar, procure Intel Virtualization Technology ou SVM Mode na BIOS. 3. Só mude após verificar dependências de segurança e software.",
-            "Pode impedir funcionamento de VMs, WSL2 e recursos de segurança.");
+            "Pode impedir funcionamento de VMs, WSL2 e recursos de segurança.", "unknown");
 
         if (laptop)
             BiosCheck("Modo de desempenho / térmico do notebook", "Não foi possível verificar",
