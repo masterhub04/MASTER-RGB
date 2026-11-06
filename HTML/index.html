@@ -1587,13 +1587,12 @@ window.refreshHtmlRgbDevices=()=>post({action:"rgb-refresh-devices"});
      const verifiedUefi=item.name==="CSM / modo UEFI"&&state==="UEFI detectado";
      // Amarelo significa verificação pendente, não que a BIOS esteja configurada incorretamente.
      // Vermelho é reservado a problemas de alta prioridade confirmados, nunca a uma inferência.
-     const level=verifiedUefi?"good":"medium";
+     const level=item.status==="good"?"good":item.status==="high"?"high":"medium";
      const row=document.createElement("div");row.className="optimize-service-row optimize-check-row";
      row.append(makeDot(level));
      const info=document.createElement("div");info.className="optimize-check-info";
      makeLine(info,"b",item.name);
      let shortAdvice=String(item.recommendation||"Verificar configuração.");
-     shortAdvice=shortAdvice.replace(/^(Considerar |Em geral, |VERIFICAR |MANTER |PREFERIR |Usar |VERIFICAR se )/i,m=>m);
      makeLine(info,"small",verifiedUefi?"UEFI detectado • manter configuração atual":shortAdvice);
      const details=document.createElement("details");details.className="optimize-check-details";
      makeLine(details,"summary","Ver estado e como configurar");
