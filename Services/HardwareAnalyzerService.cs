@@ -12,6 +12,26 @@ public sealed class HardwareAnalyzerService
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool GetFirmwareType(out uint firmwareType);
 
+    // API documentada do Windows: consulta a disponibilidade de tabelas SMBIOS/ACPI.
+    // Tabelas de firmware não incluem obrigatoriamente a configuração XMP/EXPO.
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern uint GetSystemFirmwareTable(uint providerSignature, uint tableId, IntPtr buffer, uint bufferSize);
+
+    private static string FirmwareTableObservation()
+    {
+        try
+        {
+            // 'RSMB' (Raw SMBIOS Data) em ordem little-endian.
+            uint size = GetSystemFirmwareTable(0x424D5352, 0, IntPtr.Zero, 0);
+            return size > 0 ? "Tabela SMBIOS bruta disponível (" + size + " bytes); não contém indicador padronizado de XMP/EXPO." :
+                "Tabela SMBIOS bruta indisponível pela API do Windows.";
+        }
+        catch (Exception ex) when (ex is EntryPointNotFoundException || ex is DllNotFoundException)
+        {
+            return "API de tabelas de firmware indisponível.";
+        }
+    }
+
     private static string Wmi(string query, string field)
     {
         try
@@ -45,6 +65,17 @@ public sealed class HardwareAnalyzerService
         string board = Wmi("SELECT Manufacturer FROM Win32_BaseBoard", "Manufacturer") + " " +
                        Wmi("SELECT Product FROM Win32_BaseBoard", "Product");
         string bios = Wmi("SELECT SMBIOSBIOSVersion FROM Win32_BIOS", "SMBIOSBIOSVersion");
+        string biosManufacturer = Wmi("SELECT Manufacturer FROM Win32_BIOS", "Manufacturer");
+        string biosReleaseDate = Wmi("SELECT ReleaseDate FROM Win32_BIOS", "ReleaseDate");
+        string biosFirmwareObservation = FirmwareTableObservation();
+        string firmwareBootMode = "Não disponível";
+        try
+        {
+            if (GetFirmwareType(out uint bootType))
+                firmwareBootMode = bootType == 2 ? "UEFI" : bootType == 1 ? "Legacy BIOS" : "Desconhecido";
+        }
+        catch { }
+
         string os = Wmi("SELECT Caption FROM Win32_OperatingSystem", "Caption");
         ulong ramBytes = Number("SELECT TotalPhysicalMemory FROM Win32_ComputerSystem", "TotalPhysicalMemory");
         double ramGb = Math.Round(ramBytes / 1073741824d, 1);
@@ -266,6 +297,8 @@ public sealed class HardwareAnalyzerService
         bool memoryBelowRated = speedPairs.Any(x => x.configured < x.rated * .85);
         bool mixedModels = memoryModels.Count > 1;
         bool incompleteMemoryData = memoryModules.Count == 0 || speedPairs.Count != memoryModules.Count;
+        string firmwareEvidence = "Placa-mãe: " + board + "; BIOS: " + biosManufacturer + " " + bios +
+            "; data da BIOS (WMI): " + biosReleaseDate + "; boot: " + firmwareBootMode + ". " + biosFirmwareObservation;
         string memoryObservation = moduleObservations.Count > 0
             ? string.Join("; ", moduleObservations) + ". Speed/ConfiguredClockSpeed são dados SMBIOS, NÃO são perfis XMP/EXPO extraídos do SPD."
             : "Não foi possível obter dados por módulo.";
@@ -278,7 +311,7 @@ public sealed class HardwareAnalyzerService
         BiosCheck("XMP / EXPO / DOCP",
             "Não confirmado (sem leitura SPD/firmware); " + (speedPairs.Count > 0 ? "clock configurado: " + string.Join(", ", speedPairs.Select(x => x.configured).Distinct()) + " MT/s" : "clock indisponível"),
             memoryAdvice,
-            memoryObservation,
+            memoryObservation + " Firmware: " + firmwareEvidence,
             "1. Confira o modelo e o perfil XMP/EXPO de cada módulo no manual do fabricante. 2. Abra a BIOS e identifique o estado de A-XMP/XMP/EXPO. 3. Compare frequência e timings do perfil com a configuração em uso. 4. Se compatível, ative um perfil e teste estabilidade; se falhar, reverta.",
             "A leitura de SPD exige acesso específico ao hardware e não foi implementada. Não confunda velocidade SMBIOS com prova de XMP ativo. Perfis podem causar instabilidade e falha de inicialização.",
             memoryBelowRated ? "attention" : "unknown");
@@ -354,7 +387,7 @@ public sealed class HardwareAnalyzerService
 
         return new
         {
-            hardware = new { cpu, gpu, board, bios, os, ramGb, freeRamGb, memorySpeed, memoryRatedSpeed, diskModel, diskFreeGb, diskFreePct },
+            hardware = new { cpu, gpu, board, bios, biosManufacturer, biosReleaseDate, firmwareBootMode, biosFirmwareObservation, os, ramGb, freeRamGb, memorySpeed, memoryRatedSpeed, diskModel, diskFreeGb, diskFreePct },
             findings,
             ramSticks, memoryModules, videoCards, storageDevices, processors,
             biosChecks,
