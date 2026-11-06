@@ -887,7 +887,7 @@
             </div></div><div class="sdk-status-box"><h5>OPTIMIZE SYSTEM</h5><p>Manutenção segura do Windows</p></div>
         </aside><main class="boost-content">
             <div class="boost-header"><div><h2 id="optimizePageTitle">INICIALIZAÇÃO</h2><p id="optimizePageDesc">Gerencie os aplicativos iniciados com o Windows.</p></div><button class="btn-outline" onclick="switchView('hub')">← Voltar ao Hub</button></div>
-            <section class="optimize-tab active" id="optimize-tab-startup"><div class="boost-panel"><h3>Programas que iniciam com o Windows</h3><p>Desative apenas aplicativos que você reconhece. Componentes críticos do Windows não são exibidos para alteração.</p><div id="optimizeStartupList" class="boost-list">Carregando...</div><button class="btn-outline" onclick="optimizeLoadStartup()">↻ Atualizar lista</button></div></section>
+            <section class="optimize-tab active" id="optimize-tab-startup"><div class="boost-panel"><h3>Programas que iniciam com o Windows</h3><p>Desative apenas aplicativos que você reconhece. Componentes críticos do Windows não são exibidos para alteração.</p><div class="boost-actions"><button class="btn-outline" onclick="optimizeLoadStartup()">↻ Atualizar programas</button></div><div id="optimizeStartupList" class="boost-list">Carregando programas...</div><p class="optimize-warning">Alguns itens do sistema são exibidos somente para consulta e não podem ser alterados aqui.</p></div></section>
             <section class="optimize-tab" id="optimize-tab-services"><div class="boost-panel"><h3>Serviços opcionais do Windows</h3><p>Lista controlada de serviços que podem ser dispensáveis em alguns computadores. Confira a descrição antes de desativar: recursos como pesquisa, mapas e Xbox podem deixar de funcionar. Serviços essenciais não aparecem nesta lista.</p><div class="boost-actions"><button class="btn-outline" onclick="optimizeLoadServices()">↻ Atualizar serviços</button></div><div id="optimizeServicesList" class="boost-list">Carregando serviços...</div><p id="optimizeServicesStatus">Algumas alterações exigem executar o MASTER HUB como administrador. A configuração original é guardada para permitir restaurar.</p></div></section>
             <section class="optimize-tab" id="optimize-tab-hardware"><div class="boost-panel"><h3>SMART HARDWARE ANALYZER</h3><p>Identifique o hardware e receba recomendações personalizadas de Windows, software e BIOS. A análise é somente leitura: nenhuma configuração é alterada automaticamente.</p><div class="boost-actions"><button class="btn-glow" onclick="optimizeAnalyzeHardware()">Analisar computador</button></div><div class="hardware-showcase">
  <button type="button" class="hardware-tile" data-hardware-kind="cpu" onclick="optimizeSelectHardware('cpu')"><div class="hardware-symbol"><svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="3"><rect x="23" y="23" width="54" height="54" rx="7"/><rect x="34" y="34" width="32" height="32" rx="3"/><path d="M35 10v13m15-13v13m15-13v13M35 77v13m15-13v13m15-13v13M10 35h13M10 50h13M10 65h13M77 35h13M77 50h13M77 65h13"/><path d="M43 44h14v12H43z" fill="currentColor" opacity=".2"/></svg></div><span>PROCESSADOR</span><strong id="hardwareCpuCard">Aguardando análise</strong><small>Ver detalhes do processador</small></button>
@@ -1542,8 +1542,19 @@ window.refreshHtmlRgbDevices=()=>post({action:"rgb-refresh-devices"});
    }
    if(d.action==="optimize-startup-list"){
     const el=document.getElementById("optimizeStartupList");if(!el)return;el.replaceChildren();
-    (d.items||[]).forEach(item=>{const row=document.createElement("div");row.className="boost-start-item";const info=document.createElement("div"),name=document.createElement("b"),cmd=document.createElement("small");name.textContent=item.name+" • "+item.source;cmd.textContent=item.command;info.append(name,cmd);row.append(info);
-     if(item.canToggle){const btn=document.createElement("button");btn.className="btn-outline";btn.textContent="Desativar";btn.onclick=()=>{if(confirm("Desativar "+item.name+" da inicialização?"))post("optimize-startup-toggle",{id:item.id,enabled:false});};row.append(btn);}else{const tag=document.createElement("small");tag.textContent="Somente leitura";row.append(tag);}el.append(row);
+    (d.items||[]).forEach(item=>{
+     const row=document.createElement("div");row.className="optimize-service-row";
+     const info=document.createElement("div");info.className="optimize-row-info";
+     const name=document.createElement("b");name.textContent=item.name+" • "+item.source;
+     const desc=document.createElement("small");desc.textContent=item.command||"Comando de inicialização não informado.";
+     const state=document.createElement("small");state.textContent=item.canToggle?"Estado: habilitado na inicialização":"Estado: somente leitura";
+     info.append(name,desc,state);row.append(info);
+     if(item.canToggle){
+      const btn=document.createElement("button");btn.className="btn-outline";btn.textContent="Desativar";
+      btn.onclick=()=>{if(confirm("Desativar "+item.name+" da inicialização?")){btn.disabled=true;post("optimize-startup-toggle",{id:item.id,enabled:false});}};
+      row.append(btn);
+     }else{const tag=document.createElement("small");tag.textContent="Somente leitura";row.append(tag);}
+     el.append(row);
     });if(!el.children.length)el.textContent="Nenhum item encontrado.";
    }
    if(d.action==="optimize-hardware-result"){
