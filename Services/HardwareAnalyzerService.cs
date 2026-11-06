@@ -149,7 +149,30 @@ public sealed class HardwareAnalyzerService
         // Nunca inferir que XMP/EXPO ou ReBAR estão ativos somente pela presença do hardware.
         var biosChecks = new List<object>();
         void BiosCheck(string name, string state, string recommendation, string reason, string steps, string caution, string status = "unknown")
-            => biosChecks.Add(new { name, state, recommendation, reason, steps, caution, status });
+        {
+            string tutorialUrl = "";
+            string tutorialTitle = "";
+            bool bootWarning = false;
+            if (name.StartsWith("XMP / EXPO", StringComparison.Ordinal))
+            {
+                tutorialUrl = "https://www.asus.com/br/support/faq/1042256/";
+                tutorialTitle = "Tutorial oficial ASUS: configurar XMP / EXPO / DOCP";
+                bootWarning = true;
+            }
+            else if (name.StartsWith("Resizable BAR", StringComparison.Ordinal) || name == "Above 4G Decoding")
+            {
+                tutorialUrl = "https://rog.asus.com/br/support/faq/1046107/";
+                tutorialTitle = "Tutorial oficial ASUS: configurar Resizable BAR";
+                bootWarning = true;
+            }
+            else if (name.Contains("CSM", StringComparison.Ordinal) || name.StartsWith("Modo de inicialização", StringComparison.Ordinal))
+            {
+                tutorialUrl = "https://support.microsoft.com/pt-br/windows/security/devicesecurity/windows-11-and-secure-boot";
+                tutorialTitle = "Guia oficial Microsoft: UEFI, Legacy e CSM";
+                bootWarning = true;
+            }
+            biosChecks.Add(new { name, state, recommendation, reason, steps, caution, status, tutorialUrl, tutorialTitle, bootWarning });
+        }
 
         bool intel = cpu.Contains("Intel", StringComparison.OrdinalIgnoreCase);
         bool amd = cpu.Contains("AMD", StringComparison.OrdinalIgnoreCase) || cpu.Contains("Ryzen", StringComparison.OrdinalIgnoreCase);
