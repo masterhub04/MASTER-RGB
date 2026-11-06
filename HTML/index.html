@@ -1604,15 +1604,8 @@ window.refreshHtmlRgbDevices=()=>post({action:"rgb-refresh-devices"});
       warning.style.color="#ffbd63";warning.style.fontWeight="700";
      }
      makeLine(details,"p","Cuidados: "+item.caution);
-     const allowed={
-      "https://br.msi.com/blog/how-to-speed-up-your-ram-with-overclocking-the-ultimate-guide-to-enabling-xmp-and-expo":true,
-      "https://download.msi.com/archive/mnu_exe/desktop/Resizeable_Bar_SOP.pdf":true,
-      "https://br.msi.com/support/download":true,
-      "https://www.asus.com/br/support/faq/1042256/":true,
-      "https://rog.asus.com/br/support/faq/1046107/":true,
-      "https://support.microsoft.com/pt-br/windows/security/devicesecurity/windows-11-and-secure-boot":true
-     };
-     if(item.tutorialUrl&&allowed[item.tutorialUrl]){
+     const allowed=new Set(["https://br.msi.com/blog/how-to-speed-up-your-ram-with-overclocking-the-ultimate-guide-to-enabling-xmp-and-expo","https://br.msi.com/Landing/msi-click-bios-intel-amd-motherboard","https://br.msi.com/support/download","https://www.asus.com/br/support/faq/1042256/","https://www.asus.com/br/support/faq/1046107/","https://www.asus.com/br/support/","https://www.asrock.com/support/faq.asp?k=ram","https://www.asrock.com/support/faq.br.asp?id=498","https://www.asrock.com/support/index.asp","https://download.gigabyte.com/FileList/Manual/mb_manual_intel700-X-bios_e.pdf","https://www.gigabyte.com/WebPage/785/NVIDIA_resizable_bar.html","https://www.gigabyte.com/Support","https://rog.asus.com/br/support/faq/1046107/","https://download.msi.com/archive/mnu_exe/desktop/Resizeable_Bar_SOP.pdf","https://support.microsoft.com/pt-br/windows/security/devicesecurity/windows-11-and-secure-boot"]);
+     if(item.tutorialUrl&&allowed.has(item.tutorialUrl)){
       const link=document.createElement("a");link.href=item.tutorialUrl;link.target="_blank";link.rel="noopener noreferrer";
       link.textContent="📖 "+(item.tutorialTitle||"Abrir tutorial oficial");link.style.color="#c59bff";link.style.display="inline-block";link.style.marginTop="12px";
       details.append(link);
