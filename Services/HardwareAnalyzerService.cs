@@ -195,7 +195,7 @@ public sealed class HardwareAnalyzerService
         string memoryAdvice = memoryBelowRated
             ? "VERIFICAR XMP/EXPO: ao menos um módulo está configurado abaixo da velocidade informada. Considere ATIVAR um perfil compatível após conferir suporte e estabilidade."
             : "NÃO ALTERAR apenas por esta comparação: frequências iguais não comprovam XMP/EXPO ativo. Confira o perfil na BIOS.";
-        BiosCheck("XMP / EXPO / DOCP", "Não foi possível verificar",
+        BiosCheck("XMP / EXPO / DOCP", "Perfil não verificável diretamente; " + (speedPairs.Count > 0 ? "frequência observada: " + string.Join(", ", speedPairs.Select(x => x.configured).Distinct()) + " MT/s" : "sem dados de frequência"),
             memoryAdvice,
             memoryObservation,
             "1. Consulte o manual da placa-mãe e a especificação da RAM. 2. Reinicie e entre no Setup (geralmente Del ou F2). 3. Abra OC / Ai Tweaker / Extreme Tweaker / Tweaker. 4. Localize XMP, EXPO ou DOCP; selecione um perfil suportado. 5. Salve com F10, reinicie e teste estabilidade.",
@@ -209,7 +209,8 @@ public sealed class HardwareAnalyzerService
             rebarFamily ? "VERIFICAR no painel do driver se ReBAR está ativo; se não estiver, avaliar ATIVAR após confirmar suporte." : "VERIFICAR compatibilidade antes de considerar ATIVAR.",
             rebarNote + " O WMI não confirma se o recurso está ativo.",
             "1. Confira suporte da GPU e da placa-mãe no site dos fabricantes. 2. Verifique o estado no painel do driver da GPU (ex.: Informações do sistema da NVIDIA) ou ferramenta confiável. 3. Na BIOS, procure Advanced / PCIe / PCI Subsystem Settings. 4. Com sistema UEFI/GPT compatível, configure Above 4G Decoding e Re-Size BAR Support conforme manual. 5. Salve e confirme o estado no driver.",
-            "Não desative CSM nem mude modo de boot sem confirmar UEFI/GPT: o Windows pode deixar de iniciar.");
+            "Não desative CSM nem mude modo de boot sem confirmar UEFI/GPT: o Windows pode deixar de iniciar.",
+            rebarFamily && firmware == "UEFI detectado" ? "attention" : "unknown");
 
         BiosCheck("Above 4G Decoding", "Não foi possível verificar",
             "Considerar ATIVAR quando exigido pelo Resizable BAR e houver suporte.",
@@ -223,8 +224,8 @@ public sealed class HardwareAnalyzerService
             "1. No Windows, execute msinfo32 e confira Modo da BIOS. 2. Em Gerenciamento de Disco, confira se o disco de boot usa GPT. 3. Consulte o manual e confirme suporte UEFI da GPU. 4. Só então avalie Boot / CSM Support na BIOS; não altere se o Windows depender de boot legado.",
             "Alterar CSM/Legacy/UEFI sem preparar a instalação pode impedir o Windows de iniciar.", firmware == "UEFI detectado" ? "good" : firmware == "BIOS legado detectado" ? "attention" : "unknown");
 
-        BiosCheck("CSM (Compatibility Support Module)", "Não foi possível verificar diretamente",
-            firmware == "BIOS legado detectado" ? "VERIFICAR: o Windows iniciou em modo legado; não desative CSM sem preparar o boot." : "VERIFICAR CSM na BIOS: o modo UEFI do Windows não confirma se CSM está ativado.",
+        BiosCheck("CSM (Compatibility Support Module)", "Estado do CSM não acessível diretamente; " + firmware,
+            firmware == "BIOS legado detectado" ? "NÃO DESATIVAR AGORA: o Windows iniciou em modo legado; prepare a migração para UEFI/GPT antes de mudar CSM." : firmware == "UEFI detectado" ? "VERIFICAR na BIOS: se CSM estiver ativo, considere DESATIVAR apenas após confirmar compatibilidade e necessidade para ReBAR." : "VERIFICAR na BIOS; não alterar CSM sem confirmar o modo de boot.",
             "O modo de boot do Windows não equivale ao estado da opção CSM na placa-mãe.",
             "1. Entre na BIOS. 2. Procure Settings / Boot / CSM Support. 3. Confira se o disco de boot é GPT e se a GPU suporta UEFI antes de qualquer alteração.",
             "Desativar CSM sem preparar o sistema pode impedir o Windows de iniciar.");
