@@ -194,16 +194,20 @@ public sealed class HardwareAnalyzerService
             : "Não foi possível comparar a frequência configurada de cada módulo.";
         string memoryAdvice = memoryBelowRated
             ? "VERIFICAR XMP/EXPO: ao menos um módulo está configurado abaixo da velocidade informada. Considere ATIVAR um perfil compatível após conferir suporte e estabilidade."
-            : "MANTER se estiver estável; confirme XMP/EXPO na BIOS antes de decidir alterar. Não há diferença expressiva entre as velocidades consultadas.";
+            : "NÃO ALTERAR apenas por esta comparação: frequências iguais não comprovam XMP/EXPO ativo. Confira o perfil na BIOS.";
         BiosCheck("XMP / EXPO / DOCP", "Não foi possível verificar",
             memoryAdvice,
             memoryObservation,
             "1. Consulte o manual da placa-mãe e a especificação da RAM. 2. Reinicie e entre no Setup (geralmente Del ou F2). 3. Abra OC / Ai Tweaker / Extreme Tweaker / Tweaker. 4. Localize XMP, EXPO ou DOCP; selecione um perfil suportado. 5. Salve com F10, reinicie e teste estabilidade.",
             "Perfis de memória são overclock em muitas plataformas; podem causar falhas de boot, instabilidade ou exigir recuperação de configurações.", memoryBelowRated ? "attention" : "unknown");
 
+        bool rebarFamily = System.Text.RegularExpressions.Regex.IsMatch(gpu, @"RTX\s*(30|40|50)\d{2}|RX\s*(6|7|9)\d{3}", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        string rebarNote = rebarFamily
+            ? "Família de GPU com suporte comum a ReBAR/SAM identificada; confirme modelo, VBIOS, driver, placa-mãe e estado efetivo."
+            : "Compatibilidade da GPU não confirmada apenas pelo nome detectado.";
         BiosCheck("Resizable BAR / Smart Access Memory", "Não foi possível verificar",
-            "Considerar ATIVAR somente se GPU, CPU, placa-mãe, firmware e driver forem compatíveis.",
-            "Pode melhorar o desempenho de alguns jogos, mas o ganho depende do hardware e do jogo. O WMI não confirma se está ativo.",
+            rebarFamily ? "VERIFICAR no painel do driver se ReBAR está ativo; se não estiver, avaliar ATIVAR após confirmar suporte." : "VERIFICAR compatibilidade antes de considerar ATIVAR.",
+            rebarNote + " O WMI não confirma se o recurso está ativo.",
             "1. Confira suporte da GPU e da placa-mãe no site dos fabricantes. 2. Verifique o estado no painel do driver da GPU (ex.: Informações do sistema da NVIDIA) ou ferramenta confiável. 3. Na BIOS, procure Advanced / PCIe / PCI Subsystem Settings. 4. Com sistema UEFI/GPT compatível, configure Above 4G Decoding e Re-Size BAR Support conforme manual. 5. Salve e confirme o estado no driver.",
             "Não desative CSM nem mude modo de boot sem confirmar UEFI/GPT: o Windows pode deixar de iniciar.");
 
@@ -213,13 +217,21 @@ public sealed class HardwareAnalyzerService
             "1. Entre na BIOS (Del/F2). 2. Procure Advanced / PCI Subsystem Settings. 3. Localize Above 4G Decoding. 4. Ative somente se o manual indicar compatibilidade e necessidade. 5. Salve e valide o funcionamento.",
             "Pode exigir firmware/boot compatíveis; registre o valor original antes de alterar.");
 
-        BiosCheck("CSM / modo UEFI", firmware,
+        BiosCheck("Modo de inicialização (UEFI / Legacy)", firmware,
             firmware == "UEFI detectado" ? "MANTER o boot UEFI; não há motivo para mudar CSM apenas por desempenho." : "VERIFICAR compatibilidade antes de considerar DESATIVAR CSM para usar Resizable BAR.",
             "Resizable BAR frequentemente requer boot UEFI com CSM desativado; a mudança não é uma otimização universal de desempenho.",
             "1. No Windows, execute msinfo32 e confira Modo da BIOS. 2. Em Gerenciamento de Disco, confira se o disco de boot usa GPT. 3. Consulte o manual e confirme suporte UEFI da GPU. 4. Só então avalie Boot / CSM Support na BIOS; não altere se o Windows depender de boot legado.",
             "Alterar CSM/Legacy/UEFI sem preparar a instalação pode impedir o Windows de iniciar.", firmware == "UEFI detectado" ? "good" : firmware == "BIOS legado detectado" ? "attention" : "unknown");
 
-        BiosCheck("Turbo Boost / Precision Boost", "Não foi possível verificar",
+        BiosCheck("CSM (Compatibility Support Module)", "Não foi possível verificar diretamente",
+            firmware == "BIOS legado detectado" ? "VERIFICAR: o Windows iniciou em modo legado; não desative CSM sem preparar o boot." : "VERIFICAR CSM na BIOS: o modo UEFI do Windows não confirma se CSM está ativado.",
+            "O modo de boot do Windows não equivale ao estado da opção CSM na placa-mãe.",
+            "1. Entre na BIOS. 2. Procure Settings / Boot / CSM Support. 3. Confira se o disco de boot é GPT e se a GPU suporta UEFI antes de qualquer alteração.",
+            "Desativar CSM sem preparar o sistema pode impedir o Windows de iniciar.");
+
+        string currentCpuClock = Wmi("SELECT CurrentClockSpeed FROM Win32_Processor", "CurrentClockSpeed");
+        string maxCpuClock = Wmi("SELECT MaxClockSpeed FROM Win32_Processor", "MaxClockSpeed");
+        BiosCheck("Turbo Boost / Precision Boost", "Estado não confirmado; clock atual: " + currentCpuClock + " MHz; clock nominal: " + maxCpuClock + " MHz",
             "Em geral, MANTER ATIVADO no perfil padrão do fabricante, se disponível.",
             "Permite ao processador aumentar dinamicamente a frequência dentro dos limites de potência e temperatura.",
             "1. Consulte o modelo do processador e manual da placa-mãe. 2. Entre na BIOS. 3. Procure CPU Configuration / Advanced CPU Settings / AMD CBS. 4. Verifique Intel Turbo Boost ou AMD Core Performance Boost. 5. Prefira Auto/Enabled conforme especificação original.",
@@ -248,7 +260,7 @@ public sealed class HardwareAnalyzerService
             virtualization.StartsWith("Desativada") ? "ATIVAR somente se você usa Hyper-V, WSL2, máquinas virtuais ou recursos que exigem virtualização; não há ganho universal de FPS." : "MANTER conforme necessidade; não desativar só para tentar ganhar FPS.",
             "É importante para Hyper-V, WSL2, máquinas virtuais e recursos de segurança; desativá-la não é otimização universal.",
             "1. Abra Gerenciador de Tarefas > Desempenho > CPU e veja Virtualização. 2. Se precisar alterar, procure Intel Virtualization Technology ou SVM Mode na BIOS. 3. Só mude após verificar dependências de segurança e software.",
-            "Pode impedir funcionamento de VMs, WSL2 e recursos de segurança.", "unknown");
+            "Pode impedir funcionamento de VMs, WSL2 e recursos de segurança.", virtualization.StartsWith("Ativada") ? "good" : "unknown");
 
         if (laptop)
             BiosCheck("Modo de desempenho / térmico do notebook", "Não foi possível verificar",
