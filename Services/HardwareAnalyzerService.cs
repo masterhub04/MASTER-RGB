@@ -171,25 +171,45 @@ public sealed class HardwareAnalyzerService
                 tutorialTitle = "Guia oficial Microsoft: UEFI, Legacy e CSM";
                 bootWarning = true;
             }
-            if (board.Contains("MSI", StringComparison.OrdinalIgnoreCase) || board.Contains("Micro-Star", StringComparison.OrdinalIgnoreCase))
+            bool isMsi = board.Contains("MSI", StringComparison.OrdinalIgnoreCase) || board.Contains("Micro-Star", StringComparison.OrdinalIgnoreCase);
+            bool isAsus = board.Contains("ASUS", StringComparison.OrdinalIgnoreCase) || board.Contains("ASUSTeK", StringComparison.OrdinalIgnoreCase);
+            bool isAsrock = board.Contains("ASRock", StringComparison.OrdinalIgnoreCase);
+            bool isGigabyte = board.Contains("GIGABYTE", StringComparison.OrdinalIgnoreCase) || board.Contains("AORUS", StringComparison.OrdinalIgnoreCase);
+            bool isXmp = name.StartsWith("XMP / EXPO", StringComparison.Ordinal);
+            bool isRebar = name.StartsWith("Resizable BAR", StringComparison.Ordinal) || name == "Above 4G Decoding";
+            bool isCsm = name.Contains("CSM", StringComparison.Ordinal) || name.StartsWith("Modo de inicialização", StringComparison.Ordinal);
+            string vendor = isMsi ? "MSI" : isAsus ? "ASUS" : isAsrock ? "ASRock" : isGigabyte ? "Gigabyte / AORUS" : "Fabricante não identificado";
+            // Links oficiais: não misturar tutoriais de outra fabricante.
+            if (isMsi)
             {
-                if (name.StartsWith("XMP / EXPO", StringComparison.Ordinal))
-                {
-                    tutorialUrl = "https://br.msi.com/blog/how-to-speed-up-your-ram-with-overclocking-the-ultimate-guide-to-enabling-xmp-and-expo";
-                    tutorialTitle = "MSI Brasil — XMP / EXPO";
-                }
-                else if (name.StartsWith("Resizable BAR", StringComparison.Ordinal) || name == "Above 4G Decoding")
-                {
-                    tutorialUrl = "https://download.msi.com/archive/mnu_exe/desktop/Resizeable_Bar_SOP.pdf";
-                    tutorialTitle = "MSI — Resizable BAR / Above 4G";
-                }
-                else if (name.Contains("CSM", StringComparison.Ordinal) || name.StartsWith("Modo de inicialização", StringComparison.Ordinal))
-                {
-                    tutorialUrl = "https://br.msi.com/support/download";
-                    tutorialTitle = "MSI — manual da placa-mãe para CSM / UEFI";
-                }
+                if (isXmp) { tutorialUrl = "https://br.msi.com/blog/how-to-speed-up-your-ram-with-overclocking-the-ultimate-guide-to-enabling-xmp-and-expo"; tutorialTitle = "MSI — guia XMP / EXPO"; }
+                else if (isRebar || isCsm) { tutorialUrl = "https://br.msi.com/Landing/msi-click-bios-intel-amd-motherboard"; tutorialTitle = "MSI — guia oficial Click BIOS (Re-Size BAR e opções de BIOS)"; }
+                else { tutorialUrl = "https://br.msi.com/support/download"; tutorialTitle = "MSI — suporte e manuais da placa-mãe"; }
             }
-            biosChecks.Add(new { name, state, recommendation, reason, steps, caution, status, tutorialUrl, tutorialTitle, bootWarning });
+            else if (isAsus)
+            {
+                if (isXmp) { tutorialUrl = "https://www.asus.com/br/support/faq/1042256/"; tutorialTitle = "ASUS — guia XMP / EXPO / DOCP"; }
+                else if (isRebar || isCsm) { tutorialUrl = "https://www.asus.com/br/support/faq/1046107/"; tutorialTitle = "ASUS — guia Resizable BAR e CSM"; }
+                else { tutorialUrl = "https://www.asus.com/br/support/"; tutorialTitle = "ASUS — suporte e manuais da placa-mãe"; }
+            }
+            else if (isAsrock)
+            {
+                if (isXmp) { tutorialUrl = "https://www.asrock.com/support/faq.asp?k=ram"; tutorialTitle = "ASRock — orientações oficiais de XMP e compatibilidade da RAM"; }
+                else if (isRebar || isCsm) { tutorialUrl = "https://www.asrock.com/support/faq.br.asp?id=498"; tutorialTitle = "ASRock — guia C.A.M. / Resizable BAR / CSM"; }
+                else { tutorialUrl = "https://www.asrock.com/support/index.asp"; tutorialTitle = "ASRock — suporte e manuais da placa-mãe"; }
+            }
+            else if (isGigabyte)
+            {
+                if (isXmp) { tutorialUrl = "https://download.gigabyte.com/FileList/Manual/mb_manual_intel700-X-bios_e.pdf"; tutorialTitle = "Gigabyte / AORUS — manual de referência XMP (Intel 700; consulte o manual do seu modelo)"; }
+                else if (isRebar || isCsm) { tutorialUrl = "https://www.gigabyte.com/WebPage/785/NVIDIA_resizable_bar.html"; tutorialTitle = "Gigabyte / AORUS — guia Resizable BAR / Above 4G / CSM"; }
+                else { tutorialUrl = "https://www.gigabyte.com/Support"; tutorialTitle = "Gigabyte / AORUS — suporte e manuais"; }
+            }
+            else
+            {
+                tutorialUrl = "";
+                tutorialTitle = "";
+            }
+            biosChecks.Add(new { name, state, recommendation, reason, steps, caution, status, tutorialUrl, tutorialTitle, bootWarning, motherboardVendor = vendor });
         }
 
         bool intel = cpu.Contains("Intel", StringComparison.OrdinalIgnoreCase);
