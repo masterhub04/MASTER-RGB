@@ -171,6 +171,24 @@ public sealed class HardwareAnalyzerService
                 tutorialTitle = "Guia oficial Microsoft: UEFI, Legacy e CSM";
                 bootWarning = true;
             }
+            if (board.Contains("MSI", StringComparison.OrdinalIgnoreCase) || board.Contains("Micro-Star", StringComparison.OrdinalIgnoreCase))
+            {
+                if (name.StartsWith("XMP / EXPO", StringComparison.Ordinal))
+                {
+                    tutorialUrl = "https://br.msi.com/blog/how-to-speed-up-your-ram-with-overclocking-the-ultimate-guide-to-enabling-xmp-and-expo";
+                    tutorialTitle = "MSI Brasil — XMP / EXPO";
+                }
+                else if (name.StartsWith("Resizable BAR", StringComparison.Ordinal) || name == "Above 4G Decoding")
+                {
+                    tutorialUrl = "https://download.msi.com/archive/mnu_exe/desktop/Resizeable_Bar_SOP.pdf";
+                    tutorialTitle = "MSI — Resizable BAR / Above 4G";
+                }
+                else if (name.Contains("CSM", StringComparison.Ordinal) || name.StartsWith("Modo de inicialização", StringComparison.Ordinal))
+                {
+                    tutorialUrl = "https://br.msi.com/support/download";
+                    tutorialTitle = "MSI — manual da placa-mãe para CSM / UEFI";
+                }
+            }
             biosChecks.Add(new { name, state, recommendation, reason, steps, caution, status, tutorialUrl, tutorialTitle, bootWarning });
         }
 
