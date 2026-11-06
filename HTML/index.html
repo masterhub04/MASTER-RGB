@@ -1439,6 +1439,7 @@ window.refreshHtmlRgbDevices=()=>post({action:"rgb-refresh-devices"});
   .optimize-total{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 20px;border:1px solid rgba(0,200,255,.35);border-radius:12px;background:rgba(0,160,220,.07);margin:12px 0}
   .optimize-total strong{font-size:30px;color:var(--text-bright)}.optimize-folder-row,.optimize-service-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px 15px;border:1px solid var(--border-color,rgba(255,255,255,.08));border-radius:10px;margin:8px 0;background:rgba(255,255,255,.02)}
   .optimize-row-info{display:flex;flex-direction:column;gap:4px;min-width:0}.optimize-row-info small{opacity:.68;overflow-wrap:anywhere}.optimize-row-size{white-space:nowrap;font-weight:700;color:var(--text-bright)}.optimize-service-row button,.optimize-folder-row button{flex-shrink:0}
+  .optimize-status-dot{width:10px;height:10px;border-radius:50%;flex:0 0 10px;display:inline-block;box-shadow:0 0 8px currentColor}.optimize-status-dot.good{background:#29d884;color:#29d884}.optimize-status-dot.medium{background:#f0be44;color:#f0be44}.optimize-status-dot.high{background:#ff5964;color:#ff5964}.optimize-check-info{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1}.optimize-check-info b{font-size:13px}.optimize-check-info small{opacity:.72;line-height:1.5;overflow-wrap:anywhere}.optimize-check-details{margin-top:5px}.optimize-check-details summary{cursor:pointer;color:#bda3ee;font-size:12px;font-weight:600}.optimize-check-details p{font-size:12px;line-height:1.6;margin:8px 0 0;white-space:pre-line;opacity:.85}.optimize-check-row{align-items:flex-start}.optimize-check-row .optimize-status-dot{margin-top:4px}
   .optimize-warning{font-size:12px;opacity:.75;margin-top:8px}
  </style>
  <script>
@@ -1565,17 +1566,42 @@ window.refreshHtmlRgbDevices=()=>post({action:"rgb-refresh-devices"});
     const storageCard=document.getElementById("hardwareStorageCard");if(storageCard)storageCard.textContent=(d.data?.storageDevices||[]).length+" unidade(s) detectada(s)";
     const panel=document.getElementById("hardwareDetailsPanel");if(!panel.hidden){const current=document.querySelector("#view-optimize [data-hardware-kind].selected");if(current)window.optimizeSelectHardware(current.dataset.hardwareKind);}
     const findings=document.getElementById("optimizeHardwareFindings");findings.replaceChildren();
-    (d.data?.findings||[]).forEach(f=>{const row=document.createElement("div");row.className="optimize-service-row";const info=document.createElement("div");info.className="optimize-row-info";const title=document.createElement("b");title.textContent=(f.severity==="high"?"● Prioridade alta • ":f.severity==="medium"?"● Atenção • ":"ℹ ")+f.category+" • "+f.title;const desc=document.createElement("small");desc.textContent=f.description;const action=document.createElement("small");action.textContent="Recomendação: "+f.recommendation;const impact=document.createElement("small");impact.textContent="Benefício possível: "+f.impact;info.append(title,desc,action,impact);row.append(info);findings.append(row);});
+    const makeDot=level=>{const dot=document.createElement("span");dot.className="optimize-status-dot "+level;dot.setAttribute("aria-hidden","true");return dot;};
+    const makeLine=(parent,tag,value)=>{const el=document.createElement(tag);el.textContent=value;parent.append(el);return el;};
+    (d.data?.findings||[]).forEach(f=>{
+     const level=f.severity==="high"?"high":f.severity==="medium"?"medium":"good";
+     const row=document.createElement("div");row.className="optimize-service-row optimize-check-row";
+     row.append(makeDot(level));const info=document.createElement("div");info.className="optimize-check-info";
+     const label=level==="high"?"Prioridade alta":level==="medium"?"Atenção":"Informativo";
+     makeLine(info,"b",f.title+" • "+label);
+     makeLine(info,"small",f.description);
+     const details=document.createElement("details");details.className="optimize-check-details";
+     makeLine(details,"summary","Ver recomendação e benefício");
+     makeLine(details,"p","Recomendação: "+f.recommendation);
+     makeLine(details,"p","Benefício possível: "+f.impact);
+     info.append(details);row.append(info);findings.append(row);
+    });
     const biosList=document.getElementById("optimizeHardwareBios");biosList.replaceChildren();
     (d.data?.biosChecks||[]).forEach(item=>{
-     const wrap=document.createElement("div");wrap.className="optimize-service-row";
-     const details=document.createElement("details");details.style.width="100%";
-     const title=document.createElement("summary");title.style.cursor="pointer";title.style.fontWeight="700";title.textContent=item.name+" — "+item.recommendation;
-     const state=document.createElement("p");state.textContent="Estado detectado: "+item.state;
-     const why=document.createElement("p");why.textContent="Por quê: "+item.reason;
-     const steps=document.createElement("p");steps.textContent="Como fazer: "+item.steps;
-     const warning=document.createElement("p");warning.textContent="Atenção: "+item.caution;
-     details.append(title,state,why,steps,warning);wrap.append(details);biosList.append(wrap);
+     const state=String(item.state||"Não foi possível verificar");
+     const verifiedUefi=item.name==="CSM / modo UEFI"&&state==="UEFI detectado";
+     // Amarelo significa verificação pendente, não que a BIOS esteja configurada incorretamente.
+     // Vermelho é reservado a problemas de alta prioridade confirmados, nunca a uma inferência.
+     const level=verifiedUefi?"good":"medium";
+     const row=document.createElement("div");row.className="optimize-service-row optimize-check-row";
+     row.append(makeDot(level));
+     const info=document.createElement("div");info.className="optimize-check-info";
+     makeLine(info,"b",item.name);
+     let shortAdvice=String(item.recommendation||"Verificar configuração.");
+     shortAdvice=shortAdvice.replace(/^(Considerar |Em geral, |VERIFICAR |MANTER |PREFERIR |Usar |VERIFICAR se )/i,m=>m);
+     makeLine(info,"small",verifiedUefi?"UEFI detectado • manter configuração atual":shortAdvice);
+     const details=document.createElement("details");details.className="optimize-check-details";
+     makeLine(details,"summary","Ver estado e como configurar");
+     makeLine(details,"p","Estado: "+state);
+     makeLine(details,"p","Motivo: "+item.reason);
+     makeLine(details,"p","Como verificar ou ajustar: "+item.steps);
+     makeLine(details,"p","Cuidados: "+item.caution);
+     info.append(details);row.append(info);biosList.append(row);
     });
     document.getElementById("optimizeHardwareStatus").textContent=d.data?.disclaimer||"";
    }
