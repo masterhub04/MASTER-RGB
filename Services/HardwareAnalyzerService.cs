@@ -308,31 +308,33 @@ public sealed class HardwareAnalyzerService
                 ? "VERIFICAR o perfil XMP/EXPO na BIOS: um ou mais módulos operam abaixo da velocidade informada pelo SMBIOS. Confirme o perfil suportado antes de ATIVAR."
                 : "MANTER se estiver estável; os clocks consultados não mostram diferença expressiva. Isso NÃO confirma XMP/EXPO ativo.";
         if (mixedModels) memoryAdvice += " Existem modelos diferentes de RAM; isso não significa, por si só, instabilidade.";
-        // Referências experimentais fornecidas pelo usuário para esta configuração específica.
-        // Nunca apresentar esta inferência como leitura da opção A-XMP na BIOS.
-        bool knownMsiB550 = board.Contains("B550 GAMING PLUS", StringComparison.OrdinalIgnoreCase)
-            && board.Contains("Micro-Star", StringComparison.OrdinalIgnoreCase);
-        bool matchingRamSet = memoryModules.Count == 4 &&
-            memoryModels.Any(x => x.Contains("VMA47UG", StringComparison.OrdinalIgnoreCase)) &&
-            memoryModels.Any(x => x.Contains("BL8G32C16U4R", StringComparison.OrdinalIgnoreCase));
-        bool all3200 = speedPairs.Count == 4 && speedPairs.All(x => x.configured == 3200);
-        bool all2400 = speedPairs.Count == 4 && speedPairs.All(x => x.configured == 2400);
-        bool calibratedProfile = knownMsiB550 && matchingRamSet && (all3200 || all2400);
-        string memoryState = calibratedProfile
-            ? (all3200 ? "Compatível com referência de A-XMP Perfil 1 (3200 MT/s); não confirmado diretamente na BIOS"
-                       : "Compatível com referência de A-XMP desativado (2400 MT/s); não confirmado diretamente na BIOS")
-            : "Não confirmado (sem leitura SPD/firmware); " + (speedPairs.Count > 0 ? "clock configurado: " + string.Join(", ", speedPairs.Select(x => x.configured).Distinct()) + " MT/s" : "clock indisponível");
-        if (calibratedProfile)
-            memoryAdvice = all3200
-                ? "Frequência compatível com o teste de A-XMP Perfil 1 neste conjunto de hardware. MANTER se estiver estável; ajuste manual também pode resultar em 3200 MT/s."
-                : "Frequência compatível com o teste de A-XMP desativado neste conjunto de hardware. Se desejar 3200 MT/s, confira o perfil na BIOS antes de alterar.";
+        // Detector universal conservador: funciona com os campos SMBIOS de qualquer fabricante.
+        // Não deduz ativação do XMP a partir de velocidades, nomes comerciais ou placa-mãe.
+        bool allModulesMeasured = speedPairs.Count > 0 && speedPairs.Count == memoryModules.Count;
+        bool sameConfiguredSpeed = allModulesMeasured && speedPairs.Select(x => x.configured).Distinct().Count() == 1;
+        bool allBelowReported = allModulesMeasured && speedPairs.All(x => x.configured < x.rated * .85);
+        bool someBelowReported = allModulesMeasured && speedPairs.Any(x => x.configured < x.rated * .85);
+        string memoryState = !allModulesMeasured
+            ? "XMP / EXPO não verificável: dados de frequência incompletos"
+            : !sameConfiguredSpeed
+                ? "Frequências informadas diferentes entre módulos; conferir dados da BIOS"
+                : "XMP / EXPO não confirmado; frequência observada: " + speedPairs[0].configured + " MT/s";
+        if (allModulesMeasured)
+        {
+            memoryAdvice = allBelowReported
+                ? "Todos os módulos estão abaixo da velocidade informada no SMBIOS. VERIFIQUE se há perfil XMP/EXPO compatível na BIOS; isso não prova que está desativado."
+                : someBelowReported
+                    ? "Há diferença de velocidade em parte dos módulos. CONFIRA compatibilidade, perfis e estabilidade na BIOS."
+                    : "A memória opera na velocidade informada pelo SMBIOS. MANTENHA se estável; isso não comprova que XMP/EXPO está ativado.";
+        }
+        memoryObservation += " Diagnóstico universal baseado em dados Windows/SMBIOS, sem tabela fixa por marca. Um ajuste manual pode reproduzir o mesmo clock de um perfil XMP/EXPO.";
         BiosCheck("XMP / EXPO / DOCP",
             memoryState,
             memoryAdvice,
-            memoryObservation + (calibratedProfile ? " Referência experimental deste PC: 2400 MT/s com XMP desligado e 3200 MT/s com Perfil 1 ligado. Não é prova do estado atual da opção na BIOS." : "") + " Firmware: " + firmwareEvidence,
+            memoryObservation + " Firmware: " + firmwareEvidence,
             "1. Confira o modelo e o perfil XMP/EXPO de cada módulo no manual do fabricante. 2. Abra a BIOS e identifique o estado de A-XMP/XMP/EXPO. 3. Compare frequência e timings do perfil com a configuração em uso. 4. Se compatível, ative um perfil e teste estabilidade; se falhar, reverta.",
             "A leitura de SPD exige acesso específico ao hardware e não foi implementada. Não confunda velocidade SMBIOS com prova de XMP ativo. Perfis podem causar instabilidade e falha de inicialização.",
-            calibratedProfile && all3200 ? "good" : memoryBelowRated || calibratedProfile && all2400 ? "attention" : "unknown");
+            someBelowReported ? "attention" : "unknown");
 
         bool rebarFamily = System.Text.RegularExpressions.Regex.IsMatch(gpu, @"RTX\s*(30|40|50)\d{2}|RX\s*(6|7|9)\d{3}", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         string rebarNote = rebarFamily
