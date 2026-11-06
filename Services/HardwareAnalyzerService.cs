@@ -231,36 +231,57 @@ public sealed class HardwareAnalyzerService
                 ? "Desativada (informação do processador)"
                 : "Não foi possível verificar";
 
-        // Comparação por módulo, sem inferir estado de XMP/EXPO apenas pelo clock.
+        // Diagnóstico por módulo: SMBIOS não expõe perfis SPD/XMP e não prova o estado da BIOS.
+        var memoryModules = new List<object>();
         var speedPairs = new List<(int configured, int rated)>();
+        var memoryModels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var moduleObservations = new List<string>();
         try
         {
-            using var search = new ManagementObjectSearcher("SELECT Speed,ConfiguredClockSpeed FROM Win32_PhysicalMemory");
+            using var search = new ManagementObjectSearcher("SELECT DeviceLocator,BankLabel,Manufacturer,PartNumber,Capacity,Speed,ConfiguredClockSpeed,SMBIOSMemoryType FROM Win32_PhysicalMemory");
             foreach (ManagementObject module in search.Get())
             {
                 using (module)
                 {
-                    if (int.TryParse(Convert.ToString(module["Speed"]), out int ratedSpeed) &&
-                        int.TryParse(Convert.ToString(module["ConfiguredClockSpeed"]), out int configuredSpeed) &&
-                        ratedSpeed > 0 && configuredSpeed > 0)
-                        speedPairs.Add((configuredSpeed, ratedSpeed));
+                    string location = Convert.ToString(module["DeviceLocator"])?.Trim() ?? "";
+                    string model = Convert.ToString(module["PartNumber"])?.Trim() ?? "";
+                    string manufacturer = Convert.ToString(module["Manufacturer"])?.Trim() ?? "";
+                    string bank = Convert.ToString(module["BankLabel"])?.Trim() ?? "";
+                    int.TryParse(Convert.ToString(module["Speed"]), out int ratedSpeed);
+                    int.TryParse(Convert.ToString(module["ConfiguredClockSpeed"]), out int configuredSpeed);
+                    int.TryParse(Convert.ToString(module["SMBIOSMemoryType"]), out int smbiosType);
+                    ulong.TryParse(Convert.ToString(module["Capacity"]), out ulong capacityBytes);
+                    if (!string.IsNullOrWhiteSpace(model)) memoryModels.Add(model);
+                    if (ratedSpeed > 0 && configuredSpeed > 0) speedPairs.Add((configuredSpeed, ratedSpeed));
+                    string slot = !string.IsNullOrWhiteSpace(location) ? location : !string.IsNullOrWhiteSpace(bank) ? bank : "Slot não identificado";
+                    string moduleType = smbiosType switch { 26 => "DDR4", 34 => "DDR5", 24 => "DDR3", _ => "Tipo não identificado" };
+                    memoryModules.Add(new { slot, bank, manufacturer, model, capacityGb = Math.Round(capacityBytes / 1073741824d, 1), moduleType, configuredMt = configuredSpeed, reportedMt = ratedSpeed, profileState = "XMP/EXPO não verificável por SMBIOS" });
+                    moduleObservations.Add(slot + ": " + (configuredSpeed > 0 ? configuredSpeed + " MT/s configurados" : "clock indisponível") +
+                        (ratedSpeed > 0 ? ", " + ratedSpeed + " MT/s informados" : "") +
+                        (model.Length > 0 ? ", " + model : ""));
                 }
             }
         }
         catch { }
         bool memoryBelowRated = speedPairs.Any(x => x.configured < x.rated * .85);
-        string memoryObservation = speedPairs.Count > 0
-            ? "Módulos consultados: " + string.Join("; ", speedPairs.Select((x, i) => $"RAM {i + 1}: {x.configured} / {x.rated} MT/s (configurada / informada)")) +
-              ". Esses números não comprovam se XMP/EXPO está ativado."
-            : "Não foi possível comparar a frequência configurada de cada módulo.";
-        string memoryAdvice = memoryBelowRated
-            ? "VERIFICAR XMP/EXPO: ao menos um módulo está configurado abaixo da velocidade informada. Considere ATIVAR um perfil compatível após conferir suporte e estabilidade."
-            : "NÃO ALTERAR apenas por esta comparação: frequências iguais não comprovam XMP/EXPO ativo. Confira o perfil na BIOS.";
-        BiosCheck("XMP / EXPO / DOCP", "Perfil não verificável diretamente; " + (speedPairs.Count > 0 ? "frequência observada: " + string.Join(", ", speedPairs.Select(x => x.configured).Distinct()) + " MT/s" : "sem dados de frequência"),
+        bool mixedModels = memoryModels.Count > 1;
+        bool incompleteMemoryData = memoryModules.Count == 0 || speedPairs.Count != memoryModules.Count;
+        string memoryObservation = moduleObservations.Count > 0
+            ? string.Join("; ", moduleObservations) + ". Speed/ConfiguredClockSpeed são dados SMBIOS, NÃO são perfis XMP/EXPO extraídos do SPD."
+            : "Não foi possível obter dados por módulo.";
+        string memoryAdvice = incompleteMemoryData
+            ? "VERIFICAR na BIOS: não há dados suficientes para concluir se a memória está na velocidade esperada."
+            : memoryBelowRated
+                ? "VERIFICAR o perfil XMP/EXPO na BIOS: um ou mais módulos operam abaixo da velocidade informada pelo SMBIOS. Confirme o perfil suportado antes de ATIVAR."
+                : "MANTER se estiver estável; os clocks consultados não mostram diferença expressiva. Isso NÃO confirma XMP/EXPO ativo.";
+        if (mixedModels) memoryAdvice += " Foram identificados modelos diferentes de RAM; a estabilidade de um perfil comum exige atenção.";
+        BiosCheck("XMP / EXPO / DOCP",
+            "Não confirmado (sem leitura SPD/firmware); " + (speedPairs.Count > 0 ? "clock configurado: " + string.Join(", ", speedPairs.Select(x => x.configured).Distinct()) + " MT/s" : "clock indisponível"),
             memoryAdvice,
             memoryObservation,
-            "1. Consulte o manual da placa-mãe e a especificação da RAM. 2. Reinicie e entre no Setup (geralmente Del ou F2). 3. Abra OC / Ai Tweaker / Extreme Tweaker / Tweaker. 4. Localize XMP, EXPO ou DOCP; selecione um perfil suportado. 5. Salve com F10, reinicie e teste estabilidade.",
-            "Perfis de memória são overclock em muitas plataformas; podem causar falhas de boot, instabilidade ou exigir recuperação de configurações.", memoryBelowRated ? "attention" : "unknown");
+            "1. Confira o modelo e o perfil XMP/EXPO de cada módulo no manual do fabricante. 2. Abra a BIOS e identifique o estado de A-XMP/XMP/EXPO. 3. Compare frequência e timings do perfil com a configuração em uso. 4. Se compatível, ative um perfil e teste estabilidade; se falhar, reverta.",
+            "A leitura de SPD exige acesso específico ao hardware e não foi implementada. Não confunda velocidade SMBIOS com prova de XMP ativo. Perfis podem causar instabilidade e falha de inicialização.",
+            memoryBelowRated ? "attention" : "unknown");
 
         bool rebarFamily = System.Text.RegularExpressions.Regex.IsMatch(gpu, @"RTX\s*(30|40|50)\d{2}|RX\s*(6|7|9)\d{3}", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         string rebarNote = rebarFamily
@@ -335,7 +356,7 @@ public sealed class HardwareAnalyzerService
         {
             hardware = new { cpu, gpu, board, bios, os, ramGb, freeRamGb, memorySpeed, memoryRatedSpeed, diskModel, diskFreeGb, diskFreePct },
             findings,
-            ramSticks, videoCards, storageDevices, processors,
+            ramSticks, memoryModules, videoCards, storageDevices, processors,
             biosChecks,
             disclaimer = "Análise somente leitura baseada em informações fornecidas pelo Windows. Não detecta todas as temperaturas, falhas físicas, configurações de BIOS ou gargalos de jogos."
         };
