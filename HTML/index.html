@@ -1599,7 +1599,22 @@ window.refreshHtmlRgbDevices=()=>post({action:"rgb-refresh-devices"});
      makeLine(details,"p","Estado: "+state);
      makeLine(details,"p","Motivo: "+item.reason);
      makeLine(details,"p","Como verificar ou ajustar: "+item.steps);
+     if(item.bootWarning){
+      const warning=makeLine(details,"p","⚠ ATENÇÃO: alterar esta configuração pode fazer o computador deixar de iniciar o Windows ou até impedir que apareça imagem. Antes de alterar, anote ou fotografe o valor original. Se isso acontecer, volte à BIOS e RESTAURE exatamente a configuração que acabou de modificar. Se não conseguir acessar a BIOS, consulte o manual da sua placa-mãe para o procedimento oficial de recuperação/limpeza de CMOS; não faça procedimentos físicos sem orientação do fabricante.");
+      warning.style.color="#ffbd63";warning.style.fontWeight="700";
+     }
      makeLine(details,"p","Cuidados: "+item.caution);
+     const allowed={
+      "https://www.asus.com/br/support/faq/1042256/":true,
+      "https://rog.asus.com/br/support/faq/1046107/":true,
+      "https://support.microsoft.com/pt-br/windows/security/devicesecurity/windows-11-and-secure-boot":true
+     };
+     if(item.tutorialUrl&&allowed[item.tutorialUrl]){
+      const link=document.createElement("a");link.href=item.tutorialUrl;link.target="_blank";link.rel="noopener noreferrer";
+      link.textContent="📖 "+(item.tutorialTitle||"Abrir tutorial oficial");link.style.color="#c59bff";link.style.display="inline-block";link.style.marginTop="12px";
+      details.append(link);
+      makeLine(details,"p","Tutorial de referência: a localização exata das opções pode variar conforme o fabricante e o modelo da placa-mãe.");
+     }
      info.append(details);row.append(info);biosList.append(row);
     });
     document.getElementById("optimizeHardwareStatus").textContent=d.data?.disclaimer||"";
